@@ -94,8 +94,9 @@ These constraints are **binding architecture inputs**, not preferences:
   exposes tokens to surveillance and blocklisting risk. Default posture: a self-hosted
   permissioned EVM network with validator governance we control. (Decided: **Hyperledger
   Besu, self-hosted** — §16 D2.)
-- **C3 — Domestic settlement.** No USDC/USDT assumption. Settlement uses the Rial rail and/or
-  a domestically backed settlement token. [BUSINESS: settlement unit design — §16]
+- **C3 — Domestic settlement.** No USDC/USDT assumption. Settlement uses the Rial rail via an
+  off-chain platform ledger backed by a segregated bank account (§16 D3), behind a
+  `SettlementRail` port so a domestically backed settlement token can replace it later.
 - **C4 — Domestic regulatory ambiguity.** A clear domestic framework for tokenized securities
   is still forming. Consequently v1 favors the lower-risk models: **closed-loop utility
   tokens** and **asset-backed tokens with a clear legal right** (e.g. gold), over
@@ -240,7 +241,7 @@ Modules are listed in rough dependency order. Priorities: **M** = Must (MVP), **
 | FR-PI-1 | Operators MUST be able to configure an offering: token supply, price, min/max per investor, offering window, eligibility rules, and the linked legal dossier. | M |
 | FR-PI-2 | Investors MUST be able to subscribe during the window; funds are collected via the domestic settlement rail (§3 C3) into a segregated account, held in escrow state until allocation. | M |
 | FR-PI-3 | On successful close: tokens mint to subscribers atomically with settlement confirmation; on failed close (< minimum raise): full refunds, no minting. Both paths MUST be tested end-to-end. | M |
-| FR-PI-4 | Oversubscription handling (pro-rata cut or first-come): configurable per offering. [BUSINESS default] | S |
+| FR-PI-4 | Oversubscription handling: configurable per offering; default is **pro-rata at close** with automatic refund of excess (§16 D5). | S |
 
 ### FR-TR — Transfers and redemption (secondary, v1 scope)
 
@@ -256,7 +257,7 @@ Modules are listed in rough dependency order. Priorities: **M** = Must (MVP), **
 | ID | Requirement | Priority |
 |---|---|---|
 | FR-YD-1 | Operators MUST be able to run a distribution: declare amount + record-date snapshot → contract computes pro-rata shares → payout in the settlement unit; full reconciliation report generated. | M |
-| FR-YD-2 | Failed/unclaimed payouts MUST have a defined, tested handling path (retry, escheat after N days [BUSINESS]). | M |
+| FR-YD-2 | Failed/unclaimed payouts MUST have a defined, tested handling path: distributions credit the investor's ledger balance; failed withdrawals auto-retry, then the amount remains as balance with no forfeiture; dormant accounts (≥ 12 months) surface on an ops report (§16 D5). | M |
 | FR-YD-3 | Distribution schedules (e.g. monthly rent) SHOULD be automatable with operator approval per run. | S |
 
 ### FR-PT — Portals
@@ -415,10 +416,10 @@ Principle: **legal/service layer before token layer** in every phase.
 |---|---|---|
 | D1 | Pilot asset | **DECIDED 2026-07-10: Real-estate SPV.** Rental-yield distribution becomes the flagship demo; legal structuring (SPV setup, title binding, tenant cash-flow attestation) is the pilot's critical path — FR-AO and counsel engagement lead Phase 2. |
 | D2 | Target network | **DECIDED 2026-07-10: Self-hosted permissioned Hyperledger Besu.** Public-EVM use limited to local/test tooling; production posture per §3 C2. |
-| D3 | Settlement unit | Off-chain Rial ledger vs Rial-backed on-platform token (reserve-attested) |
-| D4 | Investor categories & limits | Definitions and caps (FR-ID-6) |
-| D5 | Oversubscription & unclaimed-payout policies | FR-PI-4, FR-YD-2 defaults |
-| D6 | Revenue activation | Which §13 streams at pilot, at what rates |
+| D3 | Settlement unit | **DECIDED 2026-07-11: Off-chain Rial ledger.** Segregated bank account backs an internal platform ledger; the chain records only token movements. Built behind a `SettlementRail` port so a reserve-attested settlement token can replace it later without redesign. |
+| D4 | Investor categories & limits | **DECIDED 2026-07-11: Per-offering caps only for the pilot.** Each offering sets min/max per investor (FR-PI-1); the category system (FR-ID-6) is deferred until a second offering class or a regulatory rule demands it. |
+| D5 | Oversubscription & unclaimed-payout policies | **DECIDED 2026-07-11.** Oversubscription default: **pro-rata at close** with automatic refund of excess (configurable per offering, FR-PI-4). Failed/unclaimed payouts: **credit & hold** — distributions credit the investor's Rial-ledger balance; failed bank withdrawals auto-retry then remain as balance, no forfeiture; accounts dormant ≥ 12 months surface on an ops report (FR-YD-2). |
+| D6 | Revenue activation | **DECIDED 2026-07-11: No fees in the pilot — meter only.** All billable events are captured in the audit/event trail; pricing is set at pilot review. |
 
 Engineering choices confirmed with user visibility 2026-07-10: **pnpm** (package manager),
 **Prisma** (ORM). Rationale in `docs/engineering/tech-stack.md`.
