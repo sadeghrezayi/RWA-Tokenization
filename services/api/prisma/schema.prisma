@@ -16,6 +16,55 @@ enum KycState {
   expired
 }
 
+enum AssetState {
+  proposed
+  in_structuring
+  approved
+  tokenized
+  suspended
+  retired
+}
+
+model Asset {
+  id              String          @id
+  name            String
+  type            String
+  state           AssetState
+  custodianName   String?         @map("custodian_name")
+  custodyLocation String?         @map("custody_location")
+  checklist       String[]
+  documents       AssetDocument[]
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  @@map("assets")
+}
+
+model AssetDocument {
+  id        String   @id @default(uuid())
+  assetId   String   @map("asset_id")
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  kind      String
+  title     String
+  cid       String
+  sha256    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("asset_documents")
+}
+
+// FR-AO-5 / seed of FR-RA-2: append-only audit trail of asset actions.
+model AssetEvent {
+  id        BigInt   @id @default(autoincrement())
+  assetId   String   @map("asset_id")
+  event     String
+  actor     String
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("asset_events")
+}
+
 model Investor {
   id                 String           @id
   email              String           @unique
