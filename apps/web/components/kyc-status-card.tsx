@@ -8,22 +8,22 @@ import type { Locale } from "../lib/i18n";
 export interface KycStatusCardProps {
   locale: Locale;
   api: ApiClient;
-  investorId: string;
+  token: string;
 }
 
-export const KycStatusCard = ({ locale, api, investorId }: KycStatusCardProps) => {
+export const KycStatusCard = ({ locale, api, token }: KycStatusCardProps) => {
   const t = dictionaries[locale];
   const [investor, setInvestor] = useState<InvestorViewDto | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
 
   const refresh = useCallback(async () => {
     try {
-      setInvestor(await api.getInvestor(investorId));
+      setInvestor(await api.me(token));
       setError(undefined);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [api, investorId]);
+  }, [api, token]);
 
   useEffect(() => {
     void refresh();
@@ -35,7 +35,7 @@ export const KycStatusCard = ({ locale, api, investorId }: KycStatusCardProps) =
 
   const submitKyc = async () => {
     try {
-      await api.submitKyc(investorId);
+      await api.submitKyc(token);
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

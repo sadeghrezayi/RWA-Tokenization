@@ -4,21 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { createApiClient } from "../lib/api";
 import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
+import { AuthPanel } from "./auth-panel";
 import { KycStatusCard } from "./kyc-status-card";
-import { RegisterForm } from "./register-form";
 
-const STORAGE_KEY = "tokenization.investorId";
+const TOKEN_KEY = "tokenization.token";
 
-// FR-PT-1 subset: registration + KYC status. Investor identity is a stored id
-// until real authentication (FR-ID-1 password login) lands in a later step.
+// FR-PT-1 subset: authenticated registration/login + KYC status (FR-ID-1).
 export const Dashboard = ({ locale }: { locale: Locale }) => {
   const t = dictionaries[locale];
   const api = useMemo(() => createApiClient(), []);
-  const [investorId, setInvestorId] = useState<string | undefined>(undefined);
+  const [token, setToken] = useState<string | undefined>(undefined);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setInvestorId(localStorage.getItem(STORAGE_KEY) ?? undefined);
+    setToken(sessionStorage.getItem(TOKEN_KEY) ?? undefined);
     setHydrated(true);
   }, []);
 
@@ -29,17 +28,17 @@ export const Dashboard = ({ locale }: { locale: Locale }) => {
   return (
     <>
       <h2>{t.dashboardTitle}</h2>
-      {investorId === undefined ? (
-        <RegisterForm
+      {token === undefined ? (
+        <AuthPanel
           locale={locale}
           api={api}
-          onRegistered={(id) => {
-            localStorage.setItem(STORAGE_KEY, id);
-            setInvestorId(id);
+          onAuthed={(newToken) => {
+            sessionStorage.setItem(TOKEN_KEY, newToken);
+            setToken(newToken);
           }}
         />
       ) : (
-        <KycStatusCard locale={locale} api={api} investorId={investorId} />
+        <KycStatusCard locale={locale} api={api} token={token} />
       )}
     </>
   );

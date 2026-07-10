@@ -20,8 +20,16 @@ export interface Dictionary {
   dashboardTitle: string;
   registerTitle: string;
   emailLabel: string;
+  passwordLabel: string;
   registerButton: string;
-  registerFailed: string;
+  loginButton: string;
+  authFailed: string;
+  officerTitle: string;
+  pendingKycTitle: string;
+  emptyQueue: string;
+  approveButton: string;
+  rejectButton: string;
+  rejectReasonPrompt: string;
   kycStatusTitle: string;
   submitKycButton: string;
   refreshButton: string;
@@ -39,10 +47,18 @@ export const dictionaries: Record<Locale, Dictionary> = {
     languageName: "English",
     appTitle: "Asset Tokenization Platform",
     dashboardTitle: "Investor Dashboard",
-    registerTitle: "Investor Registration",
+    registerTitle: "Investor Access",
     emailLabel: "Email",
+    passwordLabel: "Password",
     registerButton: "Register",
-    registerFailed: "Registration failed. Please try again.",
+    loginButton: "Log in",
+    authFailed: "Authentication failed. Please try again.",
+    officerTitle: "Compliance Review",
+    pendingKycTitle: "Pending KYC applications",
+    emptyQueue: "No applications waiting for review.",
+    approveButton: "Approve",
+    rejectButton: "Reject",
+    rejectReasonPrompt: "Rejection reason",
     kycStatusTitle: "KYC Status",
     submitKycButton: "Submit KYC documents",
     refreshButton: "Refresh",

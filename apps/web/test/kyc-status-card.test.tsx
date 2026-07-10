@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { KycStatusCard } from "../components/kyc-status-card";
-import type { ApiClient, InvestorViewDto } from "../lib/api";
+import type { InvestorViewDto } from "../lib/api";
+import { stubApi } from "./auth-panel.test";
 
 const investor = (overrides: Partial<InvestorViewDto>): InvestorViewDto => ({
   id: "inv-1",
@@ -12,63 +13,47 @@ const investor = (overrides: Partial<InvestorViewDto>): InvestorViewDto => ({
   ...overrides,
 });
 
-const apiWith = (overrides: Partial<ApiClient>): ApiClient => ({
-  register: vi.fn(),
-  getInvestor: vi.fn().mockResolvedValue(investor({})),
-  submitKyc: vi.fn(),
-  ...overrides,
-});
-
 describe("KycStatusCard", () => {
-  it("shows_the_approved_state_with_eligibility", async () => {
-    const api = apiWith({
-      getInvestor: vi
-        .fn()
-        .mockResolvedValue(investor({ kycState: "approved", eligibleForClaims: true })),
-    });
-    render(<KycStatusCard locale="en" api={api} investorId="inv-1" />);
+  it("loads_own_profile_with_the_token_and_shows_eligibility", async () => {
+    const me = vi
+      .fn()
+      .mockResolvedValue(investor({ kycState: "approved", eligibleForClaims: true }));
+    render(<KycStatusCard locale="en" api={stubApi({ me })} token="tok-1" />);
 
     expect(await screen.findByText("Approved")).toBeInTheDocument();
     expect(screen.getByText("Eligible to invest")).toBeInTheDocument();
+    expect(me).toHaveBeenCalledWith("tok-1");
   });
 
   it("shows_the_rejection_reason_when_rejected", async () => {
-    const api = apiWith({
-      getInvestor: vi
-        .fn()
-        .mockResolvedValue(
-          investor({ kycState: "rejected", kycRejectionReason: "document mismatch" }),
-        ),
-    });
-    render(<KycStatusCard locale="en" api={api} investorId="inv-1" />);
+    const me = vi
+      .fn()
+      .mockResolvedValue(investor({ kycState: "rejected", kycRejectionReason: "doc mismatch" }));
+    render(<KycStatusCard locale="en" api={stubApi({ me })} token="tok-1" />);
 
     expect(await screen.findByText("Rejected")).toBeInTheDocument();
-    expect(screen.getByText(/document mismatch/)).toBeInTheDocument();
+    expect(screen.getByText(/doc mismatch/)).toBeInTheDocument();
   });
 
-  it("submits_kyc_from_draft_and_refreshes_the_state", async () => {
-    const getInvestor = vi
+  it("submits_kyc_from_draft_and_refreshes", async () => {
+    const me = vi
       .fn()
       .mockResolvedValueOnce(investor({ kycState: "draft" }))
       .mockResolvedValueOnce(investor({ kycState: "submitted" }));
     const submitKyc = vi.fn().mockResolvedValue(undefined);
-    const api = apiWith({ getInvestor, submitKyc });
-    render(<KycStatusCard locale="en" api={api} investorId="inv-1" />);
+    render(<KycStatusCard locale="en" api={stubApi({ me, submitKyc })} token="tok-1" />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Submit KYC documents" }));
 
     await waitFor(() => {
       expect(screen.getByText("Submitted")).toBeInTheDocument();
     });
-    expect(submitKyc).toHaveBeenCalledWith("inv-1");
-    expect(getInvestor).toHaveBeenCalledTimes(2);
+    expect(submitKyc).toHaveBeenCalledWith("tok-1");
   });
 
   it("hides_the_submit_button_outside_draft", async () => {
-    const api = apiWith({
-      getInvestor: vi.fn().mockResolvedValue(investor({ kycState: "in_review" })),
-    });
-    render(<KycStatusCard locale="en" api={api} investorId="inv-1" />);
+    const me = vi.fn().mockResolvedValue(investor({ kycState: "in_review" }));
+    render(<KycStatusCard locale="en" api={stubApi({ me })} token="tok-1" />);
 
     expect(await screen.findByText("In review")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Submit KYC documents" })).not.toBeInTheDocument();
