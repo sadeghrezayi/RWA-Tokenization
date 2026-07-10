@@ -1,0 +1,79 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, "Helvetica Neue", Arial, sans-serif;
+  background: #f6f7f9;
+  color: #1a1d21;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: #0f2a43;
+  color: #fff;
+}
+
+header h1 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+header nav a {
+  color: #cfe3f7;
+  text-decoration: none;
+  margin-inline: 0.35rem;
+}
+
+main {
+  max-width: 40rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e1e5ea;
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin-block: 1rem;
+}
+
+.card form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 22rem;
+}
+
+input {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #c4ccd6;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: #0f6cbd;
+  color: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+  margin-block-start: 0.5rem;
+  margin-inline-end: 0.5rem;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+[role="alert"] {
+  color: #b3261e;
+}

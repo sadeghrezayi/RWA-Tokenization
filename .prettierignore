@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+coverage/
+.next/
+out/
+contracts/
+pnpm-lock.yaml
+# Prose docs are hand-formatted; Prettier churn adds no value there.
+*.md

@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum KycState {
+  draft
+  submitted
+  in_review
+  approved
+  rejected
+  expired
+}
+
+model Investor {
+  id                 String           @id
+  email              String           @unique
+  kycState           KycState         @map("kyc_state")
+  kycRejectionReason String?          @map("kyc_rejection_reason")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  onchainIdentity    OnchainIdentity?
+
+  @@map("investors")
+}
+
+// Adapter-owned mapping: which ONCHAINID identity contract belongs to which
+// investor. Chain-infrastructure detail, deliberately outside the domain model.
+model OnchainIdentity {
+  investorId String   @id @map("investor_id")
+  address    String   @unique
+  createdAt  DateTime @default(now()) @map("created_at")
+  investor   Investor @relation(fields: [investorId], references: [id])
+
+  @@map("onchain_identities")
+}

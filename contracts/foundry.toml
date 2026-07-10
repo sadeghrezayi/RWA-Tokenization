@@ -1,0 +1,18 @@
+# ERC-3643 (T-REX) + ONCHAINID reference deployment. Dependencies come from
+# pnpm (node_modules), pinned in package.json — no git submodules except forge-std.
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib", "node_modules"]
+solc = "0.8.17"
+optimizer = true
+optimizer_runs = 200
+remappings = [
+  "forge-std/=lib/forge-std/src/",
+  "@tokenysolutions/t-rex/=node_modules/@tokenysolutions/t-rex/",
+  "@onchain-id/solidity/=node_modules/@onchain-id/solidity/",
+  "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+  "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
+]

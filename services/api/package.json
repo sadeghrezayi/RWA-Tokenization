@@ -1,0 +1,36 @@
+{
+  "name": "@tokenization/api",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@onchain-id/solidity": "^2.2.1",
+    "@prisma/client": "^6.10.0",
+    "ethers": "^6.17.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.0",
+    "@swc/core": "^1.12.0",
+    "@types/node": "^22.15.0",
+    "@types/supertest": "^6.0.3",
+    "prisma": "^6.10.0",
+    "supertest": "^7.1.0",
+    "typescript": "^5.8.0",
+    "unplugin-swc": "^1.5.4",
+    "vitest": "^3.2.0"
+  }
+}

@@ -1,0 +1,27 @@
+import type { KycState } from "../../domain/identity/kyc-status.js";
+import { loadInvestor } from "./load-investor.js";
+import type { InvestorRepository } from "./ports.js";
+
+export interface InvestorView {
+  id: string;
+  email: string;
+  kycState: KycState;
+  kycRejectionReason?: string;
+  eligibleForClaims: boolean;
+}
+
+export class GetInvestor {
+  constructor(private readonly investors: InvestorRepository) {}
+
+  async execute(input: { investorId: string }): Promise<InvestorView> {
+    const investor = await loadInvestor(this.investors, input.investorId);
+    const reason = investor.kycStatus.rejectionReason;
+    return {
+      id: investor.id,
+      email: investor.email.value,
+      kycState: investor.kycStatus.state,
+      eligibleForClaims: investor.isEligibleForClaims(),
+      ...(reason !== undefined ? { kycRejectionReason: reason } : {}),
+    };
+  }
+}
