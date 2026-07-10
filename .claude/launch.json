@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--env-file=/Users/sadeghrezayi/Projects/RWA-Tokenization/services/api/.env",
+        "/Users/sadeghrezayi/Projects/RWA-Tokenization/services/api/dist/main.js"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "/Users/sadeghrezayi/Projects/RWA-Tokenization/apps/web", "dev"],
+      "port": 3000
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+# === Secrets (never commit) ===
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+*.keystore
+secrets/
+
+# === Node / JS / TS ===
+node_modules/
+dist/
+build/
+coverage/
+.next/
+out/
+*.tsbuildinfo
+.pnpm-store/
+.turbo/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# === Solidity / Foundry / Hardhat ===
+cache/
+artifacts/
+out/
+broadcast/
+typechain/
+typechain-types/
+.foundry/
+
+# === Flutter / Dart ===
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.iml
+
+# === OS / editor ===
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# === Misc ===
+*.log
+tmp/
+.cache/
