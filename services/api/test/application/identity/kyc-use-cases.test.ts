@@ -7,6 +7,7 @@ import { RejectKyc } from "../../../src/application/identity/reject-kyc.js";
 import { InvestorNotFoundError } from "../../../src/application/identity/errors.js";
 import { InvalidKycTransitionError } from "../../../src/domain/identity/errors.js";
 import {
+  FakePasswordHasher,
   InMemoryInvestorRepository,
   RecordingClaimIssuer,
   SequentialIdGenerator,
@@ -15,8 +16,15 @@ import {
 const setup = async () => {
   const investors = new InMemoryInvestorRepository();
   const claims = new RecordingClaimIssuer();
-  const register = new RegisterInvestor(investors, new SequentialIdGenerator());
-  const { investorId } = await register.execute({ email: "investor@example.com" });
+  const register = new RegisterInvestor(
+    investors,
+    new SequentialIdGenerator(),
+    new FakePasswordHasher(),
+  );
+  const { investorId } = await register.execute({
+    email: "investor@example.com",
+    password: "s3cure-pass",
+  });
   return {
     investors,
     claims,

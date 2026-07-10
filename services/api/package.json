@@ -18,7 +18,9 @@
     "@nestjs/platform-express": "^11.1.0",
     "@onchain-id/solidity": "^2.2.1",
     "@prisma/client": "^6.10.0",
+    "argon2": "^0.44.0",
     "ethers": "^6.17.0",
+    "jose": "^6.2.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

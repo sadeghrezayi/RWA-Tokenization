@@ -10,3 +10,5 @@ export class InvalidKycTransitionError extends DomainError {}
 export class InvalidRejectionReasonError extends DomainError {}
 
 export class InvalidEmailError extends DomainError {}
+
+export class InvalidPasswordHashError extends DomainError {}

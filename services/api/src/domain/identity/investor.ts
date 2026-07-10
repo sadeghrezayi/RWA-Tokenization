@@ -1,20 +1,27 @@
 import type { EmailAddress } from "./email-address.js";
+import type { PasswordHash } from "./password-hash.js";
 import { KycStatus } from "./kyc-status.js";
 
 export class Investor {
   private constructor(
     public readonly id: string,
     public readonly email: EmailAddress,
+    public readonly passwordHash: PasswordHash,
     public readonly kycStatus: KycStatus,
   ) {}
 
-  static register(id: string, email: EmailAddress): Investor {
-    return new Investor(id, email, KycStatus.draft());
+  static register(id: string, email: EmailAddress, passwordHash: PasswordHash): Investor {
+    return new Investor(id, email, passwordHash, KycStatus.draft());
   }
 
   // Persistence-only: rehydrates a stored investor without replaying transitions.
-  static restore(id: string, email: EmailAddress, kycStatus: KycStatus): Investor {
-    return new Investor(id, email, kycStatus);
+  static restore(
+    id: string,
+    email: EmailAddress,
+    passwordHash: PasswordHash,
+    kycStatus: KycStatus,
+  ): Investor {
+    return new Investor(id, email, passwordHash, kycStatus);
   }
 
   submitKyc(): Investor {
@@ -43,6 +50,6 @@ export class Investor {
   }
 
   private withKyc(kycStatus: KycStatus): Investor {
-    return new Investor(this.id, this.email, kycStatus);
+    return new Investor(this.id, this.email, this.passwordHash, kycStatus);
   }
 }

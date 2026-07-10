@@ -5,12 +5,23 @@ import { RejectKyc } from "../../../src/application/identity/reject-kyc.js";
 import { SubmitKyc } from "../../../src/application/identity/submit-kyc.js";
 import { StartKycReview } from "../../../src/application/identity/start-kyc-review.js";
 import { InvestorNotFoundError } from "../../../src/application/identity/errors.js";
-import { InMemoryInvestorRepository, SequentialIdGenerator } from "../../fakes/identity-fakes.js";
+import {
+  FakePasswordHasher,
+  InMemoryInvestorRepository,
+  SequentialIdGenerator,
+} from "../../fakes/identity-fakes.js";
 
 const setup = async () => {
   const investors = new InMemoryInvestorRepository();
-  const register = new RegisterInvestor(investors, new SequentialIdGenerator());
-  const { investorId } = await register.execute({ email: "investor@example.com" });
+  const register = new RegisterInvestor(
+    investors,
+    new SequentialIdGenerator(),
+    new FakePasswordHasher(),
+  );
+  const { investorId } = await register.execute({
+    email: "investor@example.com",
+    password: "s3cure-pass",
+  });
   return { investors, investorId, getInvestor: new GetInvestor(investors) };
 };
 

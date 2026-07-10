@@ -55,7 +55,12 @@ describe("OnchainidClaimIssuer (integration, anvil devnet)", () => {
     await prisma.onchainIdentity.deleteMany();
     await prisma.investor.deleteMany();
     await prisma.investor.create({
-      data: { id: "inv-chain-1", email: "chain@example.com", kycState: "approved" },
+      data: {
+        id: "inv-chain-1",
+        email: "chain@example.com",
+        passwordHash: "hashed:test-only",
+        kycState: "approved",
+      },
     });
   });
 

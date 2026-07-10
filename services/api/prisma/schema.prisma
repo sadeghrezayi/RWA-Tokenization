@@ -19,6 +19,7 @@ enum KycState {
 model Investor {
   id                 String           @id
   email              String           @unique
+  passwordHash       String           @map("password_hash")
   kycState           KycState         @map("kyc_state")
   kycRejectionReason String?          @map("kyc_rejection_reason")
   createdAt          DateTime         @default(now()) @map("created_at")

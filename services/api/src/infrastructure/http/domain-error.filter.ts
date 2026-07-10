@@ -2,7 +2,9 @@ import { Catch, HttpException } from "@nestjs/common";
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
 import {
   EmailAlreadyRegisteredError,
+  InvalidCredentialsError,
   InvestorNotFoundError,
+  WeakPasswordError,
 } from "../../application/identity/errors.js";
 import {
   InvalidEmailError,
@@ -36,10 +38,12 @@ export class DomainErrorFilter implements ExceptionFilter {
 }
 
 const statusFor = (exception: unknown): number => {
+  if (exception instanceof InvalidCredentialsError) return 401;
   if (exception instanceof InvestorNotFoundError) return 404;
   if (exception instanceof EmailAlreadyRegisteredError) return 409;
   if (exception instanceof InvalidKycTransitionError) return 409;
   if (exception instanceof InvalidEmailError) return 400;
   if (exception instanceof InvalidRejectionReasonError) return 400;
+  if (exception instanceof WeakPasswordError) return 400;
   return 500;
 };
