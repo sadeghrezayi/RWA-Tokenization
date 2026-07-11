@@ -11,6 +11,15 @@ import {
   InvalidKycTransitionError,
   InvalidRejectionReasonError,
 } from "../../domain/identity/errors.js";
+import { AssetNotFoundError, EmptyDocumentError } from "../../application/assets/errors.js";
+import {
+  ChecklistIncompleteError,
+  DossierFrozenError,
+  IncompleteDossierError,
+  InvalidAssetTransitionError,
+  InvalidCustodyArrangementError,
+  InvalidDossierDocumentError,
+} from "../../domain/assets/errors.js";
 
 interface MinimalResponse {
   status(code: number): { json(body: unknown): void };
@@ -40,10 +49,20 @@ export class DomainErrorFilter implements ExceptionFilter {
 const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidCredentialsError) return 401;
   if (exception instanceof InvestorNotFoundError) return 404;
+  if (exception instanceof AssetNotFoundError) return 404;
   if (exception instanceof EmailAlreadyRegisteredError) return 409;
   if (exception instanceof InvalidKycTransitionError) return 409;
+  // Asset state-machine and approval-gate violations are conflicts with
+  // current state (FR-AO-4/5).
+  if (exception instanceof InvalidAssetTransitionError) return 409;
+  if (exception instanceof DossierFrozenError) return 409;
+  if (exception instanceof IncompleteDossierError) return 409;
+  if (exception instanceof ChecklistIncompleteError) return 409;
   if (exception instanceof InvalidEmailError) return 400;
   if (exception instanceof InvalidRejectionReasonError) return 400;
   if (exception instanceof WeakPasswordError) return 400;
+  if (exception instanceof InvalidDossierDocumentError) return 400;
+  if (exception instanceof InvalidCustodyArrangementError) return 400;
+  if (exception instanceof EmptyDocumentError) return 400;
   return 500;
 };

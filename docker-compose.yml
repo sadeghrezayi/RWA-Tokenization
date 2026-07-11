@@ -15,3 +15,15 @@ services:
       interval: 2s
       timeout: 2s
       retries: 15
+
+  # Self-hosted IPFS (FR-AO-2, C1): immutable legal-document storage.
+  ipfs:
+    image: ipfs/kubo:v0.34.1
+    container_name: tokenization-ipfs
+    ports:
+      - "5001:5001" # HTTP API (localhost only in production runbooks)
+    healthcheck:
+      test: ["CMD-SHELL", "ipfs id >/dev/null 2>&1 || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20

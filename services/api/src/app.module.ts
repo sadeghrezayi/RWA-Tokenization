@@ -18,6 +18,20 @@ import type {
   TokenIssuer,
 } from "./application/identity/ports.js";
 import type { OfficerCredentials } from "./application/identity/authenticate-officer.js";
+import { ApproveAsset } from "./application/assets/approve-asset.js";
+import { AttachDossierDocument } from "./application/assets/attach-dossier-document.js";
+import { ConfirmChecklistItem } from "./application/assets/confirm-checklist-item.js";
+import { GetAsset, ListAssets } from "./application/assets/get-asset.js";
+import { ProposeAsset } from "./application/assets/propose-asset.js";
+import { RecordCustody } from "./application/assets/record-custody.js";
+import { StartStructuring } from "./application/assets/start-structuring.js";
+import type { AssetEventLog, AssetRepository, DocumentStore } from "./application/assets/ports.js";
+import { IpfsDocumentStore } from "./infrastructure/documents/ipfs-document-store.js";
+import { AssetsController } from "./infrastructure/http/assets.controller.js";
+import {
+  PrismaAssetEventLog,
+  PrismaAssetRepository,
+} from "./infrastructure/persistence/prisma-asset-repository.js";
 import { Argon2PasswordHasher } from "./infrastructure/auth/argon2-password-hasher.js";
 import { JwtTokenService } from "./infrastructure/auth/jwt-token-service.js";
 import { DevLogClaimIssuer } from "./infrastructure/chain/dev-log-claim-issuer.js";
@@ -36,12 +50,15 @@ export const ID_GENERATOR = "ID_GENERATOR";
 export const PASSWORD_HASHER = "PASSWORD_HASHER";
 export const TOKEN_ISSUER = "TOKEN_ISSUER";
 export const OFFICER_CREDENTIALS = "OFFICER_CREDENTIALS";
+export const ASSET_REPOSITORY = "ASSET_REPOSITORY";
+export const DOCUMENT_STORE = "DOCUMENT_STORE";
+export const ASSET_EVENT_LOG = "ASSET_EVENT_LOG";
 
 // Composition root: the only place where ports meet their adapters (see
 // docs/engineering/architecture.md). Use-cases stay framework-free — they are
 // constructed here via factories, never decorated.
 @Module({
-  controllers: [InvestorsController, AuthController],
+  controllers: [InvestorsController, AuthController, AssetsController],
   providers: [
     PrismaService,
     {
@@ -143,6 +160,65 @@ export const OFFICER_CREDENTIALS = "OFFICER_CREDENTIALS";
       provide: ListPendingKyc,
       useFactory: (repo: InvestorRepository) => new ListPendingKyc(repo),
       inject: [INVESTOR_REPOSITORY],
+    },
+    {
+      provide: ASSET_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaAssetRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: ASSET_EVENT_LOG,
+      useFactory: (prisma: PrismaService) => new PrismaAssetEventLog(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: DOCUMENT_STORE,
+      useFactory: (): DocumentStore =>
+        new IpfsDocumentStore(process.env.IPFS_API_URL ?? "http://127.0.0.1:5001"),
+    },
+    {
+      provide: ProposeAsset,
+      useFactory: (repo: AssetRepository, ids: IdGenerator, events: AssetEventLog) =>
+        new ProposeAsset(repo, ids, events),
+      inject: [ASSET_REPOSITORY, ID_GENERATOR, ASSET_EVENT_LOG],
+    },
+    {
+      provide: StartStructuring,
+      useFactory: (repo: AssetRepository, events: AssetEventLog) =>
+        new StartStructuring(repo, events),
+      inject: [ASSET_REPOSITORY, ASSET_EVENT_LOG],
+    },
+    {
+      provide: AttachDossierDocument,
+      useFactory: (repo: AssetRepository, docs: DocumentStore, events: AssetEventLog) =>
+        new AttachDossierDocument(repo, docs, events),
+      inject: [ASSET_REPOSITORY, DOCUMENT_STORE, ASSET_EVENT_LOG],
+    },
+    {
+      provide: RecordCustody,
+      useFactory: (repo: AssetRepository, events: AssetEventLog) => new RecordCustody(repo, events),
+      inject: [ASSET_REPOSITORY, ASSET_EVENT_LOG],
+    },
+    {
+      provide: ConfirmChecklistItem,
+      useFactory: (repo: AssetRepository, events: AssetEventLog) =>
+        new ConfirmChecklistItem(repo, events),
+      inject: [ASSET_REPOSITORY, ASSET_EVENT_LOG],
+    },
+    {
+      provide: ApproveAsset,
+      useFactory: (repo: AssetRepository, events: AssetEventLog) => new ApproveAsset(repo, events),
+      inject: [ASSET_REPOSITORY, ASSET_EVENT_LOG],
+    },
+    {
+      provide: GetAsset,
+      useFactory: (repo: AssetRepository) => new GetAsset(repo),
+      inject: [ASSET_REPOSITORY],
+    },
+    {
+      provide: ListAssets,
+      useFactory: (repo: AssetRepository) => new ListAssets(repo),
+      inject: [ASSET_REPOSITORY],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },
