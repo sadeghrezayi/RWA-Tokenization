@@ -24,6 +24,18 @@ import {
   InvalidCustodyArrangementError,
   InvalidDossierDocumentError,
 } from "../../domain/assets/errors.js";
+import {
+  AssetNotTokenizedError,
+  InsufficientFundsError,
+  InvestorNotEligibleError,
+  OfferingNotFoundError,
+} from "../../application/offerings/errors.js";
+import {
+  InvalidOfferingConfigError,
+  InvalidOfferingTransitionError,
+  SubscriptionLimitError,
+  SubscriptionWindowClosedError,
+} from "../../domain/offerings/errors.js";
 
 interface MinimalResponse {
   status(code: number): { json(body: unknown): void };
@@ -69,5 +81,13 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidCustodyArrangementError) return 400;
   if (exception instanceof EmptyDocumentError) return 400;
   if (exception instanceof InvalidTokenSymbolError) return 400;
+  if (exception instanceof OfferingNotFoundError) return 404;
+  if (exception instanceof InvestorNotEligibleError) return 403;
+  if (exception instanceof AssetNotTokenizedError) return 409;
+  if (exception instanceof InsufficientFundsError) return 409;
+  if (exception instanceof InvalidOfferingTransitionError) return 409;
+  if (exception instanceof SubscriptionWindowClosedError) return 409;
+  if (exception instanceof InvalidOfferingConfigError) return 400;
+  if (exception instanceof SubscriptionLimitError) return 400;
   return 500;
 };

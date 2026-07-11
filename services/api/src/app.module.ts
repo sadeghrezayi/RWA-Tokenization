@@ -33,6 +33,22 @@ import type {
   DocumentStore,
 } from "./application/assets/ports.js";
 import { TrexAssetTokenDeployer } from "./infrastructure/chain/trex-asset-token-deployer.js";
+import { CloseOffering } from "./application/offerings/close-offering.js";
+import { CreateOffering } from "./application/offerings/create-offering.js";
+import { GetOffering, ListOfferings } from "./application/offerings/get-offering.js";
+import { OpenOffering } from "./application/offerings/open-offering.js";
+import { SubscribeToOffering } from "./application/offerings/subscribe-to-offering.js";
+import type {
+  AssetTokenIssuer,
+  Clock,
+  OfferingRepository,
+  SettlementRail,
+} from "./application/offerings/ports.js";
+import { TrexAssetTokenIssuer } from "./infrastructure/chain/trex-asset-token-issuer.js";
+import { LedgerController } from "./infrastructure/http/ledger.controller.js";
+import { OfferingsController } from "./infrastructure/http/offerings.controller.js";
+import { PrismaOfferingRepository } from "./infrastructure/persistence/prisma-offering-repository.js";
+import { PrismaSettlementRail } from "./infrastructure/settlement/prisma-settlement-rail.js";
 import { IpfsDocumentStore } from "./infrastructure/documents/ipfs-document-store.js";
 import { AssetsController } from "./infrastructure/http/assets.controller.js";
 import {
@@ -61,12 +77,22 @@ export const ASSET_REPOSITORY = "ASSET_REPOSITORY";
 export const DOCUMENT_STORE = "DOCUMENT_STORE";
 export const ASSET_EVENT_LOG = "ASSET_EVENT_LOG";
 export const TOKEN_DEPLOYER = "TOKEN_DEPLOYER";
+export const OFFERING_REPOSITORY = "OFFERING_REPOSITORY";
+export const SETTLEMENT_RAIL = "SETTLEMENT_RAIL";
+export const ASSET_TOKEN_ISSUER = "ASSET_TOKEN_ISSUER";
+export const CLOCK = "CLOCK";
 
 // Composition root: the only place where ports meet their adapters (see
 // docs/engineering/architecture.md). Use-cases stay framework-free — they are
 // constructed here via factories, never decorated.
 @Module({
-  controllers: [InvestorsController, AuthController, AssetsController],
+  controllers: [
+    InvestorsController,
+    AuthController,
+    AssetsController,
+    OfferingsController,
+    LedgerController,
+  ],
   providers: [
     PrismaService,
     {
@@ -252,6 +278,87 @@ export const TOKEN_DEPLOYER = "TOKEN_DEPLOYER";
       useFactory: (repo: AssetRepository, deployer: AssetTokenDeployer, events: AssetEventLog) =>
         new TokenizeAsset(repo, deployer, events),
       inject: [ASSET_REPOSITORY, TOKEN_DEPLOYER, ASSET_EVENT_LOG],
+    },
+    {
+      provide: PrismaSettlementRail,
+      useFactory: (prisma: PrismaService) => new PrismaSettlementRail(prisma),
+      inject: [PrismaService],
+    },
+    { provide: SETTLEMENT_RAIL, useExisting: PrismaSettlementRail },
+    {
+      provide: OFFERING_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaOfferingRepository(prisma),
+      inject: [PrismaService],
+    },
+    { provide: CLOCK, useValue: { now: () => new Date() } satisfies Clock },
+    {
+      // Real chain issuance when the devnet env is configured; otherwise fail
+      // loudly — fake minting would falsify the registry (NFR-2).
+      provide: ASSET_TOKEN_ISSUER,
+      useFactory: (prisma: PrismaService): AssetTokenIssuer => {
+        const rpcUrl = process.env.DEVNET_RPC_URL;
+        const operatorMnemonic = process.env.PLATFORM_OPERATOR_MNEMONIC;
+        const claimIssuerAddress = process.env.ONCHAINID_CLAIM_ISSUER_ADDRESS;
+        if (rpcUrl && operatorMnemonic && claimIssuerAddress) {
+          return new TrexAssetTokenIssuer(prisma, {
+            rpcUrl,
+            operatorMnemonic,
+            claimIssuerAddress,
+          });
+        }
+        const fail = () =>
+          Promise.reject(new Error("token issuance requires the devnet chain configuration"));
+        return { mint: fail, finalize: fail };
+      },
+      inject: [PrismaService],
+    },
+    {
+      provide: CreateOffering,
+      useFactory: (
+        offerings: OfferingRepository,
+        assets: AssetRepository,
+        ids: IdGenerator,
+        events: AssetEventLog,
+      ) => new CreateOffering(offerings, assets, ids, events),
+      inject: [OFFERING_REPOSITORY, ASSET_REPOSITORY, ID_GENERATOR, ASSET_EVENT_LOG],
+    },
+    {
+      provide: OpenOffering,
+      useFactory: (offerings: OfferingRepository, events: AssetEventLog, clock: Clock) =>
+        new OpenOffering(offerings, events, clock),
+      inject: [OFFERING_REPOSITORY, ASSET_EVENT_LOG, CLOCK],
+    },
+    {
+      provide: SubscribeToOffering,
+      useFactory: (
+        offerings: OfferingRepository,
+        investors: InvestorRepository,
+        rail: SettlementRail,
+        events: AssetEventLog,
+        clock: Clock,
+      ) => new SubscribeToOffering(offerings, investors, rail, events, clock),
+      inject: [OFFERING_REPOSITORY, INVESTOR_REPOSITORY, SETTLEMENT_RAIL, ASSET_EVENT_LOG, CLOCK],
+    },
+    {
+      provide: CloseOffering,
+      useFactory: (
+        offerings: OfferingRepository,
+        rail: SettlementRail,
+        issuer: AssetTokenIssuer,
+        events: AssetEventLog,
+        clock: Clock,
+      ) => new CloseOffering(offerings, rail, issuer, events, clock),
+      inject: [OFFERING_REPOSITORY, SETTLEMENT_RAIL, ASSET_TOKEN_ISSUER, ASSET_EVENT_LOG, CLOCK],
+    },
+    {
+      provide: GetOffering,
+      useFactory: (offerings: OfferingRepository) => new GetOffering(offerings),
+      inject: [OFFERING_REPOSITORY],
+    },
+    {
+      provide: ListOfferings,
+      useFactory: (offerings: OfferingRepository) => new ListOfferings(offerings),
+      inject: [OFFERING_REPOSITORY],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },

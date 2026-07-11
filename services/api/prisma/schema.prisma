@@ -66,6 +66,89 @@ model AssetEvent {
   @@map("asset_events")
 }
 
+enum OfferingState {
+  draft
+  open
+  closed_success
+  closed_failed
+}
+
+model Offering {
+  id             String                 @id
+  assetId        String                 @map("asset_id")
+  tokenAddress   String                 @map("token_address")
+  supply         BigInt
+  priceRial      BigInt                 @map("price_rial")
+  minPerInvestor BigInt                 @map("min_per_investor")
+  maxPerInvestor BigInt                 @map("max_per_investor")
+  minimumRaise   BigInt                 @map("minimum_raise")
+  opensAt        DateTime               @map("opens_at")
+  closesAt       DateTime               @map("closes_at")
+  state          OfferingState
+  subscriptions  OfferingSubscription[]
+  allocations    OfferingAllocation[]
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  @@map("offerings")
+}
+
+model OfferingSubscription {
+  id         BigInt   @id @default(autoincrement())
+  offeringId String   @map("offering_id")
+  offering   Offering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  investorId String   @map("investor_id")
+  tokens     BigInt
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("offering_subscriptions")
+}
+
+model OfferingAllocation {
+  id         BigInt   @id @default(autoincrement())
+  offeringId String   @map("offering_id")
+  offering   Offering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  investorId String   @map("investor_id")
+  requested  BigInt
+  allocated  BigInt
+  costRial   BigInt   @map("cost_rial")
+  refundRial BigInt   @map("refund_rial")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("offering_allocations")
+}
+
+// D3: off-chain Rial ledger. Balance columns are the fast path; the
+// append-only entries are the auditable record (NFR-2).
+model LedgerAccount {
+  investorId String   @id @map("investor_id")
+  balance    BigInt   @default(0)
+  held       BigInt   @default(0)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("ledger_accounts")
+}
+
+model LedgerEntry {
+  id         BigInt   @id @default(autoincrement())
+  investorId String   @map("investor_id")
+  kind       String
+  amountRial BigInt   @map("amount_rial")
+  actor      String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("ledger_entries")
+}
+
+// FR-CU-1 custodial wallets: HD-derived per investor from the platform key.
+model InvestorWallet {
+  derivationIndex Int    @id @default(autoincrement()) @map("derivation_index")
+  investorId      String @unique @map("investor_id")
+  address         String @unique
+
+  @@map("investor_wallets")
+}
+
 model Investor {
   id                 String           @id
   email              String           @unique
