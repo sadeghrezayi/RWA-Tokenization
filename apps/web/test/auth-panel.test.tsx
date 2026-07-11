@@ -22,6 +22,7 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   recordCustody: vi.fn(),
   confirmChecklistItem: vi.fn(),
   approveAsset: vi.fn(),
+  tokenizeAsset: vi.fn(),
   ...overrides,
 });
 

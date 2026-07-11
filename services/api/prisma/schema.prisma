@@ -32,6 +32,7 @@ model Asset {
   state           AssetState
   custodianName   String?         @map("custodian_name")
   custodyLocation String?         @map("custody_location")
+  tokenAddress    String?         @map("token_address")
   checklist       String[]
   documents       AssetDocument[]
   createdAt       DateTime        @default(now()) @map("created_at")

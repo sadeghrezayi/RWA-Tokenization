@@ -16,6 +16,7 @@ export interface AssetViewDto {
   name: string;
   type: string;
   state: AssetState;
+  tokenAddress?: string;
   custody?: { custodianName: string; location: string };
   checklist: { confirmed: string[]; unconfirmed: string[] };
   dossier: {
@@ -50,6 +51,11 @@ export interface ApiClient {
   ): Promise<void>;
   confirmChecklistItem(officerToken: string, assetId: string, item: string): Promise<void>;
   approveAsset(officerToken: string, assetId: string): Promise<void>;
+  tokenizeAsset(
+    officerToken: string,
+    assetId: string,
+    symbol: string,
+  ): Promise<{ tokenAddress: string }>;
 }
 
 export class ApiError extends Error {
@@ -137,5 +143,13 @@ export const createApiClient = (
     approveAsset: async (officerToken, assetId) => {
       await call(`/assets/${assetId}/approve`, { method: "POST", token: officerToken });
     },
+    tokenizeAsset: (officerToken, assetId, symbol) =>
+      json(
+        call(`/assets/${assetId}/tokenize`, {
+          method: "POST",
+          token: officerToken,
+          body: { symbol },
+        }),
+      ),
   };
 };

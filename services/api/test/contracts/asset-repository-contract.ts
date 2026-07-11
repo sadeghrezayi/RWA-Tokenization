@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Asset } from "../../src/domain/assets/asset.js";
 import { CustodyArrangement } from "../../src/domain/assets/custody-arrangement.js";
-import { DossierDocument } from "../../src/domain/assets/legal-dossier.js";
+import { DossierDocument, LegalDossier } from "../../src/domain/assets/legal-dossier.js";
+import { OnboardingChecklist } from "../../src/domain/assets/onboarding-checklist.js";
 import type { AssetRepository } from "../../src/application/assets/ports.js";
 
 const SHA = "c".repeat(64);
@@ -62,6 +63,25 @@ export const assetRepositoryContract = (
       const found = await repo.findById("asset-1");
       expect(found?.checklist.isConfirmed("transferable")).toBe(true);
       expect(found?.dossier.documents).toHaveLength(1);
+    });
+
+    it("round_trips_the_token_address_of_a_tokenized_asset", async () => {
+      await repo.save(
+        Asset.restore({
+          id: "asset-tok",
+          name: "Tokenized SPV",
+          type: "asset_backed",
+          state: "tokenized",
+          dossier: LegalDossier.empty(),
+          checklist: OnboardingChecklist.empty(),
+          custody: undefined,
+          tokenAddress: "0xAbCd000000000000000000000000000000000001",
+        }),
+      );
+
+      const found = await repo.findById("asset-tok");
+      expect(found?.state).toBe("tokenized");
+      expect(found?.tokenAddress).toBe("0xAbCd000000000000000000000000000000000001");
     });
 
     it("lists_all_saved_assets", async () => {

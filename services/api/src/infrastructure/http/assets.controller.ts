@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
 import { ApproveAsset } from "../../application/assets/approve-asset.js";
+import { TokenizeAsset } from "../../application/assets/tokenize-asset.js";
 import { AttachDossierDocument } from "../../application/assets/attach-dossier-document.js";
 import { ConfirmChecklistItem } from "../../application/assets/confirm-checklist-item.js";
 import { GetAsset, ListAssets } from "../../application/assets/get-asset.js";
@@ -51,6 +52,7 @@ export class AssetsController {
     private readonly recordCustody: RecordCustody,
     private readonly confirmChecklistItem: ConfirmChecklistItem,
     private readonly approveAsset: ApproveAsset,
+    private readonly tokenizeAsset: TokenizeAsset,
     private readonly getAsset: GetAsset,
     private readonly listAssets: ListAssets,
   ) {}
@@ -130,5 +132,18 @@ export class AssetsController {
   @HttpCode(204)
   approve(@Param("id") id: string, @CurrentPrincipal() principal: Principal): Promise<void> {
     return this.approveAsset.execute({ assetId: id, actor: actorOf(principal) });
+  }
+
+  @Post(":id/tokenize")
+  tokenize(
+    @Param("id") id: string,
+    @Body() body: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<{ tokenAddress: string }> {
+    return this.tokenizeAsset.execute({
+      assetId: id,
+      symbol: requireString(body, "symbol"),
+      actor: actorOf(principal),
+    });
   }
 }

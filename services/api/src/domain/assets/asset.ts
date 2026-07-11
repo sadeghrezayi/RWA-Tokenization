@@ -8,6 +8,7 @@ import {
   DossierFrozenError,
   IncompleteDossierError,
   InvalidAssetTransitionError,
+  InvalidTokenAddressError,
 } from "./errors.js";
 
 // FR-AO-5 lifecycle. PRD T3: only the asset-backed subtype exists in v1.
@@ -28,6 +29,7 @@ export class Asset {
     public readonly dossier: LegalDossier,
     public readonly checklist: OnboardingChecklist,
     public readonly custody: CustodyArrangement | undefined,
+    public readonly tokenAddress: string | undefined,
   ) {}
 
   static propose(id: string, name: string, type: AssetType): Asset {
@@ -38,6 +40,7 @@ export class Asset {
       "proposed",
       LegalDossier.empty(),
       OnboardingChecklist.empty(),
+      undefined,
       undefined,
     );
   }
@@ -50,6 +53,7 @@ export class Asset {
     dossier: LegalDossier;
     checklist: OnboardingChecklist;
     custody: CustodyArrangement | undefined;
+    tokenAddress?: string;
   }): Asset {
     return new Asset(
       fields.id,
@@ -59,6 +63,7 @@ export class Asset {
       fields.dossier,
       fields.checklist,
       fields.custody,
+      fields.tokenAddress,
     );
   }
 
@@ -103,9 +108,12 @@ export class Asset {
     return this.with({ state: "approved" });
   }
 
-  markTokenized(): Asset {
+  markTokenized(tokenAddress: string): Asset {
     this.assertState("mark tokenized", ["approved"]);
-    return this.with({ state: "tokenized" });
+    if (tokenAddress.trim() === "") {
+      throw new InvalidTokenAddressError("a tokenized asset needs a non-empty token address");
+    }
+    return this.with({ state: "tokenized", tokenAddress });
   }
 
   suspend(): Asset {
@@ -142,6 +150,7 @@ export class Asset {
     dossier?: LegalDossier;
     checklist?: OnboardingChecklist;
     custody?: CustodyArrangement;
+    tokenAddress?: string;
   }): Asset {
     return new Asset(
       this.id,
@@ -151,6 +160,7 @@ export class Asset {
       changes.dossier ?? this.dossier,
       changes.checklist ?? this.checklist,
       changes.custody ?? this.custody,
+      changes.tokenAddress ?? this.tokenAddress,
     );
   }
 }

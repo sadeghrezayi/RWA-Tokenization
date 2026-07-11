@@ -9,6 +9,7 @@ export interface AssetView {
   name: string;
   type: AssetType;
   state: AssetState;
+  tokenAddress?: string;
   custody?: { custodianName: string; location: string };
   checklist: { confirmed: ChecklistItem[]; unconfirmed: ChecklistItem[] };
   dossier: {
@@ -23,6 +24,7 @@ export const toAssetView = (asset: Asset): AssetView => ({
   name: asset.name,
   type: asset.type,
   state: asset.state,
+  ...(asset.tokenAddress !== undefined ? { tokenAddress: asset.tokenAddress } : {}),
   ...(asset.custody
     ? {
         custody: {

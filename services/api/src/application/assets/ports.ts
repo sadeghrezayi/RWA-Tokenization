@@ -23,3 +23,13 @@ export interface AssetEvent {
 export interface AssetEventLog {
   append(event: AssetEvent): Promise<void>;
 }
+
+// FR-SC-1 seam: deploys the per-asset permissioned token suite (ERC-3643 on
+// the devnet today, Besu later) and returns the token contract address.
+export interface AssetTokenDeployer {
+  deployAssetToken(params: {
+    assetId: string;
+    name: string;
+    symbol: string;
+  }): Promise<{ tokenAddress: string }>;
+}

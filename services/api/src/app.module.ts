@@ -25,7 +25,14 @@ import { GetAsset, ListAssets } from "./application/assets/get-asset.js";
 import { ProposeAsset } from "./application/assets/propose-asset.js";
 import { RecordCustody } from "./application/assets/record-custody.js";
 import { StartStructuring } from "./application/assets/start-structuring.js";
-import type { AssetEventLog, AssetRepository, DocumentStore } from "./application/assets/ports.js";
+import { TokenizeAsset } from "./application/assets/tokenize-asset.js";
+import type {
+  AssetEventLog,
+  AssetRepository,
+  AssetTokenDeployer,
+  DocumentStore,
+} from "./application/assets/ports.js";
+import { TrexAssetTokenDeployer } from "./infrastructure/chain/trex-asset-token-deployer.js";
 import { IpfsDocumentStore } from "./infrastructure/documents/ipfs-document-store.js";
 import { AssetsController } from "./infrastructure/http/assets.controller.js";
 import {
@@ -53,6 +60,7 @@ export const OFFICER_CREDENTIALS = "OFFICER_CREDENTIALS";
 export const ASSET_REPOSITORY = "ASSET_REPOSITORY";
 export const DOCUMENT_STORE = "DOCUMENT_STORE";
 export const ASSET_EVENT_LOG = "ASSET_EVENT_LOG";
+export const TOKEN_DEPLOYER = "TOKEN_DEPLOYER";
 
 // Composition root: the only place where ports meet their adapters (see
 // docs/engineering/architecture.md). Use-cases stay framework-free — they are
@@ -219,6 +227,31 @@ export const ASSET_EVENT_LOG = "ASSET_EVENT_LOG";
       provide: ListAssets,
       useFactory: (repo: AssetRepository) => new ListAssets(repo),
       inject: [ASSET_REPOSITORY],
+    },
+    {
+      // Real per-asset ERC-3643 deployment when the devnet env is configured;
+      // otherwise fail loudly — a fake address would corrupt the registry.
+      provide: TOKEN_DEPLOYER,
+      useFactory: (): AssetTokenDeployer => {
+        const rpcUrl = process.env.DEVNET_RPC_URL;
+        const operatorMnemonic = process.env.PLATFORM_OPERATOR_MNEMONIC;
+        const claimIssuerAddress = process.env.ONCHAINID_CLAIM_ISSUER_ADDRESS;
+        if (rpcUrl && operatorMnemonic && claimIssuerAddress) {
+          return new TrexAssetTokenDeployer({ rpcUrl, operatorMnemonic, claimIssuerAddress });
+        }
+        return {
+          deployAssetToken: () =>
+            Promise.reject(
+              new Error("token deployment requires DEVNET_RPC_URL and chain env configuration"),
+            ),
+        };
+      },
+    },
+    {
+      provide: TokenizeAsset,
+      useFactory: (repo: AssetRepository, deployer: AssetTokenDeployer, events: AssetEventLog) =>
+        new TokenizeAsset(repo, deployer, events),
+      inject: [ASSET_REPOSITORY, TOKEN_DEPLOYER, ASSET_EVENT_LOG],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },

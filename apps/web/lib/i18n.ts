@@ -41,6 +41,9 @@ export interface Dictionary {
   custodyLocationLabel: string;
   recordCustodyButton: string;
   approveAssetButton: string;
+  tokenizeAssetButton: string;
+  tokenSymbolPrompt: string;
+  tokenAddressLabel: string;
   missingKindsLabel: string;
   noAssets: string;
   kycStatusTitle: string;
@@ -83,6 +86,9 @@ export const dictionaries: Record<Locale, Dictionary> = {
     custodyLocationLabel: "Custody location",
     recordCustodyButton: "Record custody",
     approveAssetButton: "Approve asset",
+    tokenizeAssetButton: "Tokenize asset",
+    tokenSymbolPrompt: "Token symbol (2-11 uppercase letters/digits)",
+    tokenAddressLabel: "Token",
     missingKindsLabel: "Missing",
     noAssets: "No assets yet.",
     kycStatusTitle: "KYC Status",

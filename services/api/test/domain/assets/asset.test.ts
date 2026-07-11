@@ -12,6 +12,7 @@ import {
   IncompleteDossierError,
   InvalidAssetTransitionError,
   InvalidCustodyArrangementError,
+  InvalidTokenAddressError,
 } from "../../../src/domain/assets/errors.js";
 
 const SHA = "b".repeat(64);
@@ -45,11 +46,26 @@ describe("Asset lifecycle (FR-AO-5)", () => {
   it("walks_proposed_to_structuring_to_approved_to_tokenized", () => {
     const approved = readyForApproval().approve();
     expect(approved.state).toBe("approved");
-    expect(approved.markTokenized().state).toBe("tokenized");
+    expect(approved.tokenAddress).toBeUndefined();
+    const tokenized = approved.markTokenized("0xToken1");
+    expect(tokenized.state).toBe("tokenized");
+    expect(tokenized.tokenAddress).toBe("0xToken1");
+  });
+
+  it("rejects_marking_tokenized_with_a_blank_token_address", () => {
+    expect(() => readyForApproval().approve().markTokenized("  ")).toThrow(
+      InvalidTokenAddressError,
+    );
+  });
+
+  it("keeps_the_token_address_through_later_transitions", () => {
+    const suspended = readyForApproval().approve().markTokenized("0xToken1").suspend();
+    expect(suspended.tokenAddress).toBe("0xToken1");
+    expect(suspended.resume().tokenAddress).toBe("0xToken1");
   });
 
   it("suspends_resumes_and_retires_a_tokenized_asset", () => {
-    const tokenized = readyForApproval().approve().markTokenized();
+    const tokenized = readyForApproval().approve().markTokenized("0xToken1");
     const suspended = tokenized.suspend();
     expect(suspended.state).toBe("suspended");
     expect(suspended.resume().state).toBe("tokenized");
@@ -59,7 +75,7 @@ describe("Asset lifecycle (FR-AO-5)", () => {
 
   it.each([
     ["approve_from_proposed", () => propose().approve()],
-    ["tokenize_before_approval", () => propose().startStructuring().markTokenized()],
+    ["tokenize_before_approval", () => propose().startStructuring().markTokenized("0xToken1")],
     ["suspend_before_tokenized", () => readyForApproval().approve().suspend()],
     ["start_structuring_twice", () => propose().startStructuring().startStructuring()],
     ["retire_from_proposed", () => propose().retire()],
@@ -145,6 +161,6 @@ describe("Persistence seam", () => {
       custody: structured.custody,
     });
     expect(restored.state).toBe("approved");
-    expect(restored.markTokenized().state).toBe("tokenized");
+    expect(restored.markTokenized("0xToken1").state).toBe("tokenized");
   });
 });

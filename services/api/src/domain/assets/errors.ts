@@ -11,3 +11,5 @@ export class DossierFrozenError extends DomainError {}
 export class InvalidDossierDocumentError extends DomainError {}
 
 export class InvalidCustodyArrangementError extends DomainError {}
+
+export class InvalidTokenAddressError extends DomainError {}

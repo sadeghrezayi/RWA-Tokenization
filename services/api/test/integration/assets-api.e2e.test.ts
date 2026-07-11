@@ -2,11 +2,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
-import { AppModule, DOCUMENT_STORE } from "../../src/app.module.js";
+import { AppModule, DOCUMENT_STORE, TOKEN_DEPLOYER } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 import { REQUIRED_DOSSIER_KINDS } from "../../src/domain/assets/legal-dossier.js";
 import { CHECKLIST_ITEMS } from "../../src/domain/assets/onboarding-checklist.js";
-import { FakeDocumentStore } from "../fakes/asset-fakes.js";
+import { FakeDocumentStore, RecordingTokenDeployer } from "../fakes/asset-fakes.js";
 
 const CONTENT = Buffer.from("pilot deed bytes").toString("base64");
 
@@ -21,6 +21,8 @@ describe("Assets API (e2e, real Postgres, fake document store)", () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(DOCUMENT_STORE)
       .useValue(new FakeDocumentStore())
+      .overrideProvider(TOKEN_DEPLOYER)
+      .useValue(new RecordingTokenDeployer())
       .compile();
     app = moduleRef.createNestApplication();
     await app.init();
@@ -108,6 +110,54 @@ describe("Assets API (e2e, real Postgres, fake document store)", () => {
     const events = await prisma.assetEvent.findMany({ where: { assetId } });
     expect(events.map((e) => e.event)).toContain("asset_approved");
     expect(events).toHaveLength(2 + REQUIRED_DOSSIER_KINDS.length + CHECKLIST_ITEMS.length + 1 + 1);
+  });
+
+  it("tokenizes_an_approved_asset_and_rejects_early_tokenization", async () => {
+    const assetId = await propose();
+    const http = request(server);
+
+    await http
+      .post(`/assets/${assetId}/tokenize`)
+      .set(auth(officerToken))
+      .send({ symbol: "PRES" })
+      .expect(409);
+
+    await http.post(`/assets/${assetId}/start-structuring`).set(auth(officerToken)).expect(204);
+    for (const kind of REQUIRED_DOSSIER_KINDS) {
+      await http
+        .post(`/assets/${assetId}/documents`)
+        .set(auth(officerToken))
+        .send({ kind, title: `${kind} doc`, contentBase64: CONTENT })
+        .expect(201);
+    }
+    await http
+      .post(`/assets/${assetId}/custody`)
+      .set(auth(officerToken))
+      .send({ custodianName: "Trust Co.", location: "Vault 12" })
+      .expect(204);
+    for (const item of CHECKLIST_ITEMS) {
+      await http.post(`/assets/${assetId}/checklist/${item}`).set(auth(officerToken)).expect(204);
+    }
+    await http.post(`/assets/${assetId}/approve`).set(auth(officerToken)).expect(204);
+
+    await http
+      .post(`/assets/${assetId}/tokenize`)
+      .set(auth(officerToken))
+      .send({ symbol: "invalid lower" })
+      .expect(400);
+
+    const res = await http
+      .post(`/assets/${assetId}/tokenize`)
+      .set(auth(officerToken))
+      .send({ symbol: "PRES" })
+      .expect(201);
+    expect((res.body as { tokenAddress: string }).tokenAddress).toBe("0xDeployed1");
+
+    const view = await http.get(`/assets/${assetId}`).set(auth(officerToken)).expect(200);
+    expect(view.body).toMatchObject({ state: "tokenized", tokenAddress: "0xDeployed1" });
+
+    const events = await prisma.assetEvent.findMany({ where: { assetId } });
+    expect(events.map((e) => e.event)).toContain("asset_tokenized");
   });
 
   it("returns_409_with_missing_items_when_approving_too_early", async () => {

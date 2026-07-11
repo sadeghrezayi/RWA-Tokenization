@@ -11,7 +11,11 @@ import {
   InvalidKycTransitionError,
   InvalidRejectionReasonError,
 } from "../../domain/identity/errors.js";
-import { AssetNotFoundError, EmptyDocumentError } from "../../application/assets/errors.js";
+import {
+  AssetNotFoundError,
+  EmptyDocumentError,
+  InvalidTokenSymbolError,
+} from "../../application/assets/errors.js";
 import {
   ChecklistIncompleteError,
   DossierFrozenError,
@@ -64,5 +68,6 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidDossierDocumentError) return 400;
   if (exception instanceof InvalidCustodyArrangementError) return 400;
   if (exception instanceof EmptyDocumentError) return 400;
+  if (exception instanceof InvalidTokenSymbolError) return 400;
   return 500;
 };

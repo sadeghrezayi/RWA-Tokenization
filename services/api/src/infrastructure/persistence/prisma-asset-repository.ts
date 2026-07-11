@@ -34,6 +34,7 @@ export class PrismaAssetRepository implements AssetRepository {
       state: asset.state,
       custodianName: asset.custody?.custodianName ?? null,
       custodyLocation: asset.custody?.location ?? null,
+      tokenAddress: asset.tokenAddress ?? null,
       checklist: asset.checklist.confirmedItems(),
     };
     const documents = asset.dossier.documents.map((d) => ({
@@ -95,4 +96,5 @@ const toDomain = (row: AssetRow & { documents: DocRow[] }): Asset =>
             location: row.custodyLocation,
           })
         : undefined,
+    ...(row.tokenAddress !== null ? { tokenAddress: row.tokenAddress } : {}),
   });

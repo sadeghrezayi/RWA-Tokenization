@@ -11,3 +11,9 @@ export class EmptyDocumentError extends ApplicationError {
     super("a dossier document must have non-empty content");
   }
 }
+
+export class InvalidTokenSymbolError extends ApplicationError {
+  constructor() {
+    super("a token symbol must be 2-11 uppercase letters or digits");
+  }
+}

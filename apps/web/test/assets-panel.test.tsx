@@ -23,6 +23,7 @@ const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
     recordCustody: vi.fn().mockResolvedValue(undefined),
     confirmChecklistItem: vi.fn().mockResolvedValue(undefined),
     approveAsset: vi.fn().mockResolvedValue(undefined),
+    tokenizeAsset: vi.fn().mockResolvedValue({ tokenAddress: "0xTok1" }),
     ...overrides,
   }) as ApiClient;
 
@@ -73,6 +74,32 @@ describe("AssetsPanel", () => {
     await waitFor(() => {
       expect(approveAsset).toHaveBeenCalledWith("tok", "asset-1");
     });
+  });
+
+  it("tokenizes_an_approved_asset_with_the_prompted_symbol", async () => {
+    const approved = asset({ state: "approved" });
+    const tokenizeAsset = vi.fn().mockResolvedValue({ tokenAddress: "0xTok1" });
+    const api = apiWith({
+      listAssets: vi.fn().mockResolvedValue([approved]),
+      tokenizeAsset,
+    });
+    vi.spyOn(window, "prompt").mockReturnValue("pres");
+    render(<AssetsPanel locale="en" api={api} token="tok" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Tokenize asset" }));
+
+    await waitFor(() => {
+      expect(tokenizeAsset).toHaveBeenCalledWith("tok", "asset-1", "PRES");
+    });
+  });
+
+  it("shows_the_token_address_of_a_tokenized_asset", async () => {
+    const tokenized = asset({ state: "tokenized", tokenAddress: "0xAbc123" });
+    const api = apiWith({ listAssets: vi.fn().mockResolvedValue([tokenized]) });
+    render(<AssetsPanel locale="en" api={api} token="tok" />);
+
+    expect(await screen.findByText("0xAbc123")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Tokenize asset" })).not.toBeInTheDocument();
   });
 
   it("shows_the_api_error_when_an_action_fails", async () => {

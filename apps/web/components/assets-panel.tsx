@@ -127,6 +127,26 @@ const AssetRow = ({
           {t.missingKindsLabel}: {asset.dossier.missingKinds.join(", ")}
         </p>
       )}
+      {asset.tokenAddress !== undefined && (
+        <p>
+          {t.tokenAddressLabel}: <code>{asset.tokenAddress}</code>
+        </p>
+      )}
+      {asset.state === "approved" && (
+        <button
+          type="button"
+          onClick={() => {
+            const symbol = window.prompt(t.tokenSymbolPrompt) ?? "";
+            if (symbol.trim() !== "") {
+              guard(async () => {
+                await api.tokenizeAsset(token, asset.id, symbol.trim().toUpperCase());
+              });
+            }
+          }}
+        >
+          {t.tokenizeAssetButton}
+        </button>
+      )}
       {asset.state === "proposed" && (
         <button
           type="button"

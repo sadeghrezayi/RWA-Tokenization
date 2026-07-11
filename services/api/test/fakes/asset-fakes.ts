@@ -4,6 +4,7 @@ import type {
   AssetEvent,
   AssetEventLog,
   AssetRepository,
+  AssetTokenDeployer,
   DocumentStore,
 } from "../../src/application/assets/ports.js";
 
@@ -36,6 +37,23 @@ export class FakeDocumentStore implements DocumentStore {
       cid: `fake-cid-${String(this.counter)}`,
       sha256: createHash("sha256").update(content).digest("hex"),
     });
+  }
+}
+
+export class RecordingTokenDeployer implements AssetTokenDeployer {
+  readonly deployed: { assetId: string; name: string; symbol: string }[] = [];
+  failWith: Error | undefined;
+
+  deployAssetToken(params: {
+    assetId: string;
+    name: string;
+    symbol: string;
+  }): Promise<{ tokenAddress: string }> {
+    if (this.failWith) {
+      return Promise.reject(this.failWith);
+    }
+    this.deployed.push(params);
+    return Promise.resolve({ tokenAddress: `0xDeployed${String(this.deployed.length)}` });
   }
 }
 
