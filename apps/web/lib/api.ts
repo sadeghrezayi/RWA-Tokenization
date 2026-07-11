@@ -8,6 +8,23 @@ export interface InvestorViewDto {
   eligibleForClaims: boolean;
 }
 
+export type AssetState =
+  "proposed" | "in_structuring" | "approved" | "tokenized" | "suspended" | "retired";
+
+export interface AssetViewDto {
+  id: string;
+  name: string;
+  type: string;
+  state: AssetState;
+  custody?: { custodianName: string; location: string };
+  checklist: { confirmed: string[]; unconfirmed: string[] };
+  dossier: {
+    complete: boolean;
+    missingKinds: string[];
+    documents: { kind: string; title: string; cid: string; sha256: string }[];
+  };
+}
+
 export interface ApiClient {
   register(email: string, password: string): Promise<{ investorId: string }>;
   login(email: string, password: string): Promise<{ token: string; investorId: string }>;
@@ -18,6 +35,21 @@ export interface ApiClient {
   startReview(officerToken: string, investorId: string): Promise<void>;
   approve(officerToken: string, investorId: string): Promise<void>;
   reject(officerToken: string, investorId: string, reason: string): Promise<void>;
+  listAssets(officerToken: string): Promise<AssetViewDto[]>;
+  proposeAsset(officerToken: string, name: string): Promise<{ assetId: string }>;
+  startStructuring(officerToken: string, assetId: string): Promise<void>;
+  attachAssetDocument(
+    officerToken: string,
+    assetId: string,
+    doc: { kind: string; title: string; contentBase64: string },
+  ): Promise<{ cid: string; sha256: string }>;
+  recordCustody(
+    officerToken: string,
+    assetId: string,
+    custody: { custodianName: string; location: string },
+  ): Promise<void>;
+  confirmChecklistItem(officerToken: string, assetId: string, item: string): Promise<void>;
+  approveAsset(officerToken: string, assetId: string): Promise<void>;
 }
 
 export class ApiError extends Error {
@@ -81,6 +113,29 @@ export const createApiClient = (
         token: officerToken,
         body: { reason },
       });
+    },
+    listAssets: (officerToken) => json(call("/assets", { token: officerToken })),
+    proposeAsset: (officerToken, name) =>
+      json(call("/assets", { method: "POST", token: officerToken, body: { name } })),
+    startStructuring: async (officerToken, assetId) => {
+      await call(`/assets/${assetId}/start-structuring`, { method: "POST", token: officerToken });
+    },
+    attachAssetDocument: (officerToken, assetId, doc) =>
+      json(
+        call(`/assets/${assetId}/documents`, { method: "POST", token: officerToken, body: doc }),
+      ),
+    recordCustody: async (officerToken, assetId, custody) => {
+      await call(`/assets/${assetId}/custody`, {
+        method: "POST",
+        token: officerToken,
+        body: custody,
+      });
+    },
+    confirmChecklistItem: async (officerToken, assetId, item) => {
+      await call(`/assets/${assetId}/checklist/${item}`, { method: "POST", token: officerToken });
+    },
+    approveAsset: async (officerToken, assetId) => {
+      await call(`/assets/${assetId}/approve`, { method: "POST", token: officerToken });
     },
   };
 };

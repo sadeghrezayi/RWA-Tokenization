@@ -30,6 +30,19 @@ export interface Dictionary {
   approveButton: string;
   rejectButton: string;
   rejectReasonPrompt: string;
+  assetsTitle: string;
+  proposeAssetButton: string;
+  assetNameLabel: string;
+  startStructuringButton: string;
+  attachDocumentButton: string;
+  documentKindLabel: string;
+  documentTitleLabel: string;
+  custodianLabel: string;
+  custodyLocationLabel: string;
+  recordCustodyButton: string;
+  approveAssetButton: string;
+  missingKindsLabel: string;
+  noAssets: string;
   kycStatusTitle: string;
   submitKycButton: string;
   refreshButton: string;
@@ -59,6 +72,19 @@ export const dictionaries: Record<Locale, Dictionary> = {
     approveButton: "Approve",
     rejectButton: "Reject",
     rejectReasonPrompt: "Rejection reason",
+    assetsTitle: "Asset Onboarding",
+    proposeAssetButton: "Propose asset",
+    assetNameLabel: "Asset name",
+    startStructuringButton: "Start structuring",
+    attachDocumentButton: "Attach document",
+    documentKindLabel: "Document kind",
+    documentTitleLabel: "Document title",
+    custodianLabel: "Custodian",
+    custodyLocationLabel: "Custody location",
+    recordCustodyButton: "Record custody",
+    approveAssetButton: "Approve asset",
+    missingKindsLabel: "Missing",
+    noAssets: "No assets yet.",
     kycStatusTitle: "KYC Status",
     submitKycButton: "Submit KYC documents",
     refreshButton: "Refresh",

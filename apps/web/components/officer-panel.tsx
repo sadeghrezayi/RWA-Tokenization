@@ -7,7 +7,15 @@ import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 
 // FR-ID-4 subset: officer signs in, sees the pending queue, approves/rejects.
-export const OfficerPanel = ({ locale, api }: { locale: Locale; api: ApiClient }) => {
+export const OfficerPanel = ({
+  locale,
+  api,
+  onAuthed,
+}: {
+  locale: Locale;
+  api: ApiClient;
+  onAuthed?: (token: string) => void;
+}) => {
   const t = dictionaries[locale];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,6 +46,7 @@ export const OfficerPanel = ({ locale, api }: { locale: Locale; api: ApiClient }
             void guard(async () => {
               const result = await api.officerLogin(email, password);
               setToken(result.token);
+              onAuthed?.(result.token);
               await refresh(result.token);
             });
           }}
