@@ -19,6 +19,8 @@ export interface Dictionary {
   appTitle: string;
   dashboardTitle: string;
   dashboardSubtitle: string;
+  adminTitle: string;
+  adminSubtitle: string;
   logout: string;
   registerTitle: string;
   emailLabel: string;
@@ -84,6 +86,21 @@ export interface Dictionary {
   eligible: string;
   notEligible: string;
   rejectionReasonLabel: string;
+  actionsLabel: string;
+  statusLabel: string;
+  confirmReject: string;
+  checklistLabel: string;
+  tokenSymbolLabel: string;
+  offeringOpened: string;
+  offeringClosed: string;
+  offeringCreated: string;
+  ledgerCredited: string;
+  noTokenizedAssets: string;
+  assetLabel: string;
+  investorIdLabel: string;
+  amountLabel: string;
+  distributionPaid: string;
+  distributionDeclared: string;
   kycStates: Record<
     "draft" | "submitted" | "in_review" | "approved" | "rejected" | "expired",
     string
@@ -96,6 +113,8 @@ export const dictionaries: Record<Locale, Dictionary> = {
     appTitle: "Asset Tokenization Platform",
     dashboardTitle: "Investor Dashboard",
     dashboardSubtitle: "Your KYC status, settlement balance, and available offerings.",
+    adminTitle: "Admin Console",
+    adminSubtitle: "KYC review, asset onboarding, offerings, and income distributions.",
     logout: "Log out",
     registerTitle: "Investor Access",
     emailLabel: "Email",
@@ -161,6 +180,21 @@ export const dictionaries: Record<Locale, Dictionary> = {
     eligible: "Eligible to invest",
     notEligible: "Not yet eligible to invest",
     rejectionReasonLabel: "Rejection reason",
+    actionsLabel: "Actions",
+    statusLabel: "Status",
+    confirmReject: "Confirm rejection",
+    checklistLabel: "Checklist",
+    tokenSymbolLabel: "Token symbol",
+    offeringOpened: "Offering opened.",
+    offeringClosed: "Offering closed.",
+    offeringCreated: "Offering created.",
+    ledgerCredited: "Ledger credited.",
+    noTokenizedAssets: "No tokenized assets yet — tokenize an asset first.",
+    assetLabel: "Asset",
+    investorIdLabel: "Investor ID",
+    amountLabel: "Amount",
+    distributionPaid: "Distribution paid.",
+    distributionDeclared: "Distribution declared.",
     kycStates: {
       draft: "Draft",
       submitted: "Submitted",

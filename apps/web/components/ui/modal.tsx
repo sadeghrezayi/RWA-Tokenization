@@ -19,18 +19,29 @@ export const Modal = ({
   footer?: ReactNode;
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
+  // Esc-to-close: subscribe once per open. Reads onClose via a ref so a new
+  // inline onClose each render does not re-run this effect.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
-    panelRef.current?.querySelector<HTMLElement>("input, select, button")?.focus();
     return () => {
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open]);
+
+  // Move focus in only when the dialog opens — never on subsequent renders,
+  // or it would steal focus mid-typing.
+  useEffect(() => {
+    if (open) {
+      panelRef.current?.querySelector<HTMLElement>("input, select, button")?.focus();
+    }
+  }, [open]);
 
   if (!open) return null;
 

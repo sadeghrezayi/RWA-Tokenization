@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AdminOfferingsPanel } from "../components/admin-offerings-panel";
 import { ApiError } from "../lib/api";
@@ -25,6 +25,7 @@ const offering = (overrides: Partial<OfferingViewDto>): OfferingViewDto => ({
 const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
   ({
     listOfferings: vi.fn().mockResolvedValue([]),
+    listAssets: vi.fn().mockResolvedValue([]),
     createOffering: vi.fn().mockResolvedValue({ offeringId: "off-1" }),
     openOffering: vi.fn().mockResolvedValue(undefined),
     closeOffering: vi.fn().mockResolvedValue({ state: "closed_success", allocations: [] }),
@@ -33,6 +34,17 @@ const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
   }) as ApiClient;
 
 describe("AdminOfferingsPanel", () => {
+  it("lists_offerings_by_name_with_a_status_badge", async () => {
+    const api = apiWith({
+      listOfferings: vi.fn().mockResolvedValue([offering({ state: "open" })]),
+    });
+    render(<AdminOfferingsPanel locale="en" api={api} token="tok" />);
+
+    expect(await screen.findByText("Pilot Real Estate SPV")).toBeInTheDocument();
+    expect(screen.getByText("Open")).toBeInTheDocument();
+    expect(screen.queryByText("asset-1")).not.toBeInTheDocument();
+  });
+
   it("opens_a_draft_offering_and_refreshes", async () => {
     const openOffering = vi.fn().mockResolvedValue(undefined);
     const listOfferings = vi
@@ -69,12 +81,15 @@ describe("AdminOfferingsPanel", () => {
     });
   });
 
-  it("credits_an_investor_ledger_with_prompted_values", async () => {
+  it("credits_an_investor_ledger_via_the_modal", async () => {
     const creditLedger = vi.fn().mockResolvedValue(undefined);
-    vi.spyOn(window, "prompt").mockReturnValueOnce("inv-9").mockReturnValueOnce("50000");
     render(<AdminOfferingsPanel locale="en" api={apiWith({ creditLedger })} token="tok" />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Credit ledger" }));
+    const dialog = within(screen.getByRole("dialog"));
+    await userEvent.type(dialog.getByLabelText("Investor ID"), "inv-9");
+    await userEvent.type(dialog.getByLabelText(/Amount/), "50000");
+    await userEvent.click(dialog.getByRole("button", { name: "Credit ledger" }));
 
     await waitFor(() => {
       expect(creditLedger).toHaveBeenCalledWith("tok", "inv-9", "50000");

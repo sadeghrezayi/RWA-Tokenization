@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DistributionsPanel } from "../components/distributions-panel";
 import { ApiError } from "../lib/api";
-import type { ApiClient, DistributionViewDto } from "../lib/api";
+import type { ApiClient, AssetViewDto, DistributionViewDto } from "../lib/api";
 
 const distribution = (overrides: Partial<DistributionViewDto>): DistributionViewDto => ({
   id: "dist-1",
@@ -20,22 +20,32 @@ const distribution = (overrides: Partial<DistributionViewDto>): DistributionView
   ...overrides,
 });
 
+const tokenizedAsset: AssetViewDto = {
+  id: "asset-1",
+  name: "Pilot Real Estate SPV",
+  type: "asset_backed",
+  state: "tokenized",
+  tokenAddress: "0xToken1",
+  checklist: { confirmed: [], unconfirmed: [] },
+  dossier: { complete: true, missingKinds: [], documents: [] },
+};
+
 const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
   ({
     listDistributions: vi.fn().mockResolvedValue([]),
+    listAssets: vi.fn().mockResolvedValue([tokenizedAsset]),
     declareDistribution: vi.fn().mockResolvedValue({ distributionId: "dist-1" }),
     payDistribution: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }) as ApiClient;
 
 describe("DistributionsPanel", () => {
-  it("declares_a_distribution_with_prompted_amount_and_refreshes", async () => {
+  it("declares_a_distribution_via_the_modal_and_refreshes", async () => {
     const declareDistribution = vi.fn().mockResolvedValue({ distributionId: "dist-1" });
     const listDistributions = vi
       .fn()
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([distribution({})]);
-    vi.spyOn(window, "prompt").mockReturnValueOnce("asset-1").mockReturnValueOnce("100000");
     render(
       <DistributionsPanel
         locale="en"
@@ -45,6 +55,9 @@ describe("DistributionsPanel", () => {
     );
 
     await userEvent.click(await screen.findByRole("button", { name: "Declare distribution" }));
+    const dialog = within(screen.getByRole("dialog"));
+    await userEvent.type(dialog.getByLabelText(/Amount/), "100000");
+    await userEvent.click(dialog.getByRole("button", { name: "Declare distribution" }));
 
     await waitFor(() => {
       expect(declareDistribution).toHaveBeenCalledWith("tok", "asset-1", "100000");
@@ -73,7 +86,7 @@ describe("DistributionsPanel", () => {
     });
     render(<DistributionsPanel locale="en" api={api} token="tok" />);
 
-    expect(await screen.findByText("paid")).toBeInTheDocument();
+    expect(await screen.findByText("Paid")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Pay" })).not.toBeInTheDocument();
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AssetsPanel } from "../components/assets-panel";
 import type { ApiClient, AssetViewDto } from "../lib/api";
@@ -33,7 +33,7 @@ describe("AssetsPanel", () => {
     render(<AssetsPanel locale="en" api={api} token="tok" />);
 
     expect(await screen.findByText("Pilot Real Estate SPV")).toBeInTheDocument();
-    expect(screen.getByText("proposed")).toBeInTheDocument();
+    expect(screen.getByText("Proposed")).toBeInTheDocument();
     expect(screen.getByText(/ownership_evidence/)).toBeInTheDocument();
   });
 
@@ -76,17 +76,19 @@ describe("AssetsPanel", () => {
     });
   });
 
-  it("tokenizes_an_approved_asset_with_the_prompted_symbol", async () => {
+  it("tokenizes_an_approved_asset_with_the_symbol_from_the_modal", async () => {
     const approved = asset({ state: "approved" });
     const tokenizeAsset = vi.fn().mockResolvedValue({ tokenAddress: "0xTok1" });
     const api = apiWith({
       listAssets: vi.fn().mockResolvedValue([approved]),
       tokenizeAsset,
     });
-    vi.spyOn(window, "prompt").mockReturnValue("pres");
     render(<AssetsPanel locale="en" api={api} token="tok" />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Tokenize asset" }));
+    const dialog = within(screen.getByRole("dialog"));
+    await userEvent.type(dialog.getByLabelText("Token symbol"), "pres");
+    await userEvent.click(dialog.getByRole("button", { name: "Tokenize asset" }));
 
     await waitFor(() => {
       expect(tokenizeAsset).toHaveBeenCalledWith("tok", "asset-1", "PRES");

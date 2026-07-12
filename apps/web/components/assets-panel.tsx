@@ -5,6 +5,11 @@ import { ApiError } from "../lib/api";
 import type { ApiClient, AssetViewDto } from "../lib/api";
 import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
+import { Address } from "./ui/address";
+import { Badge } from "./ui/badge";
+import { Modal } from "./ui/modal";
+import { Button, Card, EmptyState, Field, SelectField } from "./ui/primitives";
+import { assetStatus } from "./ui/status";
 
 const DOCUMENT_KINDS = [
   "ownership_evidence",
@@ -16,7 +21,7 @@ const DOCUMENT_KINDS = [
 ];
 
 // FR-AO subset of the admin console (FR-PT-3): propose → structure →
-// dossier/custody/checklist → approve.
+// dossier/custody/checklist → approve → tokenize.
 export const AssetsPanel = ({
   locale,
   api,
@@ -54,9 +59,10 @@ export const AssetsPanel = ({
   };
 
   return (
-    <section className="card">
-      <h2>{t.assetsTitle}</h2>
+    <Card title={t.assetsTitle}>
       <form
+        className="field--row"
+        style={{ marginBottom: "var(--space-5)" }}
         onSubmit={(event) => {
           event.preventDefault();
           guard(async () => {
@@ -65,22 +71,27 @@ export const AssetsPanel = ({
           });
         }}
       >
-        <label htmlFor="asset-name">{t.assetNameLabel}</label>
-        <input
-          id="asset-name"
-          required
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-          }}
-        />
-        <button type="submit">{t.proposeAssetButton}</button>
+        <div className="field" style={{ flex: 1, maxWidth: "24rem" }}>
+          <label className="field__label" htmlFor="asset-name">
+            {t.assetNameLabel}
+          </label>
+          <input
+            id="asset-name"
+            className="field__input"
+            required
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+            }}
+          />
+        </div>
+        <Button type="submit">{t.proposeAssetButton}</Button>
       </form>
 
       {assets.length === 0 ? (
-        <p>{t.noAssets}</p>
+        <EmptyState icon="◇">{t.noAssets}</EmptyState>
       ) : (
-        <ul>
+        <div className="stack">
           {assets.map((asset) => (
             <AssetRow
               key={asset.id}
@@ -91,10 +102,14 @@ export const AssetsPanel = ({
               guard={guard}
             />
           ))}
-        </ul>
+        </div>
       )}
-      {error !== undefined && <p role="alert">{error}</p>}
-    </section>
+      {error !== undefined && (
+        <p className="field__error" role="alert">
+          {error}
+        </p>
+      )}
+    </Card>
   );
 };
 
@@ -116,50 +131,68 @@ const AssetRow = ({
   const [docTitle, setDocTitle] = useState("");
   const [custodian, setCustodian] = useState("");
   const [location, setLocation] = useState("");
+  const [tokenizing, setTokenizing] = useState(false);
+  const [symbol, setSymbol] = useState("");
 
   const structuring = asset.state === "in_structuring";
+  const status = assetStatus(asset.state);
 
   return (
-    <li data-testid={`asset-${asset.id}`}>
-      <strong>{asset.name}</strong> — <span>{asset.state}</span>
+    <div
+      data-testid={`asset-${asset.id}`}
+      className="stack"
+      style={{
+        gap: "var(--space-3)",
+        borderBottom: "1px solid var(--border)",
+        paddingBottom: "var(--space-4)",
+      }}
+    >
+      <div className="row row--between">
+        <div className="row">
+          <strong>{asset.name}</strong>
+          <Badge tone={status.tone}>{status.label}</Badge>
+        </div>
+        <div className="row">
+          {asset.tokenAddress !== undefined && (
+            <span className="row text-sm muted">
+              {t.tokenAddressLabel}: <Address value={asset.tokenAddress} />
+            </span>
+          )}
+          {asset.state === "approved" && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setTokenizing(true);
+              }}
+            >
+              {t.tokenizeAssetButton}
+            </Button>
+          )}
+          {asset.state === "proposed" && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                guard(() => api.startStructuring(token, asset.id));
+              }}
+            >
+              {t.startStructuringButton}
+            </Button>
+          )}
+        </div>
+      </div>
+
       {!asset.dossier.complete && asset.dossier.missingKinds.length > 0 && (
-        <p>
+        <p className="text-sm muted">
           {t.missingKindsLabel}: {asset.dossier.missingKinds.join(", ")}
         </p>
       )}
-      {asset.tokenAddress !== undefined && (
-        <p>
-          {t.tokenAddressLabel}: <code>{asset.tokenAddress}</code>
-        </p>
-      )}
-      {asset.state === "approved" && (
-        <button
-          type="button"
-          onClick={() => {
-            const symbol = window.prompt(t.tokenSymbolPrompt) ?? "";
-            if (symbol.trim() !== "") {
-              guard(async () => {
-                await api.tokenizeAsset(token, asset.id, symbol.trim().toUpperCase());
-              });
-            }
-          }}
-        >
-          {t.tokenizeAssetButton}
-        </button>
-      )}
-      {asset.state === "proposed" && (
-        <button
-          type="button"
-          onClick={() => {
-            guard(() => api.startStructuring(token, asset.id));
-          }}
-        >
-          {t.startStructuringButton}
-        </button>
-      )}
+
       {structuring && (
-        <>
+        <div className="stack" style={{ gap: "var(--space-3)" }}>
           <form
+            className="field--row"
             onSubmit={(event) => {
               event.preventDefault();
               guard(async () => {
@@ -172,9 +205,9 @@ const AssetRow = ({
               });
             }}
           >
-            <label htmlFor={`kind-${asset.id}`}>{t.documentKindLabel}</label>
-            <select
+            <SelectField
               id={`kind-${asset.id}`}
+              label={t.documentKindLabel}
               value={docKind}
               onChange={(e) => {
                 setDocKind(e.target.value);
@@ -185,19 +218,28 @@ const AssetRow = ({
                   {kind}
                 </option>
               ))}
-            </select>
-            <label htmlFor={`title-${asset.id}`}>{t.documentTitleLabel}</label>
-            <input
-              id={`title-${asset.id}`}
-              required
-              value={docTitle}
-              onChange={(e) => {
-                setDocTitle(e.target.value);
-              }}
-            />
-            <button type="submit">{t.attachDocumentButton}</button>
+            </SelectField>
+            <div className="field" style={{ flex: 1 }}>
+              <label className="field__label" htmlFor={`title-${asset.id}`}>
+                {t.documentTitleLabel}
+              </label>
+              <input
+                id={`title-${asset.id}`}
+                className="field__input"
+                required
+                value={docTitle}
+                onChange={(e) => {
+                  setDocTitle(e.target.value);
+                }}
+              />
+            </div>
+            <Button type="submit" variant="secondary">
+              {t.attachDocumentButton}
+            </Button>
           </form>
+
           <form
+            className="field--row"
             onSubmit={(event) => {
               event.preventDefault();
               guard(() =>
@@ -205,47 +247,119 @@ const AssetRow = ({
               );
             }}
           >
-            <label htmlFor={`custodian-${asset.id}`}>{t.custodianLabel}</label>
-            <input
-              id={`custodian-${asset.id}`}
-              required
-              value={custodian}
-              onChange={(e) => {
-                setCustodian(e.target.value);
-              }}
-            />
-            <label htmlFor={`location-${asset.id}`}>{t.custodyLocationLabel}</label>
-            <input
-              id={`location-${asset.id}`}
-              required
-              value={location}
-              onChange={(e) => {
-                setLocation(e.target.value);
-              }}
-            />
-            <button type="submit">{t.recordCustodyButton}</button>
+            <div className="field" style={{ flex: 1 }}>
+              <label className="field__label" htmlFor={`custodian-${asset.id}`}>
+                {t.custodianLabel}
+              </label>
+              <input
+                id={`custodian-${asset.id}`}
+                className="field__input"
+                required
+                value={custodian}
+                onChange={(e) => {
+                  setCustodian(e.target.value);
+                }}
+              />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label className="field__label" htmlFor={`location-${asset.id}`}>
+                {t.custodyLocationLabel}
+              </label>
+              <input
+                id={`location-${asset.id}`}
+                className="field__input"
+                required
+                value={location}
+                onChange={(e) => {
+                  setLocation(e.target.value);
+                }}
+              />
+            </div>
+            <Button type="submit" variant="secondary">
+              {t.recordCustodyButton}
+            </Button>
           </form>
-          {asset.checklist.unconfirmed.map((item) => (
-            <button
-              key={item}
+
+          <div className="row">
+            <span className="text-sm muted">{t.checklistLabel}:</span>
+            {asset.checklist.confirmed.map((item) => (
+              <Badge key={item} tone="success">
+                {item}
+              </Badge>
+            ))}
+            {asset.checklist.unconfirmed.map((item) => (
+              <Button
+                key={item}
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  guard(() => api.confirmChecklistItem(token, asset.id, item));
+                }}
+              >
+                {item}
+              </Button>
+            ))}
+          </div>
+
+          <div>
+            <Button
               type="button"
               onClick={() => {
-                guard(() => api.confirmChecklistItem(token, asset.id, item));
+                guard(() => api.approveAsset(token, asset.id));
               }}
             >
-              {item}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              guard(() => api.approveAsset(token, asset.id));
-            }}
-          >
-            {t.approveAssetButton}
-          </button>
-        </>
+              {t.approveAssetButton}
+            </Button>
+          </div>
+        </div>
       )}
-    </li>
+
+      <Modal
+        open={tokenizing}
+        title={`${t.tokenizeAssetButton} — ${asset.name}`}
+        onClose={() => {
+          setTokenizing(false);
+        }}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => {
+                setTokenizing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (symbol.trim() !== "") {
+                  const sym = symbol.trim().toUpperCase();
+                  setTokenizing(false);
+                  setSymbol("");
+                  guard(async () => {
+                    await api.tokenizeAsset(token, asset.id, sym);
+                  });
+                }
+              }}
+            >
+              {t.tokenizeAssetButton}
+            </Button>
+          </>
+        }
+      >
+        <Field
+          id={`symbol-${asset.id}`}
+          label={t.tokenSymbolLabel}
+          hint="2–11 uppercase letters or digits."
+          value={symbol}
+          onChange={(e) => {
+            setSymbol(e.target.value);
+          }}
+        />
+      </Modal>
+    </div>
   );
 };
