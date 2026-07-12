@@ -56,6 +56,59 @@ export interface ApiClient {
     assetId: string,
     symbol: string,
   ): Promise<{ tokenAddress: string }>;
+  ledgerMe(token: string): Promise<LedgerDto>;
+  creditLedger(officerToken: string, investorId: string, amountRial: string): Promise<void>;
+  listOfferings(token: string): Promise<OfferingViewDto[]>;
+  createOffering(officerToken: string, body: CreateOfferingBody): Promise<{ offeringId: string }>;
+  openOffering(officerToken: string, offeringId: string): Promise<void>;
+  closeOffering(officerToken: string, offeringId: string): Promise<CloseResultDto>;
+  subscribeOffering(token: string, offeringId: string, tokens: string): Promise<void>;
+}
+
+export interface LedgerDto {
+  balanceRial: string;
+  heldRial: string;
+}
+
+export type OfferingStateDto = "draft" | "open" | "closed_success" | "closed_failed";
+
+export interface OfferingViewDto {
+  id: string;
+  assetId: string;
+  tokenAddress: string;
+  supply: string;
+  priceRial: string;
+  minPerInvestor: string;
+  maxPerInvestor: string;
+  minimumRaise: string;
+  opensAt: string;
+  closesAt: string;
+  state: OfferingStateDto;
+  totalSubscribed: string;
+  mySubscribed?: string;
+  myAllocation?: { requested: string; allocated: string; costRial: string; refundRial: string };
+}
+
+export interface CreateOfferingBody {
+  assetId: string;
+  supply: string;
+  priceRial: string;
+  minPerInvestor: string;
+  maxPerInvestor: string;
+  minimumRaise: string;
+  opensAt: string;
+  closesAt: string;
+}
+
+export interface CloseResultDto {
+  state: OfferingStateDto;
+  allocations: {
+    investorId: string;
+    requested: string;
+    allocated: string;
+    costRial: string;
+    refundRial: string;
+  }[];
 }
 
 export class ApiError extends Error {
@@ -151,5 +204,28 @@ export const createApiClient = (
           body: { symbol },
         }),
       ),
+    ledgerMe: (token) => json(call("/ledger/me", { token })),
+    creditLedger: async (officerToken, investorId, amountRial) => {
+      await call(`/ledger/${investorId}/credit`, {
+        method: "POST",
+        token: officerToken,
+        body: { amountRial },
+      });
+    },
+    listOfferings: (token) => json(call("/offerings", { token })),
+    createOffering: (officerToken, body) =>
+      json(call("/offerings", { method: "POST", token: officerToken, body })),
+    openOffering: async (officerToken, offeringId) => {
+      await call(`/offerings/${offeringId}/open`, { method: "POST", token: officerToken });
+    },
+    closeOffering: (officerToken, offeringId) =>
+      json(call(`/offerings/${offeringId}/close`, { method: "POST", token: officerToken })),
+    subscribeOffering: async (token, offeringId, tokens) => {
+      await call(`/offerings/${offeringId}/subscribe`, {
+        method: "POST",
+        token,
+        body: { tokens },
+      });
+    },
   };
 };

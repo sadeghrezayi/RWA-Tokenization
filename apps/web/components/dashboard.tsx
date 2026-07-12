@@ -6,6 +6,7 @@ import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { AuthPanel } from "./auth-panel";
 import { KycStatusCard } from "./kyc-status-card";
+import { OfferingsPanel } from "./offerings-panel";
 
 const TOKEN_KEY = "tokenization.token";
 
@@ -38,7 +39,10 @@ export const Dashboard = ({ locale }: { locale: Locale }) => {
           }}
         />
       ) : (
-        <KycStatusCard locale={locale} api={api} token={token} />
+        <>
+          <KycStatusCard locale={locale} api={api} token={token} />
+          <OfferingsPanel locale={locale} api={api} token={token} />
+        </>
       )}
     </>
   );

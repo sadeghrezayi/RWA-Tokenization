@@ -46,6 +46,25 @@ export interface Dictionary {
   tokenAddressLabel: string;
   missingKindsLabel: string;
   noAssets: string;
+  balanceTitle: string;
+  availableLabel: string;
+  heldLabel: string;
+  offeringsTitle: string;
+  noOfferings: string;
+  supplyLabel: string;
+  priceLabel: string;
+  subscribedLabel: string;
+  mySubscriptionLabel: string;
+  myAllocationLabel: string;
+  subscribeButton: string;
+  subscribeTokensPrompt: string;
+  createOfferingButton: string;
+  openOfferingButton: string;
+  closeOfferingButton: string;
+  offeringConfigPrompt: string;
+  creditLedgerButton: string;
+  creditInvestorPrompt: string;
+  creditAmountPrompt: string;
   kycStatusTitle: string;
   submitKycButton: string;
   refreshButton: string;
@@ -91,6 +110,25 @@ export const dictionaries: Record<Locale, Dictionary> = {
     tokenAddressLabel: "Token",
     missingKindsLabel: "Missing",
     noAssets: "No assets yet.",
+    balanceTitle: "Settlement Balance",
+    availableLabel: "Available",
+    heldLabel: "Held in escrow",
+    offeringsTitle: "Offerings",
+    noOfferings: "No offerings yet.",
+    supplyLabel: "Supply",
+    priceLabel: "Price (Rial)",
+    subscribedLabel: "Subscribed",
+    mySubscriptionLabel: "My subscription",
+    myAllocationLabel: "My allocation",
+    subscribeButton: "Subscribe",
+    subscribeTokensPrompt: "How many tokens to subscribe for?",
+    createOfferingButton: "Create offering",
+    openOfferingButton: "Open",
+    closeOfferingButton: "Close",
+    offeringConfigPrompt: "Asset id",
+    creditLedgerButton: "Credit ledger",
+    creditInvestorPrompt: "Investor id",
+    creditAmountPrompt: "Amount (Rial) to credit",
     kycStatusTitle: "KYC Status",
     submitKycButton: "Submit KYC documents",
     refreshButton: "Refresh",

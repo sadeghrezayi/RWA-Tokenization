@@ -2,6 +2,7 @@
 
 import { use, useMemo, useState } from "react";
 import { notFound } from "next/navigation";
+import { AdminOfferingsPanel } from "../../../components/admin-offerings-panel";
 import { AssetsPanel } from "../../../components/assets-panel";
 import { OfficerPanel } from "../../../components/officer-panel";
 import { createApiClient } from "../../../lib/api";
@@ -17,7 +18,12 @@ export default function AdminPage({ params }: { params: Promise<{ locale: string
   return (
     <>
       <OfficerPanel locale={locale} api={api} onAuthed={setToken} />
-      {token !== undefined && <AssetsPanel locale={locale} api={api} token={token} />}
+      {token !== undefined && (
+        <>
+          <AssetsPanel locale={locale} api={api} token={token} />
+          <AdminOfferingsPanel locale={locale} api={api} token={token} />
+        </>
+      )}
     </>
   );
 }
