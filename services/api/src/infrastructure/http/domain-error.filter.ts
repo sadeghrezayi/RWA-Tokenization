@@ -36,6 +36,15 @@ import {
   SubscriptionLimitError,
   SubscriptionWindowClosedError,
 } from "../../domain/offerings/errors.js";
+import {
+  AssetNotTokenizedForDistributionError,
+  DistributionNotFoundError,
+  NoHoldersError,
+} from "../../application/distributions/errors.js";
+import {
+  InvalidDistributionError,
+  InvalidDistributionTransitionError,
+} from "../../domain/distributions/errors.js";
 
 interface MinimalResponse {
   status(code: number): { json(body: unknown): void };
@@ -89,5 +98,10 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof SubscriptionWindowClosedError) return 409;
   if (exception instanceof InvalidOfferingConfigError) return 400;
   if (exception instanceof SubscriptionLimitError) return 400;
+  if (exception instanceof DistributionNotFoundError) return 404;
+  if (exception instanceof AssetNotTokenizedForDistributionError) return 409;
+  if (exception instanceof NoHoldersError) return 409;
+  if (exception instanceof InvalidDistributionTransitionError) return 409;
+  if (exception instanceof InvalidDistributionError) return 400;
   return 500;
 };

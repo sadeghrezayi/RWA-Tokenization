@@ -49,6 +49,20 @@ import { LedgerController } from "./infrastructure/http/ledger.controller.js";
 import { OfferingsController } from "./infrastructure/http/offerings.controller.js";
 import { PrismaOfferingRepository } from "./infrastructure/persistence/prisma-offering-repository.js";
 import { PrismaSettlementRail } from "./infrastructure/settlement/prisma-settlement-rail.js";
+import { DeclareDistribution } from "./application/distributions/declare-distribution.js";
+import { PayDistribution } from "./application/distributions/pay-distribution.js";
+import {
+  GetDistribution,
+  ListDistributions,
+} from "./application/distributions/get-distribution.js";
+import type {
+  DistributionLedger,
+  DistributionRepository,
+  HolderSnapshotProvider,
+} from "./application/distributions/ports.js";
+import { TrexHolderSnapshotProvider } from "./infrastructure/chain/trex-holder-snapshot-provider.js";
+import { DistributionsController } from "./infrastructure/http/distributions.controller.js";
+import { PrismaDistributionRepository } from "./infrastructure/persistence/prisma-distribution-repository.js";
 import { IpfsDocumentStore } from "./infrastructure/documents/ipfs-document-store.js";
 import { AssetsController } from "./infrastructure/http/assets.controller.js";
 import {
@@ -81,6 +95,9 @@ export const OFFERING_REPOSITORY = "OFFERING_REPOSITORY";
 export const SETTLEMENT_RAIL = "SETTLEMENT_RAIL";
 export const ASSET_TOKEN_ISSUER = "ASSET_TOKEN_ISSUER";
 export const CLOCK = "CLOCK";
+export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
+export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
+export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
 
 // Composition root: the only place where ports meet their adapters (see
 // docs/engineering/architecture.md). Use-cases stay framework-free — they are
@@ -92,6 +109,7 @@ export const CLOCK = "CLOCK";
     AssetsController,
     OfferingsController,
     LedgerController,
+    DistributionsController,
   ],
   providers: [
     PrismaService,
@@ -359,6 +377,64 @@ export const CLOCK = "CLOCK";
       provide: ListOfferings,
       useFactory: (offerings: OfferingRepository) => new ListOfferings(offerings),
       inject: [OFFERING_REPOSITORY],
+    },
+    {
+      provide: DISTRIBUTION_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaDistributionRepository(prisma),
+      inject: [PrismaService],
+    },
+    { provide: DISTRIBUTION_LEDGER, useExisting: PrismaSettlementRail },
+    {
+      // Real on-chain holder snapshot when the devnet env is configured;
+      // otherwise fail loudly (a wrong snapshot would misallocate income).
+      provide: HOLDER_SNAPSHOT_PROVIDER,
+      useFactory: (prisma: PrismaService): HolderSnapshotProvider => {
+        const rpcUrl = process.env.DEVNET_RPC_URL;
+        if (rpcUrl) {
+          return new TrexHolderSnapshotProvider(prisma, rpcUrl);
+        }
+        return {
+          snapshot: () =>
+            Promise.reject(new Error("holder snapshot requires the devnet chain configuration")),
+        };
+      },
+      inject: [PrismaService],
+    },
+    {
+      provide: DeclareDistribution,
+      useFactory: (
+        distributions: DistributionRepository,
+        assets: AssetRepository,
+        snapshots: HolderSnapshotProvider,
+        ids: IdGenerator,
+        events: AssetEventLog,
+      ) => new DeclareDistribution(distributions, assets, snapshots, ids, events),
+      inject: [
+        DISTRIBUTION_REPOSITORY,
+        ASSET_REPOSITORY,
+        HOLDER_SNAPSHOT_PROVIDER,
+        ID_GENERATOR,
+        ASSET_EVENT_LOG,
+      ],
+    },
+    {
+      provide: PayDistribution,
+      useFactory: (
+        distributions: DistributionRepository,
+        ledger: DistributionLedger,
+        events: AssetEventLog,
+      ) => new PayDistribution(distributions, ledger, events),
+      inject: [DISTRIBUTION_REPOSITORY, DISTRIBUTION_LEDGER, ASSET_EVENT_LOG],
+    },
+    {
+      provide: GetDistribution,
+      useFactory: (distributions: DistributionRepository) => new GetDistribution(distributions),
+      inject: [DISTRIBUTION_REPOSITORY],
+    },
+    {
+      provide: ListDistributions,
+      useFactory: (distributions: DistributionRepository) => new ListDistributions(distributions),
+      inject: [DISTRIBUTION_REPOSITORY],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },

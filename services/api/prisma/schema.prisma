@@ -66,6 +66,36 @@ model AssetEvent {
   @@map("asset_events")
 }
 
+enum DistributionState {
+  declared
+  paid
+}
+
+model Distribution {
+  id              String               @id
+  assetId         String               @map("asset_id")
+  tokenAddress    String               @map("token_address")
+  totalAmountRial BigInt               @map("total_amount_rial")
+  state           DistributionState
+  payouts         DistributionPayout[]
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  @@map("distributions")
+}
+
+model DistributionPayout {
+  id             BigInt       @id @default(autoincrement())
+  distributionId String       @map("distribution_id")
+  distribution   Distribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  investorId     String       @map("investor_id")
+  tokens         BigInt
+  amountRial     BigInt       @map("amount_rial")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@map("distribution_payouts")
+}
+
 enum OfferingState {
   draft
   open
