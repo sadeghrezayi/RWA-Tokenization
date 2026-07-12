@@ -46,11 +46,9 @@ export interface Dictionary {
   recordCustodyButton: string;
   approveAssetButton: string;
   tokenizeAssetButton: string;
-  tokenSymbolPrompt: string;
   tokenAddressLabel: string;
   missingKindsLabel: string;
   noAssets: string;
-  balanceTitle: string;
   availableLabel: string;
   heldLabel: string;
   offeringsTitle: string;
@@ -61,25 +59,19 @@ export interface Dictionary {
   mySubscriptionLabel: string;
   myAllocationLabel: string;
   subscribeButton: string;
-  subscribeTokensPrompt: string;
   subscribeTokensLabel: string;
   confirmSubscribe: string;
   subscribeSuccess: string;
   createOfferingButton: string;
   openOfferingButton: string;
   closeOfferingButton: string;
-  offeringConfigPrompt: string;
   creditLedgerButton: string;
-  creditInvestorPrompt: string;
-  creditAmountPrompt: string;
   distributionsTitle: string;
   noDistributions: string;
   declareDistributionButton: string;
-  distributionAmountPrompt: string;
   payDistributionButton: string;
   reconciliationLabel: string;
   balancedLabel: string;
-  payoutsLabel: string;
   kycStatusTitle: string;
   submitKycButton: string;
   refreshButton: string;
@@ -140,11 +132,9 @@ export const dictionaries: Record<Locale, Dictionary> = {
     recordCustodyButton: "Record custody",
     approveAssetButton: "Approve asset",
     tokenizeAssetButton: "Tokenize asset",
-    tokenSymbolPrompt: "Token symbol (2-11 uppercase letters/digits)",
     tokenAddressLabel: "Token",
     missingKindsLabel: "Missing",
     noAssets: "No assets yet.",
-    balanceTitle: "Settlement Balance",
     availableLabel: "Available",
     heldLabel: "Held in escrow",
     offeringsTitle: "Offerings",
@@ -155,25 +145,19 @@ export const dictionaries: Record<Locale, Dictionary> = {
     mySubscriptionLabel: "My subscription",
     myAllocationLabel: "My allocation",
     subscribeButton: "Subscribe",
-    subscribeTokensPrompt: "How many tokens to subscribe for?",
     subscribeTokensLabel: "Number of tokens",
     confirmSubscribe: "Confirm subscription",
     subscribeSuccess: "Subscription submitted.",
     createOfferingButton: "Create offering",
     openOfferingButton: "Open",
     closeOfferingButton: "Close",
-    offeringConfigPrompt: "Asset id",
     creditLedgerButton: "Credit ledger",
-    creditInvestorPrompt: "Investor id",
-    creditAmountPrompt: "Amount (Rial) to credit",
     distributionsTitle: "Income Distributions",
     noDistributions: "No distributions yet.",
     declareDistributionButton: "Declare distribution",
-    distributionAmountPrompt: "Total income to distribute (Rial)",
     payDistributionButton: "Pay",
     reconciliationLabel: "Reconciliation",
     balancedLabel: "balanced",
-    payoutsLabel: "Payouts",
     kycStatusTitle: "KYC Status",
     submitKycButton: "Submit KYC documents",
     refreshButton: "Refresh",
