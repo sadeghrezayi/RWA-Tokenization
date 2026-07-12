@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import type { ApiClient, InvestorViewDto } from "../lib/api";
 import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
+import { Badge } from "./ui/badge";
+import { Button, Card } from "./ui/primitives";
+import { kycStatus } from "./ui/status";
 
 export interface KycStatusCardProps {
   locale: Locale;
@@ -29,10 +32,6 @@ export const KycStatusCard = ({ locale, api, token }: KycStatusCardProps) => {
     void refresh();
   }, [refresh]);
 
-  if (!investor) {
-    return <section className="card">{error !== undefined && <p role="alert">{error}</p>}</section>;
-  }
-
   const submitKyc = async () => {
     try {
       await api.submitKyc(token);
@@ -42,35 +41,60 @@ export const KycStatusCard = ({ locale, api, token }: KycStatusCardProps) => {
     }
   };
 
+  const status = investor ? kycStatus(investor.kycState) : undefined;
+
   return (
-    <section className="card">
-      <h2>{t.kycStatusTitle}</h2>
-      <p data-testid="kyc-state">{t.kycStates[investor.kycState]}</p>
-      <p>{investor.eligibleForClaims ? t.eligible : t.notEligible}</p>
-      {investor.kycRejectionReason !== undefined && (
-        <p>
-          {t.rejectionReasonLabel}: {investor.kycRejectionReason}
-        </p>
+    <Card
+      title={t.kycStatusTitle}
+      actions={status && <Badge tone={status.tone}>{status.label}</Badge>}
+    >
+      {!investor ? (
+        error !== undefined ? (
+          <p className="field__error" role="alert">
+            {error}
+          </p>
+        ) : (
+          <p className="muted">Loading…</p>
+        )
+      ) : (
+        <div className="stack">
+          <p className={investor.eligibleForClaims ? "" : "muted"}>
+            {investor.eligibleForClaims ? t.eligible : t.notEligible}
+          </p>
+          {investor.kycRejectionReason !== undefined && (
+            <p className="field__error">
+              {t.rejectionReasonLabel}: {investor.kycRejectionReason}
+            </p>
+          )}
+          <div className="row">
+            {investor.kycState === "draft" && (
+              <Button
+                type="button"
+                onClick={() => {
+                  void submitKyc();
+                }}
+              >
+                {t.submitKycButton}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                void refresh();
+              }}
+            >
+              {t.refreshButton}
+            </Button>
+          </div>
+          {error !== undefined && (
+            <p className="field__error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
       )}
-      {investor.kycState === "draft" && (
-        <button
-          type="button"
-          onClick={() => {
-            void submitKyc();
-          }}
-        >
-          {t.submitKycButton}
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={() => {
-          void refresh();
-        }}
-      >
-        {t.refreshButton}
-      </button>
-      {error !== undefined && <p role="alert">{error}</p>}
-    </section>
+    </Card>
   );
 };

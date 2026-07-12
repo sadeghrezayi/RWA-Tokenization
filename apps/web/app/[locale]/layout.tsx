@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { ToastProvider } from "../../components/ui/toast";
 import { dictionaries, direction, isLocale, locales } from "../../lib/i18n";
 import "../globals.css";
+import "../components.css";
 
 export const generateStaticParams = () => locales.map((locale) => ({ locale }));
 
@@ -21,11 +23,18 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} dir={direction[locale]}>
       <body>
-        <header>
-          <h1>{t.appTitle}</h1>
-          {/* Locale switcher returns here when a second locale is added (PRD §3 C6). */}
-        </header>
-        <main>{children}</main>
+        <ToastProvider>
+          <header className="app-header">
+            <span className="app-header__brand">
+              <span className="app-header__logo" aria-hidden="true">
+                ◈
+              </span>
+              {t.appTitle}
+            </span>
+            <span className="app-header__right">Pilot · self-hosted</span>
+          </header>
+          <main className="app-main">{children}</main>
+        </ToastProvider>
       </body>
     </html>
   );

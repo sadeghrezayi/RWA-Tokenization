@@ -5,6 +5,7 @@ import { ApiError } from "../lib/api";
 import type { ApiClient } from "../lib/api";
 import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
+import { Button, Card, Field } from "./ui/primitives";
 
 export interface AuthPanelProps {
   locale: Locale;
@@ -38,17 +39,18 @@ export const AuthPanel = ({ locale, api, onAuthed }: AuthPanelProps) => {
   };
 
   return (
-    <section className="card">
-      <h2>{t.registerTitle}</h2>
+    <Card title={t.registerTitle} subtitle="Sign in, or create an account to get started.">
       <form
+        className="stack"
+        style={{ maxWidth: "24rem" }}
         onSubmit={(event) => {
           event.preventDefault();
           void run(login);
         }}
       >
-        <label htmlFor="auth-email">{t.emailLabel}</label>
-        <input
+        <Field
           id="auth-email"
+          label={t.emailLabel}
           type="email"
           required
           value={email}
@@ -56,22 +58,24 @@ export const AuthPanel = ({ locale, api, onAuthed }: AuthPanelProps) => {
             setEmail(e.target.value);
           }}
         />
-        <label htmlFor="auth-password">{t.passwordLabel}</label>
-        <input
+        <Field
           id="auth-password"
+          label={t.passwordLabel}
           type="password"
           required
+          hint="At least 8 characters."
           value={password}
           onChange={(e) => {
             setPassword(e.target.value);
           }}
         />
-        <div>
-          <button type="submit" disabled={busy}>
+        <div className="row">
+          <Button type="submit" loading={busy}>
             {t.loginButton}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
             disabled={busy}
             onClick={() => {
               void run(async () => {
@@ -81,10 +85,14 @@ export const AuthPanel = ({ locale, api, onAuthed }: AuthPanelProps) => {
             }}
           >
             {t.registerButton}
-          </button>
+          </Button>
         </div>
+        {error !== undefined && (
+          <p className="field__error" role="alert">
+            {error}
+          </p>
+        )}
       </form>
-      {error !== undefined && <p role="alert">{error}</p>}
-    </section>
+    </Card>
   );
 };

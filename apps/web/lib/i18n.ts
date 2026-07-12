@@ -18,6 +18,8 @@ export interface Dictionary {
   languageName: string;
   appTitle: string;
   dashboardTitle: string;
+  dashboardSubtitle: string;
+  logout: string;
   registerTitle: string;
   emailLabel: string;
   passwordLabel: string;
@@ -58,6 +60,9 @@ export interface Dictionary {
   myAllocationLabel: string;
   subscribeButton: string;
   subscribeTokensPrompt: string;
+  subscribeTokensLabel: string;
+  confirmSubscribe: string;
+  subscribeSuccess: string;
   createOfferingButton: string;
   openOfferingButton: string;
   closeOfferingButton: string;
@@ -90,6 +95,8 @@ export const dictionaries: Record<Locale, Dictionary> = {
     languageName: "English",
     appTitle: "Asset Tokenization Platform",
     dashboardTitle: "Investor Dashboard",
+    dashboardSubtitle: "Your KYC status, settlement balance, and available offerings.",
+    logout: "Log out",
     registerTitle: "Investor Access",
     emailLabel: "Email",
     passwordLabel: "Password",
@@ -130,6 +137,9 @@ export const dictionaries: Record<Locale, Dictionary> = {
     myAllocationLabel: "My allocation",
     subscribeButton: "Subscribe",
     subscribeTokensPrompt: "How many tokens to subscribe for?",
+    subscribeTokensLabel: "Number of tokens",
+    confirmSubscribe: "Confirm subscription",
+    subscribeSuccess: "Subscription submitted.",
     createOfferingButton: "Create offering",
     openOfferingButton: "Open",
     closeOfferingButton: "Close",

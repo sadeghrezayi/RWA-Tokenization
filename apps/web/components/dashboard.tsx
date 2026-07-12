@@ -7,6 +7,7 @@ import type { Locale } from "../lib/i18n";
 import { AuthPanel } from "./auth-panel";
 import { KycStatusCard } from "./kyc-status-card";
 import { OfferingsPanel } from "./offerings-panel";
+import { Button } from "./ui/primitives";
 
 const TOKEN_KEY = "tokenization.token";
 
@@ -27,8 +28,26 @@ export const Dashboard = ({ locale }: { locale: Locale }) => {
   }
 
   return (
-    <>
-      <h2>{t.dashboardTitle}</h2>
+    <div className="stack">
+      <div className="row row--between">
+        <div>
+          <h1 className="page-title">{t.dashboardTitle}</h1>
+          <p className="page-subtitle">{t.dashboardSubtitle}</p>
+        </div>
+        {token !== undefined && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              sessionStorage.removeItem(TOKEN_KEY);
+              setToken(undefined);
+            }}
+          >
+            {t.logout}
+          </Button>
+        )}
+      </div>
+
       {token === undefined ? (
         <AuthPanel
           locale={locale}
@@ -44,6 +63,6 @@ export const Dashboard = ({ locale }: { locale: Locale }) => {
           <OfferingsPanel locale={locale} api={api} token={token} />
         </>
       )}
-    </>
+    </div>
   );
 };

@@ -30,37 +30,45 @@ const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
     ...overrides,
   }) as ApiClient;
 
+const openSubscribeModal = async () => {
+  await userEvent.click(await screen.findByRole("button", { name: "Subscribe" }));
+  await userEvent.type(screen.getByLabelText("Number of tokens"), "10");
+  await userEvent.click(screen.getByRole("button", { name: "Confirm subscription" }));
+};
+
 describe("OfferingsPanel (investor)", () => {
-  it("shows_the_settlement_balance", async () => {
+  it("shows_the_settlement_balance_formatted_as_rial", async () => {
     const api = apiWith({
       ledgerMe: vi.fn().mockResolvedValue({ balanceRial: "13000", heldRial: "80000" }),
     });
     render(<OfferingsPanel locale="en" api={api} token="tok" />);
 
-    expect(await screen.findByText(/13000/)).toBeInTheDocument();
-    expect(screen.getByText(/80000/)).toBeInTheDocument();
+    expect(await screen.findByText(/13,000 ﷼/)).toBeInTheDocument();
+    expect(screen.getByText(/80,000 ﷼/)).toBeInTheDocument();
   });
 
-  it("lists_open_offerings_with_supply_and_price", async () => {
+  it("lists_open_offerings_by_name_with_a_status_badge_and_subscribe", async () => {
     const api = apiWith({ listOfferings: vi.fn().mockResolvedValue([offering({})]) });
     render(<OfferingsPanel locale="en" api={api} token="tok" />);
 
-    expect(await screen.findByText(/asset-1/)).toBeInTheDocument();
-    expect(screen.getByText(/100/)).toBeInTheDocument();
+    expect(await screen.findByText("Pilot Real Estate SPV")).toBeInTheDocument();
+    expect(screen.getByText("Open")).toBeInTheDocument();
+    expect(screen.getByText(/30 \/ 100/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Subscribe" })).toBeInTheDocument();
+    // P2: the raw UUID is never shown as a label.
+    expect(screen.queryByText("asset-1")).not.toBeInTheDocument();
   });
 
-  it("subscribes_with_the_prompted_token_amount_and_refreshes", async () => {
+  it("subscribes_with_the_amount_entered_in_the_modal_and_refreshes", async () => {
     const subscribeOffering = vi.fn().mockResolvedValue(undefined);
     const listOfferings = vi
       .fn()
       .mockResolvedValueOnce([offering({})])
       .mockResolvedValueOnce([offering({ totalSubscribed: "40", mySubscribed: "10" })]);
     const api = apiWith({ subscribeOffering, listOfferings });
-    vi.spyOn(window, "prompt").mockReturnValue("10");
     render(<OfferingsPanel locale="en" api={api} token="tok" />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Subscribe" }));
+    await openSubscribeModal();
 
     await waitFor(() => {
       expect(subscribeOffering).toHaveBeenCalledWith("tok", "off-1", "10");
@@ -85,20 +93,20 @@ describe("OfferingsPanel (investor)", () => {
     render(<OfferingsPanel locale="en" api={api} token="tok" />);
 
     expect(await screen.findByText(/33/)).toBeInTheDocument();
+    expect(screen.getByText("Closed — funded")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Subscribe" })).not.toBeInTheDocument();
   });
 
-  it("shows_the_api_error_when_subscription_fails", async () => {
+  it("shows_the_api_error_in_the_modal_when_subscription_fails", async () => {
     const api = apiWith({
       listOfferings: vi.fn().mockResolvedValue([offering({})]),
       subscribeOffering: vi
         .fn()
         .mockRejectedValue(new ApiError(409, "insufficient ledger balance")),
     });
-    vi.spyOn(window, "prompt").mockReturnValue("10");
     render(<OfferingsPanel locale="en" api={api} token="tok" />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Subscribe" }));
+    await openSubscribeModal();
     expect(await screen.findByRole("alert")).toHaveTextContent("insufficient ledger balance");
   });
 });
