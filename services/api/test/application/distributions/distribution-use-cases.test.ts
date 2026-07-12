@@ -59,8 +59,8 @@ const setup = async () => {
       events,
     ),
     pay: new PayDistribution(distributions, ledger, events),
-    get: new GetDistribution(distributions),
-    list: new ListDistributions(distributions),
+    get: new GetDistribution(distributions, assets),
+    list: new ListDistributions(distributions, assets),
   };
 };
 
@@ -76,6 +76,7 @@ describe("DeclareDistribution", () => {
 
     const view = await s.get.execute({ distributionId });
     expect(view.state).toBe("declared");
+    expect(view.assetName).toBe("Pilot Real Estate SPV");
     expect(view.totalAmountRial).toBe("100000");
     expect(view.payouts).toEqual([
       { investorId: "a", tokens: "67", amountRial: "67000" },

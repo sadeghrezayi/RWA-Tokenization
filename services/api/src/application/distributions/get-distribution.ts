@@ -1,11 +1,14 @@
 import type { Distribution, DistributionState } from "../../domain/distributions/distribution.js";
+import type { AssetRepository } from "../assets/ports.js";
 import { DistributionNotFoundError } from "./errors.js";
 import type { DistributionRepository } from "./ports.js";
 
-// Read model with the FR-YD-1 reconciliation report. bigints as strings.
+// Read model with the FR-YD-1 reconciliation report. bigints as strings;
+// assetName (P2) so the UI leads with a name, not the asset UUID.
 export interface DistributionView {
   id: string;
   assetId: string;
+  assetName: string;
   tokenAddress: string;
   totalAmountRial: string;
   state: DistributionState;
@@ -13,11 +16,15 @@ export interface DistributionView {
   reconciliation: { declared: string; allocated: string; balanced: boolean };
 }
 
-export const toDistributionView = (distribution: Distribution): DistributionView => {
+export const toDistributionView = (
+  distribution: Distribution,
+  assetName?: string,
+): DistributionView => {
   const allocated = distribution.payouts.reduce((sum, p) => sum + p.amountRial, 0n);
   return {
     id: distribution.id,
     assetId: distribution.assetId,
+    assetName: assetName ?? `Asset ${distribution.assetId.slice(0, 8)}`,
     tokenAddress: distribution.tokenAddress,
     totalAmountRial: String(distribution.totalAmountRial),
     state: distribution.state,
@@ -46,17 +53,30 @@ export const loadDistribution = async (
 };
 
 export class GetDistribution {
-  constructor(private readonly distributions: DistributionRepository) {}
+  constructor(
+    private readonly distributions: DistributionRepository,
+    private readonly assets: AssetRepository,
+  ) {}
 
   async execute(input: { distributionId: string }): Promise<DistributionView> {
-    return toDistributionView(await loadDistribution(this.distributions, input.distributionId));
+    const distribution = await loadDistribution(this.distributions, input.distributionId);
+    const asset = await this.assets.findById(distribution.assetId);
+    return toDistributionView(distribution, asset?.name);
   }
 }
 
 export class ListDistributions {
-  constructor(private readonly distributions: DistributionRepository) {}
+  constructor(
+    private readonly distributions: DistributionRepository,
+    private readonly assets: AssetRepository,
+  ) {}
 
   async execute(): Promise<DistributionView[]> {
-    return (await this.distributions.findAll()).map(toDistributionView);
+    const [distributions, all] = await Promise.all([
+      this.distributions.findAll(),
+      this.assets.findAll(),
+    ]);
+    const names = new Map(all.map((a) => [a.id, a.name]));
+    return distributions.map((d) => toDistributionView(d, names.get(d.assetId)));
   }
 }

@@ -77,6 +77,7 @@ export type DistributionStateDto = "declared" | "paid";
 export interface DistributionViewDto {
   id: string;
   assetId: string;
+  assetName: string;
   tokenAddress: string;
   totalAmountRial: string;
   state: DistributionStateDto;
@@ -94,6 +95,7 @@ export type OfferingStateDto = "draft" | "open" | "closed_success" | "closed_fai
 export interface OfferingViewDto {
   id: string;
   assetId: string;
+  assetName: string;
   tokenAddress: string;
   supply: string;
   priceRial: string;

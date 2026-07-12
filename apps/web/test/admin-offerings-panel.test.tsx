@@ -8,6 +8,7 @@ import type { ApiClient, OfferingViewDto } from "../lib/api";
 const offering = (overrides: Partial<OfferingViewDto>): OfferingViewDto => ({
   id: "off-1",
   assetId: "asset-1",
+  assetName: "Pilot Real Estate SPV",
   tokenAddress: "0xToken1",
   supply: "100",
   priceRial: "1000",

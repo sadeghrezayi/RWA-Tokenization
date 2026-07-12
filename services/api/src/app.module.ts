@@ -370,13 +370,15 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
     },
     {
       provide: GetOffering,
-      useFactory: (offerings: OfferingRepository) => new GetOffering(offerings),
-      inject: [OFFERING_REPOSITORY],
+      useFactory: (offerings: OfferingRepository, assets: AssetRepository) =>
+        new GetOffering(offerings, assets),
+      inject: [OFFERING_REPOSITORY, ASSET_REPOSITORY],
     },
     {
       provide: ListOfferings,
-      useFactory: (offerings: OfferingRepository) => new ListOfferings(offerings),
-      inject: [OFFERING_REPOSITORY],
+      useFactory: (offerings: OfferingRepository, assets: AssetRepository) =>
+        new ListOfferings(offerings, assets),
+      inject: [OFFERING_REPOSITORY, ASSET_REPOSITORY],
     },
     {
       provide: DISTRIBUTION_REPOSITORY,
@@ -428,13 +430,15 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
     },
     {
       provide: GetDistribution,
-      useFactory: (distributions: DistributionRepository) => new GetDistribution(distributions),
-      inject: [DISTRIBUTION_REPOSITORY],
+      useFactory: (distributions: DistributionRepository, assets: AssetRepository) =>
+        new GetDistribution(distributions, assets),
+      inject: [DISTRIBUTION_REPOSITORY, ASSET_REPOSITORY],
     },
     {
       provide: ListDistributions,
-      useFactory: (distributions: DistributionRepository) => new ListDistributions(distributions),
-      inject: [DISTRIBUTION_REPOSITORY],
+      useFactory: (distributions: DistributionRepository, assets: AssetRepository) =>
+        new ListDistributions(distributions, assets),
+      inject: [DISTRIBUTION_REPOSITORY, ASSET_REPOSITORY],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },

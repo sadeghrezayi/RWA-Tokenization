@@ -8,6 +8,7 @@ import type { ApiClient, DistributionViewDto } from "../lib/api";
 const distribution = (overrides: Partial<DistributionViewDto>): DistributionViewDto => ({
   id: "dist-1",
   assetId: "asset-1",
+  assetName: "Pilot Real Estate SPV",
   tokenAddress: "0xToken1",
   totalAmountRial: "100000",
   state: "declared",

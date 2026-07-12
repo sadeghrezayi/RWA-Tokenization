@@ -23,8 +23,12 @@ const closed = Offering.create({
   .close(AFTER);
 
 describe("toOfferingView", () => {
-  it("serializes_amounts_as_strings_and_never_lists_other_investors", () => {
-    const view = toOfferingView(closed, "inv-2");
+  it("serializes_amounts_as_strings_never_lists_other_investors_and_carries_the_asset_name", () => {
+    const view = toOfferingView(closed, {
+      assetName: "Demo Real Estate SPV",
+      forInvestor: "inv-2",
+    });
+    expect(view.assetName).toBe("Demo Real Estate SPV");
     expect(view.supply).toBe("100");
     expect(view.totalSubscribed).toBe("120");
     expect(view.mySubscribed).toBe("40");
@@ -38,7 +42,7 @@ describe("toOfferingView", () => {
   });
 
   it("omits_personal_fields_without_an_investor_context", () => {
-    const view = toOfferingView(closed);
+    const view = toOfferingView(closed, { assetName: "Demo Real Estate SPV" });
     expect(view.mySubscribed).toBeUndefined();
     expect(view.myAllocation).toBeUndefined();
   });

@@ -229,6 +229,8 @@ describe("Offerings API (e2e, real Postgres + ledger, fake chain)", () => {
     // Investor view: own numbers only, no other identities leaked.
     const view = await http.get(`/offerings/${offeringId}`).set(auth(bob)).expect(200);
     expect(view.body).toMatchObject({
+      // P2: the view carries the human asset name, not just the UUID.
+      assetName: "Offering SPV",
       state: "closed_success",
       totalSubscribed: "120",
       mySubscribed: "40",
