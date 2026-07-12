@@ -63,6 +63,25 @@ export interface ApiClient {
   openOffering(officerToken: string, offeringId: string): Promise<void>;
   closeOffering(officerToken: string, offeringId: string): Promise<CloseResultDto>;
   subscribeOffering(token: string, offeringId: string, tokens: string): Promise<void>;
+  listDistributions(officerToken: string): Promise<DistributionViewDto[]>;
+  declareDistribution(
+    officerToken: string,
+    assetId: string,
+    totalAmountRial: string,
+  ): Promise<{ distributionId: string }>;
+  payDistribution(officerToken: string, distributionId: string): Promise<void>;
+}
+
+export type DistributionStateDto = "declared" | "paid";
+
+export interface DistributionViewDto {
+  id: string;
+  assetId: string;
+  tokenAddress: string;
+  totalAmountRial: string;
+  state: DistributionStateDto;
+  payouts: { investorId: string; tokens: string; amountRial: string }[];
+  reconciliation: { declared: string; allocated: string; balanced: boolean };
 }
 
 export interface LedgerDto {
@@ -226,6 +245,18 @@ export const createApiClient = (
         token,
         body: { tokens },
       });
+    },
+    listDistributions: (officerToken) => json(call("/distributions", { token: officerToken })),
+    declareDistribution: (officerToken, assetId, totalAmountRial) =>
+      json(
+        call("/distributions", {
+          method: "POST",
+          token: officerToken,
+          body: { assetId, totalAmountRial },
+        }),
+      ),
+    payDistribution: async (officerToken, distributionId) => {
+      await call(`/distributions/${distributionId}/pay`, { method: "POST", token: officerToken });
     },
   };
 };

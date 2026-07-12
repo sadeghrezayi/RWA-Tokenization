@@ -4,6 +4,7 @@ import { use, useMemo, useState } from "react";
 import { notFound } from "next/navigation";
 import { AdminOfferingsPanel } from "../../../components/admin-offerings-panel";
 import { AssetsPanel } from "../../../components/assets-panel";
+import { DistributionsPanel } from "../../../components/distributions-panel";
 import { OfficerPanel } from "../../../components/officer-panel";
 import { createApiClient } from "../../../lib/api";
 import { isLocale } from "../../../lib/i18n";
@@ -22,6 +23,7 @@ export default function AdminPage({ params }: { params: Promise<{ locale: string
         <>
           <AssetsPanel locale={locale} api={api} token={token} />
           <AdminOfferingsPanel locale={locale} api={api} token={token} />
+          <DistributionsPanel locale={locale} api={api} token={token} />
         </>
       )}
     </>
