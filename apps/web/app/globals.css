@@ -1,79 +1,181 @@
-* {
+/* ============================================================================
+   Design tokens — hand-rolled design system (no UI framework dependency).
+   A calm, trustworthy fintech palette. Theme-aware (light default + dark).
+   Spacing on an 8px rhythm; a modular type scale.
+   ========================================================================== */
+:root {
+  /* Neutral ramp (slate) */
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+
+  /* Brand */
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+
+  /* Semantic (each: solid + soft bg + text-on-soft) */
+  --success: #16a34a;
+  --success-soft: #dcfce7;
+  --success-text: #166534;
+  --warning: #d97706;
+  --warning-soft: #fef3c7;
+  --warning-text: #92400e;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --danger-text: #991b1b;
+  --info: #0ea5e9;
+  --info-soft: #e0f2fe;
+  --info-text: #075985;
+
+  /* Semantic surface roles (remapped in dark) */
+  --bg: var(--slate-100);
+  --surface: #ffffff;
+  --surface-2: var(--slate-50);
+  --border: var(--slate-200);
+  --border-strong: var(--slate-300);
+  --text: var(--slate-900);
+  --text-muted: var(--slate-500);
+  --text-inverse: #ffffff;
+  --brand: var(--brand-600);
+  --brand-hover: var(--brand-700);
+  --brand-soft: var(--brand-50);
+  --header-bg: var(--slate-900);
+  --ring: var(--brand-500);
+
+  /* Spacing (8px rhythm) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+
+  /* Type scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, "Menlo", monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.16);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --surface: #131c2e;
+    --surface-2: #0f1826;
+    --border: #24324a;
+    --border-strong: #33445f;
+    --text: #e7ecf3;
+    --text-muted: #93a1b5;
+    --brand: var(--brand-500);
+    --brand-hover: var(--brand-600);
+    --brand-soft: #17233c;
+    --header-bg: #0a101c;
+    --success-soft: #10331f;
+    --success-text: #86efac;
+    --warning-soft: #3a2a0c;
+    --warning-text: #fcd34d;
+    --danger-soft: #3a1618;
+    --danger-text: #fca5a5;
+    --info-soft: #0c2a3d;
+    --info-text: #7dd3fc;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* Explicit theme override (data-theme wins over the media query) */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1220;
+  --surface: #131c2e;
+  --surface-2: #0f1826;
+  --border: #24324a;
+  --border-strong: #33445f;
+  --text: #e7ecf3;
+  --text-muted: #93a1b5;
+  --brand: var(--brand-500);
+  --brand-hover: var(--brand-600);
+  --brand-soft: #17233c;
+  --header-bg: #0a101c;
+}
+
+/* ============================================================================
+   Base
+   ========================================================================== */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
+* {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  margin: 0;
-  font-family: "Segoe UI", Tahoma, "Helvetica Neue", Arial, sans-serif;
-  background: #f6f7f9;
-  color: #1a1d21;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
 }
 
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1.5rem;
-  background: #0f2a43;
-  color: #fff;
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
-header h1 {
-  font-size: 1.1rem;
-  margin: 0;
+a {
+  color: var(--brand);
 }
 
-header nav a {
-  color: #cfe3f7;
-  text-decoration: none;
-  margin-inline: 0.35rem;
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
-main {
-  max-width: 40rem;
-  margin: 2rem auto;
-  padding: 0 1rem;
-}
-
-.card {
-  background: #fff;
-  border: 1px solid #e1e5ea;
-  border-radius: 8px;
-  padding: 1.25rem 1.5rem;
-  margin-block: 1rem;
-}
-
-.card form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-width: 22rem;
-}
-
-input {
-  padding: 0.5rem 0.65rem;
-  border: 1px solid #c4ccd6;
-  border-radius: 6px;
-  font-size: 1rem;
-}
-
-button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 6px;
-  background: #0f6cbd;
-  color: #fff;
-  font-size: 0.95rem;
-  cursor: pointer;
-  margin-block-start: 0.5rem;
-  margin-inline-end: 0.5rem;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-[role="alert"] {
-  color: #b3261e;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
