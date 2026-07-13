@@ -33,6 +33,8 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   listDistributions: vi.fn(),
   declareDistribution: vi.fn(),
   payDistribution: vi.fn(),
+  assetOverview: vi.fn(),
+  systemHealth: vi.fn(),
   ...overrides,
 });
 

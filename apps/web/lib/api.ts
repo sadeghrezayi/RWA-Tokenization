@@ -26,6 +26,50 @@ export interface AssetViewDto {
   };
 }
 
+export interface OfferingSummaryDto {
+  id: string;
+  state: string;
+  supply: string;
+  subscribed: string;
+  priceRial: string;
+}
+
+export interface DistributionSummaryDto {
+  id: string;
+  state: string;
+  totalAmountRial: string;
+}
+
+export interface AssetOverviewDto {
+  id: string;
+  name: string;
+  state: AssetState;
+  tokenAddress?: string;
+  circulatingSupply: string;
+  holderCount: number;
+  totalRaisedRial: string;
+  totalDistributedRial: string;
+  offerings: OfferingSummaryDto[];
+  distributions: DistributionSummaryDto[];
+}
+
+export interface PortfolioOverviewDto {
+  assets: AssetOverviewDto[];
+  summary: {
+    assetCount: number;
+    tokenizedCount: number;
+    totalRaisedRial: string;
+    totalDistributedRial: string;
+  };
+}
+
+export interface SystemHealthDto {
+  overall: "healthy" | "degraded";
+  services: { api: string; postgres: string; ipfs: string; chain: string };
+  chainBlockNumber?: number;
+  pausedTokens: number;
+}
+
 export interface ApiClient {
   register(email: string, password: string): Promise<{ investorId: string }>;
   login(email: string, password: string): Promise<{ token: string; investorId: string }>;
@@ -64,6 +108,8 @@ export interface ApiClient {
   closeOffering(officerToken: string, offeringId: string): Promise<CloseResultDto>;
   subscribeOffering(token: string, offeringId: string, tokens: string): Promise<void>;
   listDistributions(officerToken: string): Promise<DistributionViewDto[]>;
+  assetOverview(officerToken: string): Promise<PortfolioOverviewDto>;
+  systemHealth(officerToken: string): Promise<SystemHealthDto>;
   declareDistribution(
     officerToken: string,
     assetId: string,
@@ -257,6 +303,8 @@ export const createApiClient = (
           body: { assetId, totalAmountRial },
         }),
       ),
+    assetOverview: (officerToken) => json(call("/reporting/assets", { token: officerToken })),
+    systemHealth: (officerToken) => json(call("/reporting/health", { token: officerToken })),
     payDistribution: async (officerToken, distributionId) => {
       await call(`/distributions/${distributionId}/pay`, { method: "POST", token: officerToken });
     },

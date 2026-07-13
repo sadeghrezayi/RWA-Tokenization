@@ -78,6 +78,23 @@ export interface Dictionary {
   eligible: string;
   notEligible: string;
   rejectionReasonLabel: string;
+  overviewTitle: string;
+  healthTitle: string;
+  totalAssetsLabel: string;
+  tokenizedLabel: string;
+  totalRaisedLabel: string;
+  totalDistributedLabel: string;
+  circulatingLabel: string;
+  holdersLabel: string;
+  raisedLabel: string;
+  blockLabel: string;
+  pausedTokensLabel: string;
+  healthyLabel: string;
+  degradedLabel: string;
+  detailsLabel: string;
+  soldLabel: string;
+  remainingLabel: string;
+  noOverviewAssets: string;
   actionsLabel: string;
   statusLabel: string;
   confirmReject: string;
@@ -164,6 +181,23 @@ export const dictionaries: Record<Locale, Dictionary> = {
     eligible: "Eligible to invest",
     notEligible: "Not yet eligible to invest",
     rejectionReasonLabel: "Rejection reason",
+    overviewTitle: "Overview",
+    healthTitle: "System health",
+    totalAssetsLabel: "Assets",
+    tokenizedLabel: "Tokenized",
+    totalRaisedLabel: "Total raised",
+    totalDistributedLabel: "Total distributed",
+    circulatingLabel: "Circulating",
+    holdersLabel: "Holders",
+    raisedLabel: "Raised",
+    blockLabel: "Block",
+    pausedTokensLabel: "Paused tokens",
+    healthyLabel: "Healthy",
+    degradedLabel: "Degraded",
+    detailsLabel: "Details",
+    soldLabel: "Sold",
+    remainingLabel: "Remaining",
+    noOverviewAssets: "No assets onboarded yet.",
     actionsLabel: "Actions",
     statusLabel: "Status",
     confirmReject: "Confirm rejection",
