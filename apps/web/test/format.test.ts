@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRial, formatTokens, truncateAddress } from "../lib/format";
+import { formatDate, formatRial, formatTokens, truncateAddress } from "../lib/format";
 
 describe("formatRial", () => {
   it("groups_thousands_and_appends_the_rial_symbol", () => {
@@ -26,6 +26,17 @@ describe("formatTokens", () => {
   it("groups_thousands_without_a_currency_symbol", () => {
     expect(formatTokens("1000")).toBe("1,000");
     expect(formatTokens(67n)).toBe("67");
+  });
+});
+
+describe("formatDate", () => {
+  it("extracts_the_calendar_date_from_an_iso_timestamp", () => {
+    expect(formatDate("2026-07-08T00:00:00.000Z")).toBe("2026-07-08");
+  });
+
+  it("tolerates_undefined_and_malformed_input", () => {
+    expect(formatDate(undefined)).toBe("—");
+    expect(formatDate("nope")).toBe("—");
   });
 });
 

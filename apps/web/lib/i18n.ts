@@ -80,6 +80,19 @@ export interface Dictionary {
   rejectionReasonLabel: string;
   overviewTitle: string;
   healthTitle: string;
+  valuationLabel: string;
+  asOfLabel: string;
+  freshLabel: string;
+  staleLabel: string;
+  attestButton: string;
+  publishAttestationTitle: string;
+  attestationKindLabel: string;
+  valueLabel: string;
+  validUntilLabel: string;
+  documentCidLabel: string;
+  valuationsLabel: string;
+  noValuation: string;
+  attestationPublished: string;
   totalAssetsLabel: string;
   tokenizedLabel: string;
   totalRaisedLabel: string;
@@ -183,6 +196,19 @@ export const dictionaries: Record<Locale, Dictionary> = {
     rejectionReasonLabel: "Rejection reason",
     overviewTitle: "Overview",
     healthTitle: "System health",
+    valuationLabel: "Valuation",
+    asOfLabel: "as of",
+    freshLabel: "Fresh",
+    staleLabel: "Stale",
+    attestButton: "Attest",
+    publishAttestationTitle: "Publish attestation",
+    attestationKindLabel: "Kind",
+    valueLabel: "Value",
+    validUntilLabel: "Valid until",
+    documentCidLabel: "Document reference (optional IPFS CID)",
+    valuationsLabel: "Attestations",
+    noValuation: "No valuation yet",
+    attestationPublished: "Attestation published.",
     totalAssetsLabel: "Assets",
     tokenizedLabel: "Tokenized",
     totalRaisedLabel: "Total raised",

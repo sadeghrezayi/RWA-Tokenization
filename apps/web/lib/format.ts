@@ -24,3 +24,10 @@ export const truncateAddress = (address: string | undefined): string => {
   if (!address) return "—";
   return address.length <= 12 ? address : `${address.slice(0, 6)}…${address.slice(-4)}`;
 };
+
+// Calendar date (YYYY-MM-DD) from an ISO timestamp — deterministic, locale-free.
+export const formatDate = (iso: string | undefined): string => {
+  if (!iso) return "—";
+  const match = /^\d{4}-\d{2}-\d{2}/.exec(iso);
+  return match ? match[0] : "—";
+};

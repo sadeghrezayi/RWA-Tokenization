@@ -5,6 +5,8 @@ import type { AssetRepository } from "../assets/ports.js";
 import type { OfferingRepository } from "../offerings/ports.js";
 import type { DistributionRepository } from "../distributions/ports.js";
 import type { HolderSnapshotProvider } from "../distributions/ports.js";
+import type { AttestationRepository } from "../attestations/ports.js";
+import type { Clock } from "../offerings/ports.js";
 
 export interface OfferingSummary {
   id: string;
@@ -20,6 +22,14 @@ export interface DistributionSummary {
   totalAmountRial: string;
 }
 
+// FR-OR: the latest signed valuation with its freshness (P5 verifiability).
+export interface LatestValuation {
+  valueRial: string;
+  asOf: string;
+  validUntil: string;
+  fresh: boolean;
+}
+
 export interface AssetOverview {
   id: string;
   name: string;
@@ -31,6 +41,7 @@ export interface AssetOverview {
   totalDistributedRial: string;
   offerings: OfferingSummary[];
   distributions: DistributionSummary[];
+  latestValuation?: LatestValuation;
 }
 
 export interface PortfolioOverview {
@@ -49,6 +60,8 @@ export class GetAssetOverview {
     private readonly offerings: OfferingRepository,
     private readonly distributions: DistributionRepository,
     private readonly snapshots: HolderSnapshotProvider,
+    private readonly attestations: AttestationRepository,
+    private readonly clock: Clock,
   ) {}
 
   async execute(): Promise<PortfolioOverview> {
@@ -83,6 +96,17 @@ export class GetAssetOverview {
         .filter((d) => d.state === "paid")
         .reduce((sum, d) => sum + d.totalAmountRial, 0n);
 
+      // FR-OR: the most recent signed valuation, with freshness (FR-OR-3).
+      const valuation = await this.attestations.findLatest(asset.id, "valuation");
+      const latestValuation: LatestValuation | undefined = valuation
+        ? {
+            valueRial: String(valuation.valueRial),
+            asOf: valuation.issuedAt.toISOString(),
+            validUntil: valuation.validUntil.toISOString(),
+            fresh: valuation.isFresh(this.clock.now()),
+          }
+        : undefined;
+
       overviews.push({
         id: asset.id,
         name: asset.name,
@@ -104,6 +128,7 @@ export class GetAssetOverview {
           state: d.state,
           totalAmountRial: String(d.totalAmountRial),
         })),
+        ...(latestValuation !== undefined ? { latestValuation } : {}),
       });
     }
 

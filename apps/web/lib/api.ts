@@ -40,6 +40,26 @@ export interface DistributionSummaryDto {
   totalAmountRial: string;
 }
 
+export interface LatestValuationDto {
+  valueRial: string;
+  asOf: string;
+  validUntil: string;
+  fresh: boolean;
+}
+
+export interface AttestationViewDto {
+  id: string;
+  assetId: string;
+  kind: string;
+  valueRial: string;
+  attestorId: string;
+  asOf: string;
+  validUntil: string;
+  payloadHash: string;
+  documentCid?: string;
+  fresh: boolean;
+}
+
 export interface AssetOverviewDto {
   id: string;
   name: string;
@@ -51,6 +71,7 @@ export interface AssetOverviewDto {
   totalDistributedRial: string;
   offerings: OfferingSummaryDto[];
   distributions: DistributionSummaryDto[];
+  latestValuation?: LatestValuationDto;
 }
 
 export interface PortfolioOverviewDto {
@@ -110,6 +131,17 @@ export interface ApiClient {
   listDistributions(officerToken: string): Promise<DistributionViewDto[]>;
   assetOverview(officerToken: string): Promise<PortfolioOverviewDto>;
   systemHealth(officerToken: string): Promise<SystemHealthDto>;
+  publishAttestation(
+    officerToken: string,
+    body: {
+      assetId: string;
+      kind: string;
+      valueRial: string;
+      validUntil: string;
+      documentCid?: string;
+    },
+  ): Promise<{ attestationId: string; payloadHash: string }>;
+  listAttestations(officerToken: string, assetId: string): Promise<AttestationViewDto[]>;
   declareDistribution(
     officerToken: string,
     assetId: string,
@@ -305,6 +337,10 @@ export const createApiClient = (
       ),
     assetOverview: (officerToken) => json(call("/reporting/assets", { token: officerToken })),
     systemHealth: (officerToken) => json(call("/reporting/health", { token: officerToken })),
+    publishAttestation: (officerToken, body) =>
+      json(call("/attestations", { method: "POST", token: officerToken, body })),
+    listAttestations: (officerToken, assetId) =>
+      json(call(`/attestations?assetId=${encodeURIComponent(assetId)}`, { token: officerToken })),
     payDistribution: async (officerToken, distributionId) => {
       await call(`/distributions/${distributionId}/pay`, { method: "POST", token: officerToken });
     },

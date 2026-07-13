@@ -476,12 +476,16 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
         offerings: OfferingRepository,
         distributions: DistributionRepository,
         snapshots: HolderSnapshotProvider,
-      ) => new GetAssetOverview(assets, offerings, distributions, snapshots),
+        attestations: AttestationRepository,
+        clock: Clock,
+      ) => new GetAssetOverview(assets, offerings, distributions, snapshots, attestations, clock),
       inject: [
         ASSET_REPOSITORY,
         OFFERING_REPOSITORY,
         DISTRIBUTION_REPOSITORY,
         HOLDER_SNAPSHOT_PROVIDER,
+        ATTESTATION_REPOSITORY,
+        CLOCK,
       ],
     },
     {

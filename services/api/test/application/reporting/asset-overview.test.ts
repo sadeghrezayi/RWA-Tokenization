@@ -7,9 +7,12 @@ import { Offering } from "../../../src/domain/offerings/offering.js";
 import { Distribution } from "../../../src/domain/distributions/distribution.js";
 import type { HolderShare } from "../../../src/domain/distributions/distribution.js";
 import type { HolderSnapshotProvider } from "../../../src/application/distributions/ports.js";
+import { Attestation } from "../../../src/domain/attestations/attestation.js";
 import { InMemoryAssetRepository } from "../../fakes/asset-fakes.js";
 import { InMemoryOfferingRepository } from "../../fakes/offering-fakes.js";
 import { InMemoryDistributionRepository } from "../../fakes/distribution-fakes.js";
+import { InMemoryAttestationRepository } from "../../fakes/attestation-fakes.js";
+import { FixedClock } from "../../fakes/offering-fakes.js";
 
 const OPENS = new Date("2026-07-01T00:00:00Z");
 const DURING = new Date("2026-07-05T12:00:00Z");
@@ -88,9 +91,33 @@ describe("GetAssetOverview", () => {
       }).markPaid(),
     );
 
+    // asset-1: a fresh valuation attestation of 9,000,000,000 Rial.
+    const attestations = new InMemoryAttestationRepository();
+    await attestations.save(
+      Attestation.issue({
+        id: "att-1",
+        assetId: "asset-1",
+        kind: "valuation",
+        valueRial: 9_000_000_000n,
+        attestorId: "attestor-1",
+        issuedAt: new Date("2026-07-08T00:00:00Z"),
+        validUntil: new Date("2026-10-08T00:00:00Z"),
+        payloadHash: "0xhash",
+        signature: "0xsig",
+      }),
+    );
+
     const snapshots = new MapSnapshot({ "0xTok1": [{ investorId: "a", tokens: 67n }] });
+    const clock = new FixedClock(new Date("2026-07-20T00:00:00Z"));
     return {
-      overview: new GetAssetOverview(assets, offerings, distributions, snapshots),
+      overview: new GetAssetOverview(
+        assets,
+        offerings,
+        distributions,
+        snapshots,
+        attestations,
+        clock,
+      ),
     };
   };
 
@@ -110,6 +137,19 @@ describe("GetAssetOverview", () => {
     });
     expect(a1?.offerings).toHaveLength(2);
     expect(a1?.distributions).toHaveLength(1);
+    // FR-OR: latest valuation surfaced with freshness + "as of" (fresh at 2026-07-20).
+    expect(a1?.latestValuation).toEqual({
+      valueRial: "9000000000",
+      asOf: "2026-07-08T00:00:00.000Z",
+      validUntil: "2026-10-08T00:00:00.000Z",
+      fresh: true,
+    });
+  });
+
+  it("omits_latest_valuation_for_an_asset_without_one", async () => {
+    const { overview } = await setup();
+    const result = await overview.execute();
+    expect(result.assets.find((a) => a.id === "asset-2")?.latestValuation).toBeUndefined();
   });
 
   it("reports_a_non_tokenized_asset_with_zero_supply_and_no_holders", async () => {

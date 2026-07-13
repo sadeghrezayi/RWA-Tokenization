@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OverviewPanel } from "../components/overview-panel";
 import type {
@@ -42,10 +42,22 @@ const health: SystemHealthDto = {
   pausedTokens: 1,
 };
 
+const withValuation = (fresh: boolean): AssetOverviewDto =>
+  asset({
+    latestValuation: {
+      valueRial: "9000000000",
+      asOf: "2026-07-08T00:00:00.000Z",
+      validUntil: "2026-10-08T00:00:00.000Z",
+      fresh,
+    },
+  });
+
 const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
   ({
     assetOverview: vi.fn().mockResolvedValue(portfolio([asset({})])),
     systemHealth: vi.fn().mockResolvedValue(health),
+    publishAttestation: vi.fn().mockResolvedValue({ attestationId: "att-1", payloadHash: "0xabc" }),
+    listAttestations: vi.fn().mockResolvedValue([]),
     ...overrides,
   }) as ApiClient;
 
@@ -83,6 +95,48 @@ describe("OverviewPanel", () => {
     // 67 sold of 100 → 33 remaining shown in the expanded detail.
     expect(await screen.findByText(/33/)).toBeInTheDocument();
     expect(screen.getByText(/Closed — funded/)).toBeInTheDocument();
+  });
+
+  it("shows_the_latest_valuation_with_as_of_date_and_a_fresh_badge", async () => {
+    const api = apiWith({
+      assetOverview: vi.fn().mockResolvedValue(portfolio([withValuation(true)])),
+    });
+    render(<OverviewPanel locale="en" api={api} token="tok" />);
+
+    const row = within(await screen.findByTestId("overview-asset-asset-1"));
+    expect(row.getByText("9,000,000,000 ﷼")).toBeInTheDocument();
+    expect(row.getByText(/2026-07-08/)).toBeInTheDocument();
+    expect(row.getByText("Fresh")).toBeInTheDocument();
+  });
+
+  it("marks_a_valuation_stale_past_its_validity_window", async () => {
+    const api = apiWith({
+      assetOverview: vi.fn().mockResolvedValue(portfolio([withValuation(false)])),
+    });
+    render(<OverviewPanel locale="en" api={api} token="tok" />);
+
+    const row = within(await screen.findByTestId("overview-asset-asset-1"));
+    expect(row.getByText("Stale")).toBeInTheDocument();
+  });
+
+  it("publishes_a_valuation_through_the_attest_modal", async () => {
+    const publishAttestation = vi
+      .fn()
+      .mockResolvedValue({ attestationId: "att-1", payloadHash: "0xabc" });
+    const api = apiWith({ publishAttestation });
+    render(<OverviewPanel locale="en" api={api} token="tok" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Attest" }));
+    const dialog = within(screen.getByRole("dialog"));
+    await userEvent.type(dialog.getByLabelText(/Value/), "9000000000");
+    await userEvent.click(dialog.getByRole("button", { name: "Publish attestation" }));
+
+    await waitFor(() => {
+      expect(publishAttestation).toHaveBeenCalledWith(
+        "tok",
+        expect.objectContaining({ assetId: "asset-1", kind: "valuation", valueRial: "9000000000" }),
+      );
+    });
   });
 
   it("shows_an_error_alert_when_the_report_fails_to_load", async () => {
