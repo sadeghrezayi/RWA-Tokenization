@@ -61,6 +61,11 @@ import type {
   HolderSnapshotProvider,
 } from "./application/distributions/ports.js";
 import { TrexHolderSnapshotProvider } from "./infrastructure/chain/trex-holder-snapshot-provider.js";
+import { GetAssetOverview } from "./application/reporting/asset-overview.js";
+import { GetSystemHealth } from "./application/reporting/system-health.js";
+import type { HealthProbe } from "./application/reporting/ports.js";
+import { PlatformHealthProbe } from "./infrastructure/reporting/platform-health-probe.js";
+import { ReportingController } from "./infrastructure/http/reporting.controller.js";
 import { DistributionsController } from "./infrastructure/http/distributions.controller.js";
 import { PrismaDistributionRepository } from "./infrastructure/persistence/prisma-distribution-repository.js";
 import { IpfsDocumentStore } from "./infrastructure/documents/ipfs-document-store.js";
@@ -97,6 +102,7 @@ export const ASSET_TOKEN_ISSUER = "ASSET_TOKEN_ISSUER";
 export const CLOCK = "CLOCK";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
 export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
+export const HEALTH_PROBE = "HEALTH_PROBE";
 export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
 
 // Composition root: the only place where ports meet their adapters (see
@@ -110,6 +116,7 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
     OfferingsController,
     LedgerController,
     DistributionsController,
+    ReportingController,
   ],
   providers: [
     PrismaService,
@@ -439,6 +446,36 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
       useFactory: (distributions: DistributionRepository, assets: AssetRepository) =>
         new ListDistributions(distributions, assets),
       inject: [DISTRIBUTION_REPOSITORY, ASSET_REPOSITORY],
+    },
+    {
+      provide: GetAssetOverview,
+      useFactory: (
+        assets: AssetRepository,
+        offerings: OfferingRepository,
+        distributions: DistributionRepository,
+        snapshots: HolderSnapshotProvider,
+      ) => new GetAssetOverview(assets, offerings, distributions, snapshots),
+      inject: [
+        ASSET_REPOSITORY,
+        OFFERING_REPOSITORY,
+        DISTRIBUTION_REPOSITORY,
+        HOLDER_SNAPSHOT_PROVIDER,
+      ],
+    },
+    {
+      provide: GetSystemHealth,
+      useFactory: (probe: HealthProbe) => new GetSystemHealth(probe),
+      inject: [HEALTH_PROBE],
+    },
+    {
+      provide: HEALTH_PROBE,
+      useFactory: (prisma: PrismaService): HealthProbe =>
+        new PlatformHealthProbe(
+          prisma,
+          process.env.IPFS_API_URL ?? "http://127.0.0.1:5001",
+          process.env.DEVNET_RPC_URL,
+        ),
+      inject: [PrismaService],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },
