@@ -6,6 +6,7 @@ import {console2} from "forge-std/console2.sol";
 import {ClaimIssuer} from "@onchain-id/solidity/contracts/ClaimIssuer.sol";
 import {IClaimIssuer} from "@onchain-id/solidity/contracts/interface/IClaimIssuer.sol";
 import {TrexSuiteLib, TrexSuite} from "../src/TrexSuiteLib.sol";
+import {AttestationRegistry} from "../src/AttestationRegistry.sol";
 
 /// Devnet deployment: platform ClaimIssuer + the ERC-3643 reference suite for
 /// the pilot asset. Prints the env values the API needs.
@@ -27,6 +28,7 @@ contract Deploy is Script {
             "PRES",
             0
         );
+        AttestationRegistry attestationRegistry = new AttestationRegistry();
         vm.stopBroadcast();
 
         console2.log("PLATFORM_OPERATOR=%s", operator);
@@ -34,5 +36,6 @@ contract Deploy is Script {
         console2.log("TREX_TOKEN_ADDRESS=%s", address(suite.token));
         console2.log("TREX_IDENTITY_REGISTRY=%s", address(suite.identityRegistry));
         console2.log("TREX_COMPLIANCE=%s", address(suite.compliance));
+        console2.log("ATTESTATION_REGISTRY_ADDRESS=%s", address(attestationRegistry));
     }
 }

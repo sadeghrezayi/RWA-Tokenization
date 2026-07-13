@@ -25,6 +25,31 @@ enum AssetState {
   retired
 }
 
+enum AttestationKind {
+  valuation
+  nav
+  rent
+  reserve
+}
+
+// FR-OR: signed real-world facts about an asset, hash anchored on-chain.
+model Attestation {
+  id          String          @id
+  assetId     String          @map("asset_id")
+  kind        AttestationKind
+  valueRial   BigInt          @map("value_rial")
+  attestorId  String          @map("attestor_id")
+  issuedAt    DateTime        @map("issued_at")
+  validUntil  DateTime        @map("valid_until")
+  payloadHash String          @map("payload_hash")
+  signature   String
+  documentCid String?         @map("document_cid")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@index([assetId, kind, issuedAt])
+  @@map("attestations")
+}
+
 model Asset {
   id              String          @id
   name            String

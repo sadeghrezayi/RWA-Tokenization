@@ -66,6 +66,24 @@ import { GetSystemHealth } from "./application/reporting/system-health.js";
 import type { HealthProbe } from "./application/reporting/ports.js";
 import { PlatformHealthProbe } from "./infrastructure/reporting/platform-health-probe.js";
 import { ReportingController } from "./infrastructure/http/reporting.controller.js";
+import { PublishAttestation } from "./application/attestations/publish-attestation.js";
+import {
+  GetLatestAttestation,
+  ListAttestations,
+} from "./application/attestations/get-attestation.js";
+import type {
+  AttestationAnchor,
+  AttestationRepository,
+  AttestationSigner,
+} from "./application/attestations/ports.js";
+import { PrismaAttestationRepository } from "./infrastructure/persistence/prisma-attestation-repository.js";
+import {
+  DevAttestationSigner,
+  DevLogAttestationAnchor,
+  EcdsaAttestationSigner,
+  OnchainAttestationAnchor,
+} from "./infrastructure/chain/attestation-chain.js";
+import { AttestationsController } from "./infrastructure/http/attestations.controller.js";
 import { DistributionsController } from "./infrastructure/http/distributions.controller.js";
 import { PrismaDistributionRepository } from "./infrastructure/persistence/prisma-distribution-repository.js";
 import { IpfsDocumentStore } from "./infrastructure/documents/ipfs-document-store.js";
@@ -103,6 +121,9 @@ export const CLOCK = "CLOCK";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
 export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
 export const HEALTH_PROBE = "HEALTH_PROBE";
+export const ATTESTATION_REPOSITORY = "ATTESTATION_REPOSITORY";
+export const ATTESTATION_SIGNER = "ATTESTATION_SIGNER";
+export const ATTESTATION_ANCHOR = "ATTESTATION_ANCHOR";
 export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
 
 // Composition root: the only place where ports meet their adapters (see
@@ -117,6 +138,7 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
     LedgerController,
     DistributionsController,
     ReportingController,
+    AttestationsController,
   ],
   providers: [
     PrismaService,
@@ -476,6 +498,66 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
           process.env.DEVNET_RPC_URL,
         ),
       inject: [PrismaService],
+    },
+    {
+      provide: ATTESTATION_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaAttestationRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      // Real ECDSA signer when an attestor key (operator mnemonic) is present;
+      // otherwise a dev signer so the API boots without a chain.
+      provide: ATTESTATION_SIGNER,
+      useFactory: (): AttestationSigner => {
+        const mnemonic = process.env.PLATFORM_OPERATOR_MNEMONIC;
+        return mnemonic ? new EcdsaAttestationSigner(mnemonic) : new DevAttestationSigner();
+      },
+    },
+    {
+      // On-chain anchoring when the registry + devnet are configured; else the
+      // logging fallback (FR-OR-1 anchor is best-effort in dev).
+      provide: ATTESTATION_ANCHOR,
+      useFactory: (): AttestationAnchor => {
+        const rpcUrl = process.env.DEVNET_RPC_URL;
+        const mnemonic = process.env.PLATFORM_OPERATOR_MNEMONIC;
+        const registry = process.env.ATTESTATION_REGISTRY_ADDRESS;
+        return rpcUrl && mnemonic && registry
+          ? new OnchainAttestationAnchor(rpcUrl, mnemonic, registry)
+          : new DevLogAttestationAnchor();
+      },
+    },
+    {
+      provide: PublishAttestation,
+      useFactory: (
+        attestations: AttestationRepository,
+        assets: AssetRepository,
+        signer: AttestationSigner,
+        anchor: AttestationAnchor,
+        ids: IdGenerator,
+        events: AssetEventLog,
+        clock: Clock,
+      ) => new PublishAttestation(attestations, assets, signer, anchor, ids, events, clock),
+      inject: [
+        ATTESTATION_REPOSITORY,
+        ASSET_REPOSITORY,
+        ATTESTATION_SIGNER,
+        ATTESTATION_ANCHOR,
+        ID_GENERATOR,
+        ASSET_EVENT_LOG,
+        CLOCK,
+      ],
+    },
+    {
+      provide: GetLatestAttestation,
+      useFactory: (attestations: AttestationRepository, clock: Clock) =>
+        new GetLatestAttestation(attestations, clock),
+      inject: [ATTESTATION_REPOSITORY, CLOCK],
+    },
+    {
+      provide: ListAttestations,
+      useFactory: (attestations: AttestationRepository, clock: Clock) =>
+        new ListAttestations(attestations, clock),
+      inject: [ATTESTATION_REPOSITORY, CLOCK],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },

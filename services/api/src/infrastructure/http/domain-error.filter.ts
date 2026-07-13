@@ -45,6 +45,7 @@ import {
   InvalidDistributionError,
   InvalidDistributionTransitionError,
 } from "../../domain/distributions/errors.js";
+import { InvalidAttestationError } from "../../domain/attestations/errors.js";
 
 interface MinimalResponse {
   status(code: number): { json(body: unknown): void };
@@ -103,5 +104,6 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof NoHoldersError) return 409;
   if (exception instanceof InvalidDistributionTransitionError) return 409;
   if (exception instanceof InvalidDistributionError) return 400;
+  if (exception instanceof InvalidAttestationError) return 400;
   return 500;
 };
