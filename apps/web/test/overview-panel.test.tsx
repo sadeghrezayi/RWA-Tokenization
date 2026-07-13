@@ -85,6 +85,15 @@ describe("OverviewPanel", () => {
     expect(screen.getByText(/Closed — funded/)).toBeInTheDocument();
   });
 
+  it("shows_an_error_alert_when_the_report_fails_to_load", async () => {
+    const api = apiWith({
+      assetOverview: vi.fn().mockRejectedValue(new Error("reporting service unavailable")),
+    });
+    render(<OverviewPanel locale="en" api={api} token="tok" />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("reporting service unavailable");
+  });
+
   it("shows_an_empty_state_when_there_are_no_assets", async () => {
     render(
       <OverviewPanel
