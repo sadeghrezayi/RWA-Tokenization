@@ -71,7 +71,7 @@ export const OverviewPanel = ({
         </div>
       )}
 
-      <Card title={t.assetsTitle}>
+      <Card title={t.totalAssetsLabel}>
         {!portfolio || portfolio.assets.length === 0 ? (
           <EmptyState icon="◇">{t.noOverviewAssets}</EmptyState>
         ) : (
