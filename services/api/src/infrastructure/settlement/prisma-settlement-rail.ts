@@ -88,6 +88,22 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
     });
   }
 
+  // FR-TR-2: a fulfilled redemption credits the balance with its own
+  // ledger-entry kind so the audit trail separates income from redemptions.
+  async payoutRedemption(investorId: string, amountRial: bigint): Promise<void> {
+    this.assertPositive(amountRial);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ledgerAccount.upsert({
+        where: { investorId },
+        create: { investorId, balance: amountRial },
+        update: { balance: { increment: amountRial } },
+      });
+      await tx.ledgerEntry.create({
+        data: { investorId, kind: "redemption", amountRial, actor: "platform" },
+      });
+    });
+  }
+
   async balanceOf(investorId: string): Promise<{ balanceRial: bigint; heldRial: bigint }> {
     const account = await this.prisma.ledgerAccount.findUnique({ where: { investorId } });
     return { balanceRial: account?.balance ?? 0n, heldRial: account?.held ?? 0n };

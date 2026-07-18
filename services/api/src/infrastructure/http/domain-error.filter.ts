@@ -46,6 +46,20 @@ import {
   InvalidDistributionTransitionError,
 } from "../../domain/distributions/errors.js";
 import { InvalidAttestationError } from "../../domain/attestations/errors.js";
+import { InvalidTransferError } from "../../domain/transfers/errors.js";
+import {
+  AssetNotTokenizedForTransferError,
+  InsufficientTokenBalanceError,
+  TransferNotAllowedError,
+} from "../../application/transfers/errors.js";
+import {
+  InvalidRedemptionError,
+  InvalidRedemptionTransitionError,
+} from "../../domain/redemptions/errors.js";
+import {
+  NoFreshValuationError,
+  RedemptionNotFoundError,
+} from "../../application/redemptions/errors.js";
 
 interface MinimalResponse {
   status(code: number): { json(body: unknown): void };
@@ -105,5 +119,13 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidDistributionTransitionError) return 409;
   if (exception instanceof InvalidDistributionError) return 400;
   if (exception instanceof InvalidAttestationError) return 400;
+  if (exception instanceof InvalidTransferError) return 400;
+  if (exception instanceof TransferNotAllowedError) return 403;
+  if (exception instanceof InsufficientTokenBalanceError) return 409;
+  if (exception instanceof AssetNotTokenizedForTransferError) return 409;
+  if (exception instanceof InvalidRedemptionError) return 400;
+  if (exception instanceof InvalidRedemptionTransitionError) return 409;
+  if (exception instanceof RedemptionNotFoundError) return 404;
+  if (exception instanceof NoFreshValuationError) return 409;
   return 500;
 };

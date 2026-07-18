@@ -40,6 +40,12 @@ export class FakeAssetTokenTransferrer implements AssetTokenTransferrer {
     this.balances.set(investorId, (this.balances.get(investorId) ?? 0n) + tokens);
   }
 
+  reset(): void {
+    this.balances.clear();
+    this.transfers.length = 0;
+    this.rejectRecipients.clear();
+  }
+
   balanceOf(_tokenAddress: string, investorId: string): Promise<bigint> {
     return Promise.resolve(this.balances.get(investorId) ?? 0n);
   }

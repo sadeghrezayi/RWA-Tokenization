@@ -25,6 +25,47 @@ enum AssetState {
   retired
 }
 
+// FR-TR-1: executed compliant transfers (feeds the holder registry + history).
+model TokenTransfer {
+  id             String   @id
+  assetId        String   @map("asset_id")
+  tokenAddress   String   @map("token_address")
+  fromInvestorId String   @map("from_investor_id")
+  toInvestorId   String   @map("to_investor_id")
+  tokens         BigInt
+  executedAt     DateTime @map("executed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([assetId])
+  @@index([fromInvestorId])
+  @@index([toInvestorId])
+  @@map("token_transfers")
+}
+
+enum RedemptionState {
+  requested
+  fulfilled
+  rejected
+}
+
+// FR-TR-2: redemption requests and their resolution at attested value.
+model Redemption {
+  id              String          @id
+  assetId         String          @map("asset_id")
+  tokenAddress    String          @map("token_address")
+  investorId      String          @map("investor_id")
+  tokens          BigInt
+  state           RedemptionState
+  requestedAt     DateTime        @map("requested_at")
+  payoutRial      BigInt?         @map("payout_rial")
+  rejectionReason String?         @map("rejection_reason")
+  resolvedAt      DateTime?       @map("resolved_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  @@index([investorId])
+  @@map("redemptions")
+}
+
 enum AttestationKind {
   valuation
   nav

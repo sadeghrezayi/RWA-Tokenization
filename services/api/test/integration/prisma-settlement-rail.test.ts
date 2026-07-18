@@ -29,6 +29,15 @@ describe("PrismaSettlementRail (integration, real Postgres)", () => {
     expect(kinds).toEqual(["credit", "hold", "release", "capture"]);
   });
 
+  it("credits_a_redemption_payout_with_its_own_entry_kind", async () => {
+    await rail.payoutRedemption("inv-r", 312_500_000n);
+
+    expect(await rail.balanceOf("inv-r")).toEqual({ balanceRial: 312_500_000n, heldRial: 0n });
+    const entries = await prisma.ledgerEntry.findMany({ where: { investorId: "inv-r" } });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ kind: "redemption", amountRial: 312_500_000n });
+  });
+
   it("rejects_a_hold_beyond_the_balance_without_moving_anything", async () => {
     await rail.credit("inv-1", 5_000n, "officer-1");
 

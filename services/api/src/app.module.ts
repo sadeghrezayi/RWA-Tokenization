@@ -84,6 +84,24 @@ import {
   OnchainAttestationAnchor,
 } from "./infrastructure/chain/attestation-chain.js";
 import { AttestationsController } from "./infrastructure/http/attestations.controller.js";
+import { TransferTokens } from "./application/transfers/transfer-tokens.js";
+import { ListTransfers } from "./application/transfers/get-transfers.js";
+import type { AssetTokenTransferrer, TransferRepository } from "./application/transfers/ports.js";
+import { RequestRedemption } from "./application/redemptions/request-redemption.js";
+import { FulfillRedemption } from "./application/redemptions/fulfill-redemption.js";
+import { RejectRedemption } from "./application/redemptions/reject-redemption.js";
+import { ListRedemptions } from "./application/redemptions/get-redemptions.js";
+import type {
+  AssetTokenBurner,
+  RedemptionLedger,
+  RedemptionRepository,
+} from "./application/redemptions/ports.js";
+import { ResolveInvestorByEmail } from "./application/identity/resolve-investor-by-email.js";
+import { PrismaTransferRepository } from "./infrastructure/persistence/prisma-transfer-repository.js";
+import { PrismaRedemptionRepository } from "./infrastructure/persistence/prisma-redemption-repository.js";
+import { TrexAssetTokenMover } from "./infrastructure/chain/trex-asset-token-mover.js";
+import { TransfersController } from "./infrastructure/http/transfers.controller.js";
+import { RedemptionsController } from "./infrastructure/http/redemptions.controller.js";
 import { DistributionsController } from "./infrastructure/http/distributions.controller.js";
 import { PrismaDistributionRepository } from "./infrastructure/persistence/prisma-distribution-repository.js";
 import { IpfsDocumentStore } from "./infrastructure/documents/ipfs-document-store.js";
@@ -122,6 +140,11 @@ export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
 export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
 export const HEALTH_PROBE = "HEALTH_PROBE";
 export const ATTESTATION_REPOSITORY = "ATTESTATION_REPOSITORY";
+export const TRANSFER_REPOSITORY = "TRANSFER_REPOSITORY";
+export const REDEMPTION_REPOSITORY = "REDEMPTION_REPOSITORY";
+export const ASSET_TOKEN_TRANSFERRER = "ASSET_TOKEN_TRANSFERRER";
+export const ASSET_TOKEN_BURNER = "ASSET_TOKEN_BURNER";
+export const REDEMPTION_LEDGER = "REDEMPTION_LEDGER";
 export const ATTESTATION_SIGNER = "ATTESTATION_SIGNER";
 export const ATTESTATION_ANCHOR = "ATTESTATION_ANCHOR";
 export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
@@ -139,6 +162,8 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
     DistributionsController,
     ReportingController,
     AttestationsController,
+    TransfersController,
+    RedemptionsController,
   ],
   providers: [
     PrismaService,
@@ -562,6 +587,142 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
       useFactory: (attestations: AttestationRepository, clock: Clock) =>
         new ListAttestations(attestations, clock),
       inject: [ATTESTATION_REPOSITORY, CLOCK],
+    },
+    {
+      provide: TRANSFER_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaTransferRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: REDEMPTION_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaRedemptionRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      // Real chain moves when the devnet env is configured; otherwise fail
+      // loudly — faking transfers/burns would falsify the registry (NFR-2).
+      provide: TrexAssetTokenMover,
+      useFactory: (prisma: PrismaService): TrexAssetTokenMover | undefined => {
+        const rpcUrl = process.env.DEVNET_RPC_URL;
+        const operatorMnemonic = process.env.PLATFORM_OPERATOR_MNEMONIC;
+        const claimIssuerAddress = process.env.ONCHAINID_CLAIM_ISSUER_ADDRESS;
+        return rpcUrl && operatorMnemonic && claimIssuerAddress
+          ? new TrexAssetTokenMover(prisma, { rpcUrl, operatorMnemonic, claimIssuerAddress })
+          : undefined;
+      },
+      inject: [PrismaService],
+    },
+    {
+      provide: ASSET_TOKEN_TRANSFERRER,
+      useFactory: (mover: TrexAssetTokenMover | undefined): AssetTokenTransferrer =>
+        mover ?? {
+          balanceOf: () =>
+            Promise.reject(new Error("token transfers require the devnet chain configuration")),
+          transfer: () =>
+            Promise.reject(new Error("token transfers require the devnet chain configuration")),
+        },
+      inject: [TrexAssetTokenMover],
+    },
+    {
+      provide: ASSET_TOKEN_BURNER,
+      useFactory: (mover: TrexAssetTokenMover | undefined): AssetTokenBurner =>
+        mover ?? {
+          burn: () =>
+            Promise.reject(new Error("token burns require the devnet chain configuration")),
+        },
+      inject: [TrexAssetTokenMover],
+    },
+    {
+      provide: REDEMPTION_LEDGER,
+      useFactory: (rail: PrismaSettlementRail): RedemptionLedger => ({
+        credit: (investorId, amountRial) => rail.payoutRedemption(investorId, amountRial),
+      }),
+      inject: [PrismaSettlementRail],
+    },
+    {
+      provide: ResolveInvestorByEmail,
+      useFactory: (investors: InvestorRepository) => new ResolveInvestorByEmail(investors),
+      inject: [INVESTOR_REPOSITORY],
+    },
+    {
+      provide: TransferTokens,
+      useFactory: (
+        transfers: TransferRepository,
+        investors: InvestorRepository,
+        assets: AssetRepository,
+        transferrer: AssetTokenTransferrer,
+        ids: IdGenerator,
+        events: AssetEventLog,
+        clock: Clock,
+      ) => new TransferTokens(transfers, investors, assets, transferrer, ids, events, clock),
+      inject: [
+        TRANSFER_REPOSITORY,
+        INVESTOR_REPOSITORY,
+        ASSET_REPOSITORY,
+        ASSET_TOKEN_TRANSFERRER,
+        ID_GENERATOR,
+        ASSET_EVENT_LOG,
+        CLOCK,
+      ],
+    },
+    {
+      provide: ListTransfers,
+      useFactory: (transfers: TransferRepository) => new ListTransfers(transfers),
+      inject: [TRANSFER_REPOSITORY],
+    },
+    {
+      provide: RequestRedemption,
+      useFactory: (
+        redemptions: RedemptionRepository,
+        investors: InvestorRepository,
+        assets: AssetRepository,
+        transferrer: AssetTokenTransferrer,
+        ids: IdGenerator,
+        events: AssetEventLog,
+        clock: Clock,
+      ) => new RequestRedemption(redemptions, investors, assets, transferrer, ids, events, clock),
+      inject: [
+        REDEMPTION_REPOSITORY,
+        INVESTOR_REPOSITORY,
+        ASSET_REPOSITORY,
+        ASSET_TOKEN_TRANSFERRER,
+        ID_GENERATOR,
+        ASSET_EVENT_LOG,
+        CLOCK,
+      ],
+    },
+    {
+      provide: FulfillRedemption,
+      useFactory: (
+        redemptions: RedemptionRepository,
+        attestations: AttestationRepository,
+        snapshots: HolderSnapshotProvider,
+        burner: AssetTokenBurner,
+        ledger: RedemptionLedger,
+        events: AssetEventLog,
+        clock: Clock,
+      ) =>
+        new FulfillRedemption(redemptions, attestations, snapshots, burner, ledger, events, clock),
+      inject: [
+        REDEMPTION_REPOSITORY,
+        ATTESTATION_REPOSITORY,
+        HOLDER_SNAPSHOT_PROVIDER,
+        ASSET_TOKEN_BURNER,
+        REDEMPTION_LEDGER,
+        ASSET_EVENT_LOG,
+        CLOCK,
+      ],
+    },
+    {
+      provide: RejectRedemption,
+      useFactory: (redemptions: RedemptionRepository, events: AssetEventLog, clock: Clock) =>
+        new RejectRedemption(redemptions, events, clock),
+      inject: [REDEMPTION_REPOSITORY, ASSET_EVENT_LOG, CLOCK],
+    },
+    {
+      provide: ListRedemptions,
+      useFactory: (redemptions: RedemptionRepository) => new ListRedemptions(redemptions),
+      inject: [REDEMPTION_REPOSITORY],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },
