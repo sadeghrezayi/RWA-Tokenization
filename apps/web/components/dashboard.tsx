@@ -5,6 +5,7 @@ import { createApiClient } from "../lib/api";
 import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { AuthPanel } from "./auth-panel";
+import { HoldingsCard } from "./holdings-card";
 import { KycStatusCard } from "./kyc-status-card";
 import { OfferingsPanel } from "./offerings-panel";
 import { Button } from "./ui/primitives";
@@ -60,6 +61,7 @@ export const Dashboard = ({ locale }: { locale: Locale }) => {
       ) : (
         <>
           <KycStatusCard locale={locale} api={api} token={token} />
+          <HoldingsCard locale={locale} api={api} token={token} />
           <OfferingsPanel locale={locale} api={api} token={token} />
         </>
       )}

@@ -86,6 +86,7 @@ import {
 import { AttestationsController } from "./infrastructure/http/attestations.controller.js";
 import { TransferTokens } from "./application/transfers/transfer-tokens.js";
 import { ListTransfers } from "./application/transfers/get-transfers.js";
+import { GetMyHoldings } from "./application/transfers/get-holdings.js";
 import type { AssetTokenTransferrer, TransferRepository } from "./application/transfers/ports.js";
 import { RequestRedemption } from "./application/redemptions/request-redemption.js";
 import { FulfillRedemption } from "./application/redemptions/fulfill-redemption.js";
@@ -669,6 +670,12 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
       provide: ListTransfers,
       useFactory: (transfers: TransferRepository) => new ListTransfers(transfers),
       inject: [TRANSFER_REPOSITORY],
+    },
+    {
+      provide: GetMyHoldings,
+      useFactory: (assets: AssetRepository, chain: AssetTokenTransferrer) =>
+        new GetMyHoldings(assets, chain),
+      inject: [ASSET_REPOSITORY, ASSET_TOKEN_TRANSFERRER],
     },
     {
       provide: RequestRedemption,

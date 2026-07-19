@@ -91,6 +91,26 @@ export interface SystemHealthDto {
   pausedTokens: number;
 }
 
+export interface HoldingDto {
+  assetId: string;
+  assetName: string;
+  tokenAddress: string;
+  tokens: string;
+}
+
+export interface RedemptionDto {
+  id: string;
+  assetId: string;
+  tokenAddress: string;
+  investorId: string;
+  tokens: string;
+  state: "requested" | "fulfilled" | "rejected";
+  requestedAt: string;
+  payoutRial?: string;
+  rejectionReason?: string;
+  resolvedAt?: string;
+}
+
 export interface ApiClient {
   register(email: string, password: string): Promise<{ investorId: string }>;
   login(email: string, password: string): Promise<{ token: string; investorId: string }>;
@@ -142,6 +162,19 @@ export interface ApiClient {
     },
   ): Promise<{ attestationId: string; payloadHash: string }>;
   listAttestations(officerToken: string, assetId: string): Promise<AttestationViewDto[]>;
+  myHoldings(token: string): Promise<HoldingDto[]>;
+  transferTokens(
+    token: string,
+    body: { assetId: string; toEmail: string; tokens: string },
+  ): Promise<{ transferId: string }>;
+  requestRedemption(
+    token: string,
+    body: { assetId: string; tokens: string },
+  ): Promise<{ redemptionId: string }>;
+  myRedemptions(token: string): Promise<RedemptionDto[]>;
+  listRedemptions(officerToken: string): Promise<RedemptionDto[]>;
+  fulfillRedemption(officerToken: string, redemptionId: string): Promise<{ payoutRial: string }>;
+  rejectRedemption(officerToken: string, redemptionId: string, reason: string): Promise<void>;
   declareDistribution(
     officerToken: string,
     assetId: string,
@@ -343,6 +376,20 @@ export const createApiClient = (
       json(call(`/attestations?assetId=${encodeURIComponent(assetId)}`, { token: officerToken })),
     payDistribution: async (officerToken, distributionId) => {
       await call(`/distributions/${distributionId}/pay`, { method: "POST", token: officerToken });
+    },
+    myHoldings: (token) => json(call("/transfers/holdings", { token })),
+    transferTokens: (token, body) => json(call("/transfers", { method: "POST", token, body })),
+    requestRedemption: (token, body) => json(call("/redemptions", { method: "POST", token, body })),
+    myRedemptions: (token) => json(call("/redemptions/me", { token })),
+    listRedemptions: (officerToken) => json(call("/redemptions", { token: officerToken })),
+    fulfillRedemption: (officerToken, redemptionId) =>
+      json(call(`/redemptions/${redemptionId}/fulfill`, { method: "POST", token: officerToken })),
+    rejectRedemption: async (officerToken, redemptionId, reason) => {
+      await call(`/redemptions/${redemptionId}/reject`, {
+        method: "POST",
+        token: officerToken,
+        body: { reason },
+      });
     },
   };
 };

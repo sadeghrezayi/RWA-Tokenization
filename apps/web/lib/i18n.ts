@@ -108,6 +108,21 @@ export interface Dictionary {
   soldLabel: string;
   remainingLabel: string;
   noOverviewAssets: string;
+  holdingsTitle: string;
+  noHoldings: string;
+  tokensLabel: string;
+  transferButton: string;
+  redeemButton: string;
+  toEmailLabel: string;
+  transferSent: string;
+  redemptionRequested: string;
+  redemptionsTitle: string;
+  noRedemptions: string;
+  fulfillButton: string;
+  redemptionFulfilled: string;
+  redemptionRejected: string;
+  payoutLabel: string;
+  myRedemptionsTitle: string;
   actionsLabel: string;
   statusLabel: string;
   confirmReject: string;
@@ -224,6 +239,21 @@ export const dictionaries: Record<Locale, Dictionary> = {
     soldLabel: "Sold",
     remainingLabel: "Remaining",
     noOverviewAssets: "No assets onboarded yet.",
+    holdingsTitle: "My Holdings",
+    noHoldings: "You don't hold any tokens yet.",
+    tokensLabel: "Tokens",
+    transferButton: "Transfer",
+    redeemButton: "Redeem",
+    toEmailLabel: "Recipient email",
+    transferSent: "Transfer completed.",
+    redemptionRequested: "Redemption requested — the operator will review it.",
+    redemptionsTitle: "Redemption Requests",
+    noRedemptions: "No redemption requests.",
+    fulfillButton: "Fulfill",
+    redemptionFulfilled: "Redemption fulfilled and paid out.",
+    redemptionRejected: "Redemption rejected.",
+    payoutLabel: "Payout",
+    myRedemptionsTitle: "My redemptions",
     actionsLabel: "Actions",
     statusLabel: "Status",
     confirmReject: "Confirm rejection",

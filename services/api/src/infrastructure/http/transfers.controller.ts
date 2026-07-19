@@ -2,6 +2,8 @@ import { BadRequestException, Body, Controller, Get, Post } from "@nestjs/common
 import { TransferTokens } from "../../application/transfers/transfer-tokens.js";
 import { ListTransfers } from "../../application/transfers/get-transfers.js";
 import type { TransferView } from "../../application/transfers/get-transfers.js";
+import { GetMyHoldings } from "../../application/transfers/get-holdings.js";
+import type { HoldingView } from "../../application/transfers/get-holdings.js";
 import { ResolveInvestorByEmail } from "../../application/identity/resolve-investor-by-email.js";
 import type { Principal } from "../../application/identity/ports.js";
 import { CurrentPrincipal, RequireRole } from "./auth.guard.js";
@@ -35,7 +37,14 @@ export class TransfersController {
     private readonly transferTokens: TransferTokens,
     private readonly listTransfers: ListTransfers,
     private readonly resolveByEmail: ResolveInvestorByEmail,
+    private readonly getMyHoldings: GetMyHoldings,
   ) {}
+
+  @Get("holdings")
+  holdings(@CurrentPrincipal() principal: Principal): Promise<HoldingView[]> {
+    const investorId = principal.kind === "investor" ? principal.investorId : "";
+    return this.getMyHoldings.execute({ investorId });
+  }
 
   @Post()
   async transfer(
