@@ -158,6 +158,19 @@ export interface Dictionary {
   allAssetsLabel: string;
   csvDownloaded: string;
   unknownHolderLabel: string;
+  investorsTitle: string;
+  noInvestors: string;
+  detailsButton: string;
+  balanceLabel: string;
+  identityAddressLabel: string;
+  portfolioLabel: string;
+  transfersLabel: string;
+  redemptionsLabel: string;
+  sentLabel: string;
+  receivedLabel: string;
+  noActivity: string;
+  ledgerSectionLabel: string;
+  chainSectionLabel: string;
   kycStates: Record<
     "draft" | "submitted" | "in_review" | "approved" | "rejected" | "expired",
     string
@@ -309,6 +322,19 @@ export const dictionaries: Record<Locale, Dictionary> = {
     allAssetsLabel: "All assets",
     csvDownloaded: "CSV downloaded.",
     unknownHolderLabel: "Unknown wallet",
+    investorsTitle: "Investors",
+    noInvestors: "No investors yet.",
+    detailsButton: "Details",
+    balanceLabel: "Balance",
+    identityAddressLabel: "On-chain identity",
+    portfolioLabel: "Portfolio",
+    transfersLabel: "Transfers",
+    redemptionsLabel: "Redemptions",
+    sentLabel: "Sent",
+    receivedLabel: "Received",
+    noActivity: "No activity yet.",
+    ledgerSectionLabel: "Settlement ledger",
+    chainSectionLabel: "On-chain",
     kycStates: {
       draft: "Draft",
       submitted: "Submitted",

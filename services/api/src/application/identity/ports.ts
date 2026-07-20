@@ -6,7 +6,23 @@ export interface InvestorRepository {
   findById(id: string): Promise<Investor | undefined>;
   findByEmail(email: EmailAddress): Promise<Investor | undefined>;
   findByKycStates(states: readonly KycState[]): Promise<Investor[]>;
+  findAll(): Promise<Investor[]>;
   save(investor: Investor): Promise<void>;
+}
+
+// FR-PT-3 admin directory reads: settlement balance and the investor's
+// chain footprint (ONCHAINID + custodial wallet), both adapter-owned.
+export interface LedgerReader {
+  balanceOf(investorId: string): Promise<{ balanceRial: bigint; heldRial: bigint }>;
+}
+
+export interface InvestorChainInfo {
+  identityAddress?: string;
+  walletAddress?: string;
+}
+
+export interface InvestorChainDirectory {
+  forInvestor(investorId: string): Promise<InvestorChainInfo>;
 }
 
 export interface IdGenerator {

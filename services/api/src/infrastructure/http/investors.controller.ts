@@ -2,6 +2,11 @@ import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post } fro
 import { ApproveKyc } from "../../application/identity/approve-kyc.js";
 import { GetInvestor } from "../../application/identity/get-investor.js";
 import type { InvestorView } from "../../application/identity/get-investor.js";
+import { GetInvestorDetail, ListInvestors } from "../../application/identity/investor-directory.js";
+import type {
+  InvestorDetailView,
+  InvestorDirectoryEntry,
+} from "../../application/identity/investor-directory.js";
 import { ListPendingKyc } from "../../application/identity/list-pending-kyc.js";
 import { RegisterInvestor } from "../../application/identity/register-investor.js";
 import { RejectKyc } from "../../application/identity/reject-kyc.js";
@@ -34,6 +39,8 @@ export class InvestorsController {
     private readonly rejectKyc: RejectKyc,
     private readonly getInvestor: GetInvestor,
     private readonly listPendingKyc: ListPendingKyc,
+    private readonly listInvestors: ListInvestors,
+    private readonly getInvestorDetail: GetInvestorDetail,
   ) {}
 
   @Public()
@@ -66,6 +73,20 @@ export class InvestorsController {
   @Get("pending-kyc")
   pendingKyc(): Promise<InvestorView[]> {
     return this.listPendingKyc.execute();
+  }
+
+  // FR-PT-3 user management: the full directory and the per-user drill-down.
+
+  @RequireRole("officer")
+  @Get()
+  list(): Promise<InvestorDirectoryEntry[]> {
+    return this.listInvestors.execute();
+  }
+
+  @RequireRole("officer")
+  @Get(":id/detail")
+  detail(@Param("id") id: string): Promise<InvestorDetailView> {
+    return this.getInvestorDetail.execute({ investorId: id });
   }
 
   @RequireRole("officer")

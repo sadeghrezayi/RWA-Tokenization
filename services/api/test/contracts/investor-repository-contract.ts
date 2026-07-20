@@ -60,6 +60,16 @@ export const investorRepositoryContract = (
       expect(await repo.findByKycStates(["expired"])).toEqual([]);
     });
 
+    it("finds_all_investors_empty_then_everyone", async () => {
+      expect(await repo.findAll()).toEqual([]);
+
+      await repo.save(newInvestor("inv-1", "a@example.com"));
+      await repo.save(newInvestor("inv-2", "b@example.com"));
+
+      const all = await repo.findAll();
+      expect(all.map((i) => i.id).sort()).toEqual(["inv-1", "inv-2"]);
+    });
+
     it("save_overwrites_the_existing_state", async () => {
       const investor = newInvestor("inv-1", "a@example.com");
       await repo.save(investor);

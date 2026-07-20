@@ -6,6 +6,7 @@ import { AdminOfferingsPanel } from "../../../components/admin-offerings-panel";
 import { AssetsPanel } from "../../../components/assets-panel";
 import { AuditPanel } from "../../../components/audit-panel";
 import { DistributionsPanel } from "../../../components/distributions-panel";
+import { InvestorsPanel } from "../../../components/investors-panel";
 import { RegistryPanel } from "../../../components/registry-panel";
 import { OfficerLogin } from "../../../components/officer-login";
 import { OfficerPanel } from "../../../components/officer-panel";
@@ -18,6 +19,7 @@ import { dictionaries, isLocale } from "../../../lib/i18n";
 type Tab =
   | "overview"
   | "kyc"
+  | "investors"
   | "assets"
   | "offerings"
   | "distributions"
@@ -50,6 +52,7 @@ export default function AdminPage({ params }: { params: Promise<{ locale: string
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: t.overviewTitle },
     { id: "kyc", label: t.pendingKycTitle },
+    { id: "investors", label: t.investorsTitle },
     { id: "assets", label: t.assetsTitle },
     { id: "offerings", label: t.offeringsTitle },
     { id: "distributions", label: t.distributionsTitle },
@@ -94,6 +97,7 @@ export default function AdminPage({ params }: { params: Promise<{ locale: string
 
       {tab === "overview" && <OverviewPanel locale={locale} api={api} token={token} />}
       {tab === "kyc" && <OfficerPanel locale={locale} api={api} token={token} />}
+      {tab === "investors" && <InvestorsPanel locale={locale} api={api} token={token} />}
       {tab === "assets" && <AssetsPanel locale={locale} api={api} token={token} />}
       {tab === "offerings" && <AdminOfferingsPanel locale={locale} api={api} token={token} />}
       {tab === "distributions" && <DistributionsPanel locale={locale} api={api} token={token} />}

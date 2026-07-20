@@ -10,10 +10,13 @@ import { RegisterInvestor } from "./application/identity/register-investor.js";
 import { RejectKyc } from "./application/identity/reject-kyc.js";
 import { StartKycReview } from "./application/identity/start-kyc-review.js";
 import { SubmitKyc } from "./application/identity/submit-kyc.js";
+import { GetInvestorDetail, ListInvestors } from "./application/identity/investor-directory.js";
 import type {
   ClaimIssuer,
   IdGenerator,
+  InvestorChainDirectory,
   InvestorRepository,
+  LedgerReader,
   PasswordHasher,
   TokenIssuer,
 } from "./application/identity/ports.js";
@@ -129,7 +132,10 @@ import { AuthController } from "./infrastructure/http/auth.controller.js";
 import { AuthGuard, TOKEN_VERIFIER } from "./infrastructure/http/auth.guard.js";
 import { DomainErrorFilter } from "./infrastructure/http/domain-error.filter.js";
 import { InvestorsController } from "./infrastructure/http/investors.controller.js";
-import { PrismaInvestorRepository } from "./infrastructure/persistence/prisma-investor-repository.js";
+import {
+  PrismaInvestorChainDirectory,
+  PrismaInvestorRepository,
+} from "./infrastructure/persistence/prisma-investor-repository.js";
 import { PrismaService } from "./infrastructure/persistence/prisma.service.js";
 
 // Injection tokens for the application-layer ports.
@@ -162,6 +168,8 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
 export const TOKEN_EVENT_SOURCE = "TOKEN_EVENT_SOURCE";
 export const WALLET_DIRECTORY = "WALLET_DIRECTORY";
 export const ASSET_EVENT_READER = "ASSET_EVENT_READER";
+export const LEDGER_READER = "LEDGER_READER";
+export const INVESTOR_CHAIN_DIRECTORY = "INVESTOR_CHAIN_DIRECTORY";
 
 // Composition root: the only place where ports meet their adapters (see
 // docs/engineering/architecture.md). Use-cases stay framework-free — they are
@@ -792,6 +800,48 @@ export const ASSET_EVENT_READER = "ASSET_EVENT_READER";
         investors: InvestorRepository,
       ) => new GetAuditTrail(events, assets, investors),
       inject: [ASSET_EVENT_READER, ASSET_REPOSITORY, INVESTOR_REPOSITORY],
+    },
+    { provide: LEDGER_READER, useExisting: PrismaSettlementRail },
+    {
+      provide: INVESTOR_CHAIN_DIRECTORY,
+      useFactory: (prisma: PrismaService) => new PrismaInvestorChainDirectory(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: ListInvestors,
+      useFactory: (investors: InvestorRepository, ledger: LedgerReader) =>
+        new ListInvestors(investors, ledger),
+      inject: [INVESTOR_REPOSITORY, LEDGER_READER],
+    },
+    {
+      provide: GetInvestorDetail,
+      useFactory: (
+        investors: InvestorRepository,
+        assets: AssetRepository,
+        ledger: LedgerReader,
+        chainDirectory: InvestorChainDirectory,
+        holdings: GetMyHoldings,
+        transfers: TransferRepository,
+        redemptions: RedemptionRepository,
+      ) =>
+        new GetInvestorDetail(
+          investors,
+          assets,
+          ledger,
+          chainDirectory,
+          holdings,
+          transfers,
+          redemptions,
+        ),
+      inject: [
+        INVESTOR_REPOSITORY,
+        ASSET_REPOSITORY,
+        LEDGER_READER,
+        INVESTOR_CHAIN_DIRECTORY,
+        GetMyHoldings,
+        TRANSFER_REPOSITORY,
+        REDEMPTION_REPOSITORY,
+      ],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },

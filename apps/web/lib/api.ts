@@ -155,6 +155,39 @@ export interface CsvDownloadDto {
   csv: string;
 }
 
+export interface InvestorDirectoryEntryDto extends InvestorViewDto {
+  balanceRial: string;
+  heldRial: string;
+}
+
+export interface InvestorTransferItemDto {
+  id: string;
+  direction: "sent" | "received";
+  counterparty: string;
+  assetName: string;
+  tokens: string;
+  at: string;
+}
+
+export interface InvestorRedemptionItemDto {
+  id: string;
+  assetName: string;
+  tokens: string;
+  state: "requested" | "fulfilled" | "rejected";
+  requestedAt: string;
+  payoutRial?: string;
+  rejectionReason?: string;
+}
+
+export interface InvestorDetailDto {
+  investor: InvestorViewDto;
+  chain: { identityAddress?: string; walletAddress?: string };
+  ledger: { balanceRial: string; heldRial: string };
+  holdings: HoldingDto[];
+  transfers: InvestorTransferItemDto[];
+  redemptions: InvestorRedemptionItemDto[];
+}
+
 export interface ApiClient {
   register(email: string, password: string): Promise<{ investorId: string }>;
   login(email: string, password: string): Promise<{ token: string; investorId: string }>;
@@ -232,6 +265,8 @@ export interface ApiClient {
     officerToken: string,
     filter?: { assetId?: string; limit?: number },
   ): Promise<AuditEventDto[]>;
+  listInvestors(officerToken: string): Promise<InvestorDirectoryEntryDto[]>;
+  investorDetail(officerToken: string, investorId: string): Promise<InvestorDetailDto>;
 }
 
 export type DistributionStateDto = "declared" | "paid";
@@ -463,5 +498,8 @@ export const createApiClient = (
       }).toString();
       return json(call(`/reporting/audit${query ? `?${query}` : ""}`, { token: officerToken }));
     },
+    listInvestors: (officerToken) => json(call("/investors", { token: officerToken })),
+    investorDetail: (officerToken, investorId) =>
+      json(call(`/investors/${investorId}/detail`, { token: officerToken })),
   };
 };

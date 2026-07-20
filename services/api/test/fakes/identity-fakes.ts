@@ -27,6 +27,10 @@ export class InMemoryInvestorRepository implements InvestorRepository {
     );
   }
 
+  findAll(): Promise<Investor[]> {
+    return Promise.resolve([...this.byId.values()]);
+  }
+
   save(investor: Investor): Promise<void> {
     this.byId.set(investor.id, investor);
     return Promise.resolve();

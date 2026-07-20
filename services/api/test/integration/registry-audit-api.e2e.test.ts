@@ -197,6 +197,55 @@ describe("Registry & Audit API (e2e, real Postgres, fake chain)", () => {
     expect(res.body as unknown[]).toHaveLength(2);
   });
 
+  it("lists_the_investor_directory_with_kyc_and_balances_for_the_officer", async () => {
+    const res = await request(server).get("/investors").set(auth(officerToken)).expect(200);
+
+    const directory = res.body as { email: string; kycState: string; balanceRial: string }[];
+    const alice = directory.find((entry) => entry.email === "reg.alice@example.com");
+    expect(alice).toMatchObject({ kycState: "approved", balanceRial: "0", heldRial: "0" });
+    expect(JSON.stringify(directory)).not.toContain("passwordHash");
+  });
+
+  it("drills_into_one_investor_with_chain_portfolio_and_history", async () => {
+    await request(server)
+      .post("/transfers")
+      .set(auth(aliceToken))
+      .send({ assetId: "asset-reg-1", toEmail: "reg.bob@example.com", tokens: "5" })
+      .expect(201);
+
+    const res = await request(server)
+      .get(`/investors/${aliceId}/detail`)
+      .set(auth(officerToken))
+      .expect(200);
+
+    const detail = res.body as {
+      investor: { email: string };
+      chain: { walletAddress?: string; identityAddress?: string };
+      holdings: { assetId: string; tokens: string }[];
+      transfers: { direction: string; counterparty: string; tokens: string; assetName: string }[];
+    };
+    expect(detail.investor.email).toBe("reg.alice@example.com");
+    expect(detail.chain.walletAddress).toBe(ALICE_WALLET);
+    expect(detail.holdings).toEqual([
+      expect.objectContaining({ assetId: "asset-reg-1", tokens: "30" }),
+    ]);
+    expect(detail.transfers[0]).toMatchObject({
+      direction: "sent",
+      counterparty: "reg.bob@example.com",
+      tokens: "5",
+      assetName: "Registry Test SPV",
+    });
+  });
+
+  it("returns_404_for_an_unknown_investor_detail", async () => {
+    await request(server).get("/investors/ghost/detail").set(auth(officerToken)).expect(404);
+  });
+
+  it("forbids_investors_from_the_directory", async () => {
+    await request(server).get("/investors").set(auth(aliceToken)).expect(403);
+    await request(server).get(`/investors/${aliceId}/detail`).set(auth(aliceToken)).expect(403);
+  });
+
   it("forbids_investors_from_every_reporting_surface", async () => {
     for (const path of [
       "/reporting/assets/asset-reg-1/registry",

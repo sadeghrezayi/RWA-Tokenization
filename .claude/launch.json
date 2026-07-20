@@ -14,7 +14,8 @@
       "name": "web",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "/Users/sadeghrezayi/Projects/RWA-Tokenization/apps/web", "dev"],
-      "port": 3000
+      "port": 3000,
+      "autoPort": false
     }
   ]
 }
