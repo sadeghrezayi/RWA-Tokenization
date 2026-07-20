@@ -63,7 +63,16 @@ import type {
 import { TrexHolderSnapshotProvider } from "./infrastructure/chain/trex-holder-snapshot-provider.js";
 import { GetAssetOverview } from "./application/reporting/asset-overview.js";
 import { GetSystemHealth } from "./application/reporting/system-health.js";
-import type { HealthProbe } from "./application/reporting/ports.js";
+import { GetAuditTrail } from "./application/reporting/audit-trail.js";
+import type { AssetEventReader, HealthProbe } from "./application/reporting/ports.js";
+import { GetHolderRegistry } from "./application/registry/get-holder-registry.js";
+import {
+  ExportHolderRegistryCsv,
+  ExportTransferHistoryCsv,
+} from "./application/registry/export-csv.js";
+import type { TokenEventSource, WalletDirectory } from "./application/registry/ports.js";
+import { EthersTokenEventSource } from "./infrastructure/chain/ethers-token-event-source.js";
+import { PrismaWalletDirectory } from "./infrastructure/persistence/prisma-wallet-directory.js";
 import { PlatformHealthProbe } from "./infrastructure/reporting/platform-health-probe.js";
 import { ReportingController } from "./infrastructure/http/reporting.controller.js";
 import { PublishAttestation } from "./application/attestations/publish-attestation.js";
@@ -109,6 +118,7 @@ import { IpfsDocumentStore } from "./infrastructure/documents/ipfs-document-stor
 import { AssetsController } from "./infrastructure/http/assets.controller.js";
 import {
   PrismaAssetEventLog,
+  PrismaAssetEventReader,
   PrismaAssetRepository,
 } from "./infrastructure/persistence/prisma-asset-repository.js";
 import { Argon2PasswordHasher } from "./infrastructure/auth/argon2-password-hasher.js";
@@ -149,6 +159,9 @@ export const REDEMPTION_LEDGER = "REDEMPTION_LEDGER";
 export const ATTESTATION_SIGNER = "ATTESTATION_SIGNER";
 export const ATTESTATION_ANCHOR = "ATTESTATION_ANCHOR";
 export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
+export const TOKEN_EVENT_SOURCE = "TOKEN_EVENT_SOURCE";
+export const WALLET_DIRECTORY = "WALLET_DIRECTORY";
+export const ASSET_EVENT_READER = "ASSET_EVENT_READER";
 
 // Composition root: the only place where ports meet their adapters (see
 // docs/engineering/architecture.md). Use-cases stay framework-free — they are
@@ -730,6 +743,55 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
       provide: ListRedemptions,
       useFactory: (redemptions: RedemptionRepository) => new ListRedemptions(redemptions),
       inject: [REDEMPTION_REPOSITORY],
+    },
+    {
+      // Real chain event log when the devnet env is configured; otherwise fail
+      // loudly — a registry not rebuilt from the chain would be fiction (NFR-2).
+      provide: TOKEN_EVENT_SOURCE,
+      useFactory: (): TokenEventSource => {
+        const rpcUrl = process.env.DEVNET_RPC_URL;
+        if (rpcUrl) {
+          return new EthersTokenEventSource(rpcUrl);
+        }
+        const fail = () =>
+          Promise.reject(new Error("the holder registry requires the devnet chain configuration"));
+        return { registryEvents: fail, totalSupply: fail };
+      },
+    },
+    {
+      provide: WALLET_DIRECTORY,
+      useFactory: (prisma: PrismaService) => new PrismaWalletDirectory(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: ASSET_EVENT_READER,
+      useFactory: (prisma: PrismaService) => new PrismaAssetEventReader(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: GetHolderRegistry,
+      useFactory: (assets: AssetRepository, chain: TokenEventSource, wallets: WalletDirectory) =>
+        new GetHolderRegistry(assets, chain, wallets),
+      inject: [ASSET_REPOSITORY, TOKEN_EVENT_SOURCE, WALLET_DIRECTORY],
+    },
+    {
+      provide: ExportHolderRegistryCsv,
+      useFactory: (registry: GetHolderRegistry) => new ExportHolderRegistryCsv(registry),
+      inject: [GetHolderRegistry],
+    },
+    {
+      provide: ExportTransferHistoryCsv,
+      useFactory: (registry: GetHolderRegistry) => new ExportTransferHistoryCsv(registry),
+      inject: [GetHolderRegistry],
+    },
+    {
+      provide: GetAuditTrail,
+      useFactory: (
+        events: AssetEventReader,
+        assets: AssetRepository,
+        investors: InvestorRepository,
+      ) => new GetAuditTrail(events, assets, investors),
+      inject: [ASSET_EVENT_READER, ASSET_REPOSITORY, INVESTOR_REPOSITORY],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },

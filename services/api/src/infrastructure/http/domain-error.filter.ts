@@ -60,6 +60,11 @@ import {
   NoFreshValuationError,
   RedemptionNotFoundError,
 } from "../../application/redemptions/errors.js";
+import { AssetNotTokenizedForRegistryError } from "../../application/registry/errors.js";
+import {
+  CorruptEventStreamError,
+  InvalidRegistryEventError,
+} from "../../domain/registry/errors.js";
 
 interface MinimalResponse {
   status(code: number): { json(body: unknown): void };
@@ -127,5 +132,10 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidRedemptionTransitionError) return 409;
   if (exception instanceof RedemptionNotFoundError) return 404;
   if (exception instanceof NoFreshValuationError) return 409;
+  // Registry integrity failures surface with their message (409, not a blank
+  // 500) so the operator sees exactly why the export is refused (NFR-2).
+  if (exception instanceof AssetNotTokenizedForRegistryError) return 409;
+  if (exception instanceof CorruptEventStreamError) return 409;
+  if (exception instanceof InvalidRegistryEventError) return 409;
   return 500;
 };

@@ -7,6 +7,7 @@ import type { DossierDocumentKind } from "../../domain/assets/legal-dossier.js";
 import { OnboardingChecklist } from "../../domain/assets/onboarding-checklist.js";
 import type { ChecklistItem } from "../../domain/assets/onboarding-checklist.js";
 import type { AssetEvent, AssetEventLog, AssetRepository } from "../../application/assets/ports.js";
+import type { AssetEventReader, RecordedAssetEvent } from "../../application/reporting/ports.js";
 
 export class PrismaAssetRepository implements AssetRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -69,6 +70,29 @@ export class PrismaAssetEventLog implements AssetEventLog {
         ...(event.details ? { details: event.details } : {}),
       },
     });
+  }
+}
+
+// FR-RA-2 read side of the same append-only table PrismaAssetEventLog writes.
+// Newest first; same-timestamp rows tie-break on the autoincrement id, which
+// is insertion order — matching the in-memory contract fixture exactly.
+export class PrismaAssetEventReader implements AssetEventReader {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async list(filter: { assetId?: string; limit?: number }): Promise<RecordedAssetEvent[]> {
+    const rows = await this.prisma.assetEvent.findMany({
+      ...(filter.assetId !== undefined ? { where: { assetId: filter.assetId } } : {}),
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      ...(filter.limit !== undefined ? { take: filter.limit } : {}),
+    });
+    return rows.map((row) => ({
+      id: String(row.id),
+      assetId: row.assetId,
+      event: row.event,
+      actor: row.actor,
+      details: (row.details ?? {}) as Record<string, string>,
+      at: row.createdAt,
+    }));
   }
 }
 
