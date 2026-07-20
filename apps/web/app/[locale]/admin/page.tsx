@@ -4,7 +4,9 @@ import { use, useMemo, useState } from "react";
 import { notFound } from "next/navigation";
 import { AdminOfferingsPanel } from "../../../components/admin-offerings-panel";
 import { AssetsPanel } from "../../../components/assets-panel";
+import { AuditPanel } from "../../../components/audit-panel";
 import { DistributionsPanel } from "../../../components/distributions-panel";
+import { RegistryPanel } from "../../../components/registry-panel";
 import { OfficerLogin } from "../../../components/officer-login";
 import { OfficerPanel } from "../../../components/officer-panel";
 import { OverviewPanel } from "../../../components/overview-panel";
@@ -13,7 +15,15 @@ import { Button } from "../../../components/ui/primitives";
 import { createApiClient } from "../../../lib/api";
 import { dictionaries, isLocale } from "../../../lib/i18n";
 
-type Tab = "overview" | "kyc" | "assets" | "offerings" | "distributions" | "redemptions";
+type Tab =
+  | "overview"
+  | "kyc"
+  | "assets"
+  | "offerings"
+  | "distributions"
+  | "redemptions"
+  | "registry"
+  | "audit";
 
 export default function AdminPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = use(params);
@@ -44,6 +54,8 @@ export default function AdminPage({ params }: { params: Promise<{ locale: string
     { id: "offerings", label: t.offeringsTitle },
     { id: "distributions", label: t.distributionsTitle },
     { id: "redemptions", label: t.redemptionsTitle },
+    { id: "registry", label: t.registryTitle },
+    { id: "audit", label: t.auditTitle },
   ];
 
   return (
@@ -86,6 +98,8 @@ export default function AdminPage({ params }: { params: Promise<{ locale: string
       {tab === "offerings" && <AdminOfferingsPanel locale={locale} api={api} token={token} />}
       {tab === "distributions" && <DistributionsPanel locale={locale} api={api} token={token} />}
       {tab === "redemptions" && <RedemptionsPanel locale={locale} api={api} token={token} />}
+      {tab === "registry" && <RegistryPanel locale={locale} api={api} token={token} />}
+      {tab === "audit" && <AuditPanel locale={locale} api={api} token={token} />}
     </div>
   );
 }

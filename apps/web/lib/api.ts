@@ -111,6 +111,50 @@ export interface RedemptionDto {
   resolvedAt?: string;
 }
 
+export interface RegistryHolderDto {
+  wallet: string;
+  tokens: string;
+  since: string;
+  shareBps: number;
+  investorId?: string;
+  email?: string;
+}
+
+export interface RegistryEventDto {
+  kind: "mint" | "transfer" | "burn";
+  tokens: string;
+  at: string;
+  ref: string;
+  from?: string;
+  to?: string;
+}
+
+export interface HolderRegistryDto {
+  assetId: string;
+  assetName: string;
+  tokenAddress: string;
+  holders: RegistryHolderDto[];
+  registryTotal: string;
+  onChainSupply: string;
+  matchesChain: boolean;
+  history: RegistryEventDto[];
+}
+
+export interface AuditEventDto {
+  id: string;
+  assetId: string;
+  assetName: string;
+  event: string;
+  actor: string;
+  details: Record<string, string>;
+  at: string;
+}
+
+export interface CsvDownloadDto {
+  filename: string;
+  csv: string;
+}
+
 export interface ApiClient {
   register(email: string, password: string): Promise<{ investorId: string }>;
   login(email: string, password: string): Promise<{ token: string; investorId: string }>;
@@ -181,6 +225,13 @@ export interface ApiClient {
     totalAmountRial: string,
   ): Promise<{ distributionId: string }>;
   payDistribution(officerToken: string, distributionId: string): Promise<void>;
+  holderRegistry(officerToken: string, assetId: string): Promise<HolderRegistryDto>;
+  registryCsv(officerToken: string, assetId: string): Promise<CsvDownloadDto>;
+  transfersCsv(officerToken: string, assetId: string): Promise<CsvDownloadDto>;
+  auditTrail(
+    officerToken: string,
+    filter?: { assetId?: string; limit?: number },
+  ): Promise<AuditEventDto[]>;
 }
 
 export type DistributionStateDto = "declared" | "paid";
@@ -276,6 +327,14 @@ export const createApiClient = (
   };
 
   const json = async <T>(res: Promise<Response>): Promise<T> => (await res).json() as Promise<T>;
+
+  // CSV attachments: body is plain text; the filename travels in the header.
+  const csv = async (res: Promise<Response>): Promise<CsvDownloadDto> => {
+    const response = await res;
+    const disposition = response.headers.get("content-disposition") ?? "";
+    const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "export.csv";
+    return { filename, csv: await response.text() };
+  };
 
   return {
     register: (email, password) =>
@@ -390,6 +449,19 @@ export const createApiClient = (
         token: officerToken,
         body: { reason },
       });
+    },
+    holderRegistry: (officerToken, assetId) =>
+      json(call(`/reporting/assets/${assetId}/registry`, { token: officerToken })),
+    registryCsv: (officerToken, assetId) =>
+      csv(call(`/reporting/assets/${assetId}/registry.csv`, { token: officerToken })),
+    transfersCsv: (officerToken, assetId) =>
+      csv(call(`/reporting/assets/${assetId}/transfers.csv`, { token: officerToken })),
+    auditTrail: (officerToken, filter = {}) => {
+      const query = new URLSearchParams({
+        ...(filter.assetId !== undefined ? { assetId: filter.assetId } : {}),
+        ...(filter.limit !== undefined ? { limit: String(filter.limit) } : {}),
+      }).toString();
+      return json(call(`/reporting/audit${query ? `?${query}` : ""}`, { token: officerToken }));
     },
   };
 };

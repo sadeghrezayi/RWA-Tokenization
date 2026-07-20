@@ -31,3 +31,10 @@ export const formatDate = (iso: string | undefined): string => {
   const match = /^\d{4}-\d{2}-\d{2}/.exec(iso);
   return match ? match[0] : "—";
 };
+
+// Date + minutes (YYYY-MM-DD HH:MM) for audit rows — deterministic, locale-free.
+export const formatDateTime = (iso: string | undefined): string => {
+  if (!iso) return "—";
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso);
+  return match ? `${match[1] ?? ""} ${match[2] ?? ""}` : "—";
+};

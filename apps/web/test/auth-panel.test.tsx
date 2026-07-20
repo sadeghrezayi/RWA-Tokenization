@@ -44,6 +44,10 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   listRedemptions: vi.fn(),
   fulfillRedemption: vi.fn(),
   rejectRedemption: vi.fn(),
+  holderRegistry: vi.fn(),
+  registryCsv: vi.fn(),
+  transfersCsv: vi.fn(),
+  auditTrail: vi.fn(),
   ...overrides,
 });
 

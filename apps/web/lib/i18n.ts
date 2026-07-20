@@ -138,6 +138,26 @@ export interface Dictionary {
   amountLabel: string;
   distributionPaid: string;
   distributionDeclared: string;
+  registryTitle: string;
+  auditTitle: string;
+  walletLabel: string;
+  shareLabel: string;
+  holderSinceLabel: string;
+  historyLabel: string;
+  downloadRegistryButton: string;
+  downloadHistoryButton: string;
+  matchesChainLabel: string;
+  mismatchLabel: string;
+  registryTotalLabel: string;
+  onChainSupplyLabel: string;
+  noRegistryHolders: string;
+  noAuditEvents: string;
+  eventLabel: string;
+  actorLabel: string;
+  whenLabel: string;
+  allAssetsLabel: string;
+  csvDownloaded: string;
+  unknownHolderLabel: string;
   kycStates: Record<
     "draft" | "submitted" | "in_review" | "approved" | "rejected" | "expired",
     string
@@ -269,6 +289,26 @@ export const dictionaries: Record<Locale, Dictionary> = {
     amountLabel: "Amount",
     distributionPaid: "Distribution paid.",
     distributionDeclared: "Distribution declared.",
+    registryTitle: "Holder Registry",
+    auditTitle: "Audit Log",
+    walletLabel: "Wallet",
+    shareLabel: "Share",
+    holderSinceLabel: "Since",
+    historyLabel: "Transfer history",
+    downloadRegistryButton: "Download registry CSV",
+    downloadHistoryButton: "Download history CSV",
+    matchesChainLabel: "Matches chain",
+    mismatchLabel: "MISMATCH vs chain",
+    registryTotalLabel: "Registry total",
+    onChainSupplyLabel: "On-chain supply",
+    noRegistryHolders: "No holders yet.",
+    noAuditEvents: "No audit events yet.",
+    eventLabel: "Event",
+    actorLabel: "Actor",
+    whenLabel: "When",
+    allAssetsLabel: "All assets",
+    csvDownloaded: "CSV downloaded.",
+    unknownHolderLabel: "Unknown wallet",
     kycStates: {
       draft: "Draft",
       submitted: "Submitted",
