@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InvestorsPanel } from "../components/investors-panel";
 import { ApiError } from "../lib/api";
@@ -83,7 +83,9 @@ describe("InvestorsPanel", () => {
     render(<InvestorsPanel locale="en" api={apiWith({ investorDetail })} token="tok" />);
     await screen.findByText("sara@demo.com");
 
-    await userEvent.click(screen.getAllByRole("button", { name: "Details" })[0] as HTMLElement);
+    await userEvent.click(
+      within(screen.getByTestId("investor-sara-id")).getByRole("button", { name: "Details" }),
+    );
 
     const dialog = within(await screen.findByRole("dialog"));
     expect(investorDetail).toHaveBeenCalledWith("tok", "sara-id");
@@ -138,7 +140,9 @@ describe("InvestorsPanel", () => {
     render(<InvestorsPanel locale="en" api={apiWith({ investorDetail })} token="tok" />);
     await screen.findByText("carol@demo.com");
 
-    await userEvent.click(screen.getAllByRole("button", { name: "Details" })[1] as HTMLElement);
+    await userEvent.click(
+      within(screen.getByTestId("investor-carol-id")).getByRole("button", { name: "Details" }),
+    );
 
     const dialog = within(await screen.findByRole("dialog"));
     expect(dialog.getAllByText("No activity yet.").length).toBeGreaterThan(0);
