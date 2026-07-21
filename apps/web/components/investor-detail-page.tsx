@@ -364,7 +364,9 @@ export const InvestorDetailPage = ({
                     {item.kind === "note" ? "note" : item.text}
                   </Badge>
                   {item.kind === "note" && <span>{item.text}</span>}
-                  <span className="muted text-sm">{item.actor}</span>
+                  <span className="muted text-sm">
+                    {item.actor === detail.investor.id ? detail.investor.email : item.actor}
+                  </span>
                   <span className="muted text-sm">{formatDateTime(item.at)}</span>
                 </li>
               ))}

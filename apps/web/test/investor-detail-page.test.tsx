@@ -90,7 +90,7 @@ const detail: InvestorDetailDto = {
       kind: "event",
       at: "2026-07-18T00:00:00.000Z",
       text: "offering_subscribed",
-      actor: "sara",
+      actor: "sara-id",
       assetName: "Vanak Tower SPV",
     },
   ],
@@ -181,6 +181,10 @@ describe("InvestorDetailPage", () => {
 
     expect(screen.getByText("Called about the offering.")).toBeInTheDocument();
     expect(screen.getByText("offering_subscribed")).toBeInTheDocument();
+    // The investor's own actor id resolves to their email (P2), not a UUID —
+    // appears both in the header and the timeline row.
+    expect(screen.getAllByText("sara@demo.com").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("sara-id")).not.toBeInTheDocument();
   });
 
   it("completes_an_overdue_follow_up", async () => {
