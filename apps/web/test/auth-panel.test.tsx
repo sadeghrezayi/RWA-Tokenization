@@ -50,6 +50,13 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   auditTrail: vi.fn(),
   listInvestors: vi.fn(),
   investorDetail: vi.fn(),
+  setInvestorStage: vi.fn(),
+  addInvestorTag: vi.fn(),
+  removeInvestorTag: vi.fn(),
+  addInvestorNote: vi.fn(),
+  createFollowUp: vi.fn(),
+  completeFollowUp: vi.fn(),
+  openFollowUps: vi.fn(),
   ...overrides,
 });
 

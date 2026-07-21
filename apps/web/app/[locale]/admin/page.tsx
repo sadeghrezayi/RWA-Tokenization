@@ -1,7 +1,7 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
-import { notFound } from "next/navigation";
+import { use, useEffect, useMemo, useState } from "react";
+import { notFound, useRouter } from "next/navigation";
 import { AdminOfferingsPanel } from "../../../components/admin-offerings-panel";
 import { AssetsPanel } from "../../../components/assets-panel";
 import { AuditPanel } from "../../../components/audit-panel";
@@ -27,15 +27,35 @@ type Tab =
   | "registry"
   | "audit";
 
+// Shared so the standalone investor-detail route can read the officer session.
+export const OFFICER_TOKEN_KEY = "tokenization.officerToken";
+
 export default function AdminPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = use(params);
+  const router = useRouter();
   const api = useMemo(() => createApiClient(), []);
   const [token, setToken] = useState<string | undefined>(undefined);
   const [tab, setTab] = useState<Tab>("overview");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setToken(sessionStorage.getItem(OFFICER_TOKEN_KEY) ?? undefined);
+    setHydrated(true);
+  }, []);
+
   if (!isLocale(locale)) {
     notFound();
   }
   const t = dictionaries[locale];
+
+  const authed = (newToken: string) => {
+    sessionStorage.setItem(OFFICER_TOKEN_KEY, newToken);
+    setToken(newToken);
+  };
+
+  if (!hydrated) {
+    return null;
+  }
 
   if (token === undefined) {
     return (
@@ -44,7 +64,7 @@ export default function AdminPage({ params }: { params: Promise<{ locale: string
           <h1 className="page-title">{t.adminTitle}</h1>
           <p className="page-subtitle">{t.adminSubtitle}</p>
         </div>
-        <OfficerLogin locale={locale} api={api} onAuthed={setToken} />
+        <OfficerLogin locale={locale} api={api} onAuthed={authed} />
       </div>
     );
   }
@@ -72,6 +92,7 @@ export default function AdminPage({ params }: { params: Promise<{ locale: string
           variant="ghost"
           size="sm"
           onClick={() => {
+            sessionStorage.removeItem(OFFICER_TOKEN_KEY);
             setToken(undefined);
           }}
         >
@@ -97,7 +118,16 @@ export default function AdminPage({ params }: { params: Promise<{ locale: string
 
       {tab === "overview" && <OverviewPanel locale={locale} api={api} token={token} />}
       {tab === "kyc" && <OfficerPanel locale={locale} api={api} token={token} />}
-      {tab === "investors" && <InvestorsPanel locale={locale} api={api} token={token} />}
+      {tab === "investors" && (
+        <InvestorsPanel
+          locale={locale}
+          api={api}
+          token={token}
+          onOpenInvestor={(id) => {
+            router.push(`/${locale}/admin/investors/${id}`);
+          }}
+        />
+      )}
       {tab === "assets" && <AssetsPanel locale={locale} api={api} token={token} />}
       {tab === "offerings" && <AdminOfferingsPanel locale={locale} api={api} token={token} />}
       {tab === "distributions" && <DistributionsPanel locale={locale} api={api} token={token} />}

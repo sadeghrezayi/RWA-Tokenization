@@ -1,251 +1,187 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "../lib/api";
-import type { ApiClient, InvestorDetailDto, InvestorDirectoryEntryDto } from "../lib/api";
-import { formatDate, formatRial, formatTokens } from "../lib/format";
+import type { ApiClient, InvestorDirectoryDto, OpenFollowUpDto } from "../lib/api";
+import { formatDate, formatRial } from "../lib/format";
 import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
-import { Address } from "./ui/address";
 import { Badge } from "./ui/badge";
-import { Modal } from "./ui/modal";
-import { Button, Card, EmptyState } from "./ui/primitives";
-import { kycStatus } from "./ui/status";
+import { Button, Card, EmptyState, Stat } from "./ui/primitives";
+import { kycStatus, stageStatus } from "./ui/status";
+import { useToast } from "./ui/toast";
 
-// FR-PT-3 user management: every investor at a glance (identity, KYC,
-// settlement balance), with a drill-down of one person's full footprint —
-// chain identity, portfolio, transfers, redemptions. People first (P2);
-// addresses are copyable chips, never the label.
+// FR-PT-3 + CRM/sales (user-approved scope 2026-07-20): the investor directory
+// with relationship stage, tags, invested and portfolio value at a glance, a
+// totals strip, and the open follow-up queue. Each row opens the full page.
 export const InvestorsPanel = ({
   locale,
   api,
   token,
+  onOpenInvestor,
 }: {
   locale: Locale;
   api: ApiClient;
   token: string;
+  onOpenInvestor: (investorId: string) => void;
 }) => {
   const t = dictionaries[locale];
-  const [investors, setInvestors] = useState<InvestorDirectoryEntryDto[]>([]);
-  const [detail, setDetail] = useState<InvestorDetailDto | undefined>(undefined);
+  const toast = useToast();
+  const [directory, setDirectory] = useState<InvestorDirectoryDto | undefined>(undefined);
+  const [followUps, setFollowUps] = useState<OpenFollowUpDto[]>([]);
   const [error, setError] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    api
-      .listInvestors(token)
-      .then(setInvestors)
-      .catch((e: unknown) => {
-        setError(e instanceof ApiError ? e.message : t.authFailed);
-      });
-  }, [api, token, t.authFailed]);
+  const refresh = useCallback(async () => {
+    const [dir, queue] = await Promise.all([api.listInvestors(token), api.openFollowUps(token)]);
+    setDirectory(dir);
+    setFollowUps(queue);
+  }, [api, token]);
 
-  const openDetail = (investorId: string) => {
+  useEffect(() => {
+    refresh().catch((e: unknown) => {
+      setError(e instanceof ApiError ? e.message : t.authFailed);
+    });
+  }, [refresh, t.authFailed]);
+
+  const complete = (followUpId: string) => {
     setError(undefined);
-    api
-      .investorDetail(token, investorId)
-      .then(setDetail)
-      .catch((e: unknown) => {
+    void (async () => {
+      try {
+        await api.completeFollowUp(token, followUpId);
+        await refresh();
+        toast.show(t.followUpCompleted, "success");
+      } catch (e) {
         setError(e instanceof ApiError ? e.message : t.authFailed);
-      });
+      }
+    })();
   };
 
   return (
-    <Card title={t.investorsTitle}>
-      {investors.length === 0 ? (
-        <EmptyState icon="◎">{t.noInvestors}</EmptyState>
-      ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t.emailLabel}</th>
-                <th>{t.statusLabel}</th>
-                <th className="table__num">{t.balanceLabel}</th>
-                <th className="table__num">{t.heldLabel}</th>
-                <th className="table__num">{t.actionsLabel}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {investors.map((investor) => {
-                const badge = kycStatus(investor.kycState);
-                return (
-                  <tr key={investor.id} data-testid={`investor-${investor.id}`}>
-                    <td>
-                      <strong>{investor.email}</strong>
-                    </td>
-                    <td>
-                      <Badge tone={badge.tone}>{badge.label}</Badge>
-                    </td>
-                    <td className="table__num num">{formatRial(investor.balanceRial)}</td>
-                    <td className="table__num num">{formatRial(investor.heldRial)}</td>
-                    <td className="table__num">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          openDetail(investor.id);
-                        }}
-                      >
-                        {t.detailsButton}
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {error !== undefined && (
-        <p className="field__error" role="alert">
-          {error}
-        </p>
+    <div className="stack">
+      {followUps.length > 0 && (
+        <Card title={t.followUpQueueTitle}>
+          <div className="stack" style={{ gap: "var(--space-2)" }}>
+            {followUps.map((followUp) => (
+              <div key={followUp.id} className="row row--between">
+                <span className="row">
+                  {followUp.overdue && <Badge tone="danger">{t.overdueLabel}</Badge>}
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => {
+                      onOpenInvestor(followUp.investorId);
+                    }}
+                  >
+                    {followUp.email}
+                  </button>
+                  <span>{followUp.text}</span>
+                  <span className="muted text-sm">
+                    {t.dueLabel}: {formatDate(followUp.dueAt)}
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    complete(followUp.id);
+                  }}
+                >
+                  {t.completeButton}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
-      <InvestorDetailModal
-        detail={detail}
-        locale={locale}
-        onClose={() => {
-          setDetail(undefined);
-        }}
-      />
-    </Card>
-  );
-};
+      <Card title={t.investorsTitle}>
+        {directory === undefined || directory.investors.length === 0 ? (
+          <EmptyState icon="◎">{t.noInvestors}</EmptyState>
+        ) : (
+          <div className="stack">
+            <div className="stat-row">
+              <Stat label={t.investorsSummaryLabel} value={directory.summary.investorCount} />
+              <Stat label={t.balanceLabel} value={formatRial(directory.summary.totalBalanceRial)} />
+              <Stat
+                label={t.investedLabel}
+                value={formatRial(directory.summary.totalInvestedRial)}
+              />
+              <Stat
+                label={t.portfolioValueLabel}
+                value={formatRial(directory.summary.totalPortfolioValueRial)}
+              />
+            </div>
 
-const InvestorDetailModal = ({
-  detail,
-  locale,
-  onClose,
-}: {
-  detail: InvestorDetailDto | undefined;
-  locale: Locale;
-  onClose: () => void;
-}) => {
-  const t = dictionaries[locale];
-  if (detail === undefined) {
-    return null;
-  }
-  const badge = kycStatus(detail.investor.kycState);
-
-  return (
-    <Modal open title={detail.investor.email} onClose={onClose}>
-      <div className="stack" style={{ gap: "var(--space-4)" }}>
-        <div className="row">
-          <Badge tone={badge.tone}>{badge.label}</Badge>
-          {detail.investor.kycRejectionReason !== undefined && (
-            <span className="muted text-sm">{detail.investor.kycRejectionReason}</span>
-          )}
-        </div>
-
-        <section>
-          <p className="stat__label">{t.ledgerSectionLabel}</p>
-          <div className="row text-sm">
-            <span>
-              {t.balanceLabel}: <span className="num">{formatRial(detail.ledger.balanceRial)}</span>
-            </span>
-            <span>
-              {t.heldLabel}: <span className="num">{formatRial(detail.ledger.heldRial)}</span>
-            </span>
-          </div>
-        </section>
-
-        <section>
-          <p className="stat__label">{t.chainSectionLabel}</p>
-          <div className="row text-sm">
-            <span>
-              {t.identityAddressLabel}: <Address value={detail.chain.identityAddress} />
-            </span>
-            <span>
-              {t.walletLabel}: <Address value={detail.chain.walletAddress} />
-            </span>
-          </div>
-        </section>
-
-        <section>
-          <p className="stat__label">{t.portfolioLabel}</p>
-          {detail.holdings.length === 0 ? (
-            <p className="muted text-sm">{t.noActivity}</p>
-          ) : (
             <div className="table-wrap">
               <table className="table">
                 <thead>
                   <tr>
-                    <th>{t.assetLabel}</th>
-                    <th className="table__num">{t.tokensLabel}</th>
+                    <th>{t.emailLabel}</th>
+                    <th>{t.statusLabel}</th>
+                    <th>{t.stageLabel}</th>
+                    <th>{t.tagsLabel}</th>
+                    <th className="table__num">{t.balanceLabel}</th>
+                    <th className="table__num">{t.investedLabel}</th>
+                    <th className="table__num">{t.portfolioValueLabel}</th>
+                    <th className="table__num">{t.actionsLabel}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {detail.holdings.map((holding) => (
-                    <tr key={holding.assetId}>
-                      <td>{holding.assetName}</td>
-                      <td className="table__num num">{formatTokens(holding.tokens)}</td>
-                    </tr>
-                  ))}
+                  {directory.investors.map((investor) => {
+                    const kyc = kycStatus(investor.kycState);
+                    const stage = stageStatus(investor.stage);
+                    return (
+                      <tr key={investor.id} data-testid={`investor-${investor.id}`}>
+                        <td>
+                          <strong>{investor.email}</strong>
+                        </td>
+                        <td>
+                          <Badge tone={kyc.tone}>{kyc.label}</Badge>
+                        </td>
+                        <td>
+                          <Badge tone={stage.tone}>{stage.label}</Badge>
+                        </td>
+                        <td>
+                          <span className="row row--wrap">
+                            {investor.tags.map((tag) => (
+                              <span key={tag} className="tag-chip tag-chip--static">
+                                {tag}
+                              </span>
+                            ))}
+                          </span>
+                        </td>
+                        <td className="table__num num">{formatRial(investor.balanceRial)}</td>
+                        <td className="table__num num">{formatRial(investor.totalInvestedRial)}</td>
+                        <td className="table__num num">
+                          {formatRial(investor.portfolioValueRial)}
+                        </td>
+                        <td className="table__num">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              onOpenInvestor(investor.id);
+                            }}
+                          >
+                            {t.openButton}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          )}
-        </section>
-
-        <section>
-          <p className="stat__label">{t.transfersLabel}</p>
-          {detail.transfers.length === 0 ? (
-            <p className="muted text-sm">{t.noActivity}</p>
-          ) : (
-            <div className="stack" style={{ gap: "var(--space-2)" }}>
-              {detail.transfers.map((transfer) => (
-                <div key={transfer.id} className="row text-sm">
-                  <Badge tone={transfer.direction === "sent" ? "warning" : "success"}>
-                    {transfer.direction === "sent" ? t.sentLabel : t.receivedLabel}
-                  </Badge>
-                  <span>{transfer.counterparty}</span>
-                  <span className="muted">{transfer.assetName}</span>
-                  <span className="num">{formatTokens(transfer.tokens)}</span>
-                  <span className="muted">{formatDate(transfer.at)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section>
-          <p className="stat__label">{t.redemptionsLabel}</p>
-          {detail.redemptions.length === 0 ? (
-            <p className="muted text-sm">{t.noActivity}</p>
-          ) : (
-            <div className="stack" style={{ gap: "var(--space-2)" }}>
-              {detail.redemptions.map((redemption) => (
-                <div key={redemption.id} className="row text-sm">
-                  <Badge
-                    tone={
-                      redemption.state === "fulfilled"
-                        ? "success"
-                        : redemption.state === "rejected"
-                          ? "danger"
-                          : "warning"
-                    }
-                  >
-                    {redemption.state}
-                  </Badge>
-                  <span className="muted">{redemption.assetName}</span>
-                  <span className="num">{formatTokens(redemption.tokens)}</span>
-                  {redemption.payoutRial !== undefined && (
-                    <span className="num">
-                      {t.payoutLabel}: {formatRial(redemption.payoutRial)}
-                    </span>
-                  )}
-                  {redemption.rejectionReason !== undefined && (
-                    <span className="muted">{redemption.rejectionReason}</span>
-                  )}
-                  <span className="muted">{formatDate(redemption.requestedAt)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-    </Modal>
+          </div>
+        )}
+        {error !== undefined && (
+          <p className="field__error" role="alert">
+            {error}
+          </p>
+        )}
+      </Card>
+    </div>
   );
 };

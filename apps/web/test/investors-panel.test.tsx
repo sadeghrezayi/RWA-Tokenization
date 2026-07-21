@@ -1,108 +1,139 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InvestorsPanel } from "../components/investors-panel";
 import { ApiError } from "../lib/api";
-import type { ApiClient, InvestorDetailDto, InvestorDirectoryEntryDto } from "../lib/api";
+import type { ApiClient, InvestorDirectoryDto, OpenFollowUpDto } from "../lib/api";
 
-const sara: InvestorDirectoryEntryDto = {
-  id: "sara-id",
+const directory: InvestorDirectoryDto = {
+  investors: [
+    {
+      id: "sara-id",
+      email: "sara@demo.com",
+      kycState: "approved",
+      eligibleForClaims: true,
+      balanceRial: "1250140000",
+      heldRial: "0",
+      stage: "active",
+      tags: ["qualified"],
+      totalInvestedRial: "60000",
+      portfolioValueRial: "6250000000",
+    },
+    {
+      id: "carol-id",
+      email: "carol@demo.com",
+      kycState: "draft",
+      eligibleForClaims: false,
+      balanceRial: "0",
+      heldRial: "0",
+      stage: "lead",
+      tags: [],
+      totalInvestedRial: "0",
+      portfolioValueRial: "0",
+    },
+  ],
+  summary: {
+    investorCount: 2,
+    totalBalanceRial: "1250140000",
+    totalInvestedRial: "60000",
+    totalPortfolioValueRial: "6250000000",
+  },
+};
+
+const overdue: OpenFollowUpDto = {
+  id: "f1",
+  investorId: "sara-id",
   email: "sara@demo.com",
-  kycState: "approved",
-  eligibleForClaims: true,
-  balanceRial: "1250140000",
-  heldRial: "0",
-};
-
-const carol: InvestorDirectoryEntryDto = {
-  id: "carol-id",
-  email: "carol@demo.com",
-  kycState: "draft",
-  eligibleForClaims: false,
-  balanceRial: "0",
-  heldRial: "0",
-};
-
-const saraDetail: InvestorDetailDto = {
-  investor: {
-    id: "sara-id",
-    email: "sara@demo.com",
-    kycState: "approved",
-    eligibleForClaims: true,
-  },
-  chain: {
-    identityAddress: "0xId1234567890abcdef",
-    walletAddress: "0x7ab685e2cbcd42084733be6222b16d35db0b60a0",
-  },
-  ledger: { balanceRial: "1250140000", heldRial: "0" },
-  holdings: [
-    { assetId: "asset-1", assetName: "Vanak Tower SPV", tokenAddress: "0xTok1", tokens: "35" },
-  ],
-  transfers: [
-    {
-      id: "tr-1",
-      direction: "sent",
-      counterparty: "bob@demo.com",
-      assetName: "Vanak Tower SPV",
-      tokens: "15",
-      at: "2026-07-20T06:50:26.000Z",
-    },
-  ],
-  redemptions: [
-    {
-      id: "red-1",
-      assetName: "Vanak Tower SPV",
-      tokens: "10",
-      state: "fulfilled",
-      requestedAt: "2026-07-20T06:50:26.000Z",
-      payoutRial: "1250000000",
-    },
-  ],
+  text: "Send prospectus",
+  dueAt: "2026-01-01T00:00:00.000Z",
+  overdue: true,
 };
 
 const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
   ({
-    listInvestors: vi.fn().mockResolvedValue([sara, carol]),
-    investorDetail: vi.fn().mockResolvedValue(saraDetail),
+    listInvestors: vi.fn().mockResolvedValue(directory),
+    openFollowUps: vi.fn().mockResolvedValue([overdue]),
+    completeFollowUp: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }) as ApiClient;
 
 describe("InvestorsPanel", () => {
-  it("lists_every_investor_with_kyc_badge_and_balances", async () => {
-    render(<InvestorsPanel locale="en" api={apiWith({})} token="tok" />);
+  it("lists_investors_with_kyc_stage_balance_and_sales_columns", async () => {
+    render(<InvestorsPanel locale="en" api={apiWith({})} token="tok" onOpenInvestor={vi.fn()} />);
 
-    expect(await screen.findByText("sara@demo.com")).toBeInTheDocument();
+    await screen.findByTestId("investor-sara-id");
+    expect(
+      within(screen.getByTestId("investor-sara-id")).getByText("sara@demo.com"),
+    ).toBeInTheDocument();
     expect(screen.getByText("carol@demo.com")).toBeInTheDocument();
     expect(screen.getByText("Approved")).toBeInTheDocument();
-    expect(screen.getByText("Draft")).toBeInTheDocument();
-    expect(screen.getByText("1,250,140,000 ﷼")).toBeInTheDocument();
+    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("qualified")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("investor-sara-id")).getByText("1,250,140,000 ﷼"),
+    ).toBeInTheDocument();
   });
 
-  it("opens_the_detail_with_chain_portfolio_and_history", async () => {
-    const investorDetail = vi.fn().mockResolvedValue(saraDetail);
-    render(<InvestorsPanel locale="en" api={apiWith({ investorDetail })} token="tok" />);
-    await screen.findByText("sara@demo.com");
+  it("shows_the_totals_summary", async () => {
+    render(<InvestorsPanel locale="en" api={apiWith({})} token="tok" onOpenInvestor={vi.fn()} />);
+    await screen.findByTestId("investor-sara-id");
+
+    // Appears in both the totals strip and sara's row.
+    expect(screen.getAllByText("6,250,000,000 ﷼").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("navigates_to_the_detail_page_on_details", async () => {
+    const onOpenInvestor = vi.fn();
+    render(
+      <InvestorsPanel locale="en" api={apiWith({})} token="tok" onOpenInvestor={onOpenInvestor} />,
+    );
+    await screen.findByTestId("investor-sara-id");
 
     await userEvent.click(
-      within(screen.getByTestId("investor-sara-id")).getByRole("button", { name: "Details" }),
+      within(screen.getByTestId("investor-sara-id")).getByRole("button", { name: "Open" }),
     );
 
-    const dialog = within(await screen.findByRole("dialog"));
-    expect(investorDetail).toHaveBeenCalledWith("tok", "sara-id");
-    expect(dialog.getByText("0x7ab6…60a0")).toBeInTheDocument();
-    expect(dialog.getAllByText("Vanak Tower SPV").length).toBeGreaterThan(0);
-    expect(dialog.getByText("35")).toBeInTheDocument();
-    expect(dialog.getByText(/bob@demo.com/)).toBeInTheDocument();
-    expect(dialog.getByText("Sent")).toBeInTheDocument();
-    expect(dialog.getByText(/1,250,000,000 ﷼/)).toBeInTheDocument();
+    expect(onOpenInvestor).toHaveBeenCalledWith("sara-id");
+  });
+
+  it("shows_the_open_follow_up_queue_and_completes_one", async () => {
+    const completeFollowUp = vi.fn().mockResolvedValue(undefined);
+    render(
+      <InvestorsPanel
+        locale="en"
+        api={apiWith({ completeFollowUp })}
+        token="tok"
+        onOpenInvestor={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Send prospectus")).toBeInTheDocument();
+    expect(screen.getByText("Overdue")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Complete" }));
+
+    await waitFor(() => {
+      expect(completeFollowUp).toHaveBeenCalledWith("tok", "f1");
+    });
   });
 
   it("shows_the_empty_state_without_investors", async () => {
     render(
       <InvestorsPanel
         locale="en"
-        api={apiWith({ listInvestors: vi.fn().mockResolvedValue([]) })}
+        api={apiWith({
+          listInvestors: vi.fn().mockResolvedValue({
+            investors: [],
+            summary: {
+              investorCount: 0,
+              totalBalanceRial: "0",
+              totalInvestedRial: "0",
+              totalPortfolioValueRial: "0",
+            },
+          }),
+          openFollowUps: vi.fn().mockResolvedValue([]),
+        })}
         token="tok"
+        onOpenInvestor={vi.fn()}
       />,
     );
 
@@ -117,34 +148,10 @@ describe("InvestorsPanel", () => {
           listInvestors: vi.fn().mockRejectedValue(new ApiError(403, "officer role required")),
         })}
         token="tok"
+        onOpenInvestor={vi.fn()}
       />,
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("officer role required");
-  });
-
-  it("shows_no_activity_hints_for_a_fresh_user", async () => {
-    const investorDetail = vi.fn().mockResolvedValue({
-      investor: {
-        id: "carol-id",
-        email: "carol@demo.com",
-        kycState: "draft",
-        eligibleForClaims: false,
-      },
-      chain: {},
-      ledger: { balanceRial: "0", heldRial: "0" },
-      holdings: [],
-      transfers: [],
-      redemptions: [],
-    });
-    render(<InvestorsPanel locale="en" api={apiWith({ investorDetail })} token="tok" />);
-    await screen.findByText("carol@demo.com");
-
-    await userEvent.click(
-      within(screen.getByTestId("investor-carol-id")).getByRole("button", { name: "Details" }),
-    );
-
-    const dialog = within(await screen.findByRole("dialog"));
-    expect(dialog.getAllByText("No activity yet.").length).toBeGreaterThan(0);
   });
 });

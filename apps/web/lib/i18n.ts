@@ -161,6 +161,7 @@ export interface Dictionary {
   investorsTitle: string;
   noInvestors: string;
   detailsButton: string;
+  openButton: string;
   balanceLabel: string;
   identityAddressLabel: string;
   portfolioLabel: string;
@@ -171,6 +172,39 @@ export interface Dictionary {
   noActivity: string;
   ledgerSectionLabel: string;
   chainSectionLabel: string;
+  stageLabel: string;
+  tagsLabel: string;
+  investedLabel: string;
+  portfolioValueLabel: string;
+  addTagLabel: string;
+  addTagButton: string;
+  relationshipSectionLabel: string;
+  salesSectionLabel: string;
+  timelineSectionLabel: string;
+  followUpsSectionLabel: string;
+  subscriptionsLabel: string;
+  addNoteLabel: string;
+  addNoteButton: string;
+  noNotes: string;
+  addFollowUpButton: string;
+  followUpTextLabel: string;
+  followUpDueLabel: string;
+  completeButton: string;
+  overdueLabel: string;
+  noFollowUps: string;
+  backToInvestors: string;
+  followUpQueueTitle: string;
+  noOpenFollowUps: string;
+  dueLabel: string;
+  freshValueLabel: string;
+  staleValueLabel: string;
+  investorsSummaryLabel: string;
+  stageUpdated: string;
+  tagAdded: string;
+  noteAdded: string;
+  followUpCreated: string;
+  followUpCompleted: string;
+  stages: Record<"lead" | "contacted" | "onboarding" | "active" | "dormant", string>;
   kycStates: Record<
     "draft" | "submitted" | "in_review" | "approved" | "rejected" | "expired",
     string
@@ -325,6 +359,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
     investorsTitle: "Investors",
     noInvestors: "No investors yet.",
     detailsButton: "Details",
+    openButton: "Open",
     balanceLabel: "Balance",
     identityAddressLabel: "On-chain identity",
     portfolioLabel: "Portfolio",
@@ -335,6 +370,45 @@ export const dictionaries: Record<Locale, Dictionary> = {
     noActivity: "No activity yet.",
     ledgerSectionLabel: "Settlement ledger",
     chainSectionLabel: "On-chain",
+    stageLabel: "Stage",
+    tagsLabel: "Tags",
+    investedLabel: "Invested",
+    portfolioValueLabel: "Portfolio value",
+    addTagLabel: "New tag",
+    addTagButton: "Add tag",
+    relationshipSectionLabel: "Relationship",
+    salesSectionLabel: "Sales",
+    timelineSectionLabel: "Activity timeline",
+    followUpsSectionLabel: "Follow-ups",
+    subscriptionsLabel: "Subscription history",
+    addNoteLabel: "Add a note",
+    addNoteButton: "Save note",
+    noNotes: "No notes yet.",
+    addFollowUpButton: "Add follow-up",
+    followUpTextLabel: "Follow-up",
+    followUpDueLabel: "Due date",
+    completeButton: "Complete",
+    overdueLabel: "Overdue",
+    noFollowUps: "No follow-ups.",
+    backToInvestors: "← Back to investors",
+    followUpQueueTitle: "Open Follow-ups",
+    noOpenFollowUps: "No open follow-ups.",
+    dueLabel: "Due",
+    freshValueLabel: "Fresh",
+    staleValueLabel: "Stale valuation",
+    investorsSummaryLabel: "Total across investors",
+    stageUpdated: "Relationship stage updated.",
+    tagAdded: "Tag updated.",
+    noteAdded: "Note saved.",
+    followUpCreated: "Follow-up added.",
+    followUpCompleted: "Follow-up completed.",
+    stages: {
+      lead: "Lead",
+      contacted: "Contacted",
+      onboarding: "Onboarding",
+      active: "Active",
+      dormant: "Dormant",
+    },
     kycStates: {
       draft: "Draft",
       submitted: "Submitted",

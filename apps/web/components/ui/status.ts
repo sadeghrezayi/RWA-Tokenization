@@ -54,6 +54,22 @@ export const offeringStatus = (state: string): StatusBadge => {
   }
 };
 
+// CRM relationship stage → badge tone (user-approved scope 2026-07-20).
+export const stageStatus = (stage: string): StatusBadge => {
+  switch (stage) {
+    case "active":
+      return { tone: "success", label: "Active" };
+    case "onboarding":
+      return { tone: "info", label: "Onboarding" };
+    case "contacted":
+      return { tone: "info", label: "Contacted" };
+    case "dormant":
+      return { tone: "warning", label: "Dormant" };
+    default:
+      return { tone: "neutral", label: "Lead" };
+  }
+};
+
 export const distributionStatus = (state: string): StatusBadge => {
   switch (state) {
     case "paid":

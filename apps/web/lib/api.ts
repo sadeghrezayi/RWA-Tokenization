@@ -155,9 +155,27 @@ export interface CsvDownloadDto {
   csv: string;
 }
 
+export type RelationshipStageDto = "lead" | "contacted" | "onboarding" | "active" | "dormant";
+
 export interface InvestorDirectoryEntryDto extends InvestorViewDto {
   balanceRial: string;
   heldRial: string;
+  stage: RelationshipStageDto;
+  tags: string[];
+  totalInvestedRial: string;
+  portfolioValueRial: string;
+}
+
+export interface InvestorDirectorySummaryDto {
+  investorCount: number;
+  totalBalanceRial: string;
+  totalInvestedRial: string;
+  totalPortfolioValueRial: string;
+}
+
+export interface InvestorDirectoryDto {
+  investors: InvestorDirectoryEntryDto[];
+  summary: InvestorDirectorySummaryDto;
 }
 
 export interface InvestorTransferItemDto {
@@ -179,6 +197,64 @@ export interface InvestorRedemptionItemDto {
   rejectionReason?: string;
 }
 
+export interface FollowUpDto {
+  id: string;
+  text: string;
+  dueAt: string;
+  state: "open" | "done";
+  overdue: boolean;
+}
+
+export interface InvestorCrmDto {
+  stage: RelationshipStageDto;
+  tags: string[];
+  followUps: FollowUpDto[];
+}
+
+export interface ValuedHoldingDto {
+  assetId: string;
+  assetName: string;
+  tokens: string;
+  valueRial?: string;
+  valuationFresh: boolean;
+}
+
+export interface SubscriptionHistoryDto {
+  offeringId: string;
+  assetName: string;
+  state: string;
+  requested: string;
+  allocated: string;
+  costRial: string;
+  refundRial: string;
+  closesAt: string;
+}
+
+export interface InvestorSalesDto {
+  totalInvestedRial: string;
+  portfolioValueRial: string;
+  portfolioValueFresh: boolean;
+  holdings: ValuedHoldingDto[];
+  subscriptions: SubscriptionHistoryDto[];
+}
+
+export interface TimelineItemDto {
+  kind: "note" | "event";
+  at: string;
+  text: string;
+  actor: string;
+  assetName?: string;
+}
+
+export interface OpenFollowUpDto {
+  id: string;
+  investorId: string;
+  email: string;
+  text: string;
+  dueAt: string;
+  overdue: boolean;
+}
+
 export interface InvestorDetailDto {
   investor: InvestorViewDto;
   chain: { identityAddress?: string; walletAddress?: string };
@@ -186,6 +262,9 @@ export interface InvestorDetailDto {
   holdings: HoldingDto[];
   transfers: InvestorTransferItemDto[];
   redemptions: InvestorRedemptionItemDto[];
+  crm: InvestorCrmDto;
+  sales: InvestorSalesDto;
+  timeline: TimelineItemDto[];
 }
 
 export interface ApiClient {
@@ -265,8 +344,27 @@ export interface ApiClient {
     officerToken: string,
     filter?: { assetId?: string; limit?: number },
   ): Promise<AuditEventDto[]>;
-  listInvestors(officerToken: string): Promise<InvestorDirectoryEntryDto[]>;
+  listInvestors(officerToken: string): Promise<InvestorDirectoryDto>;
   investorDetail(officerToken: string, investorId: string): Promise<InvestorDetailDto>;
+  setInvestorStage(
+    officerToken: string,
+    investorId: string,
+    stage: RelationshipStageDto,
+  ): Promise<void>;
+  addInvestorTag(officerToken: string, investorId: string, tag: string): Promise<void>;
+  removeInvestorTag(officerToken: string, investorId: string, tag: string): Promise<void>;
+  addInvestorNote(
+    officerToken: string,
+    investorId: string,
+    text: string,
+  ): Promise<{ noteId: string }>;
+  createFollowUp(
+    officerToken: string,
+    investorId: string,
+    body: { text: string; dueAt: string },
+  ): Promise<{ followUpId: string }>;
+  completeFollowUp(officerToken: string, followUpId: string): Promise<void>;
+  openFollowUps(officerToken: string): Promise<OpenFollowUpDto[]>;
 }
 
 export type DistributionStateDto = "declared" | "paid";
@@ -501,5 +599,34 @@ export const createApiClient = (
     listInvestors: (officerToken) => json(call("/investors", { token: officerToken })),
     investorDetail: (officerToken, investorId) =>
       json(call(`/investors/${investorId}/detail`, { token: officerToken })),
+    setInvestorStage: async (officerToken, investorId, stage) => {
+      await call(`/crm/${investorId}/stage`, {
+        method: "PUT",
+        token: officerToken,
+        body: { stage },
+      });
+    },
+    addInvestorTag: async (officerToken, investorId, tag) => {
+      await call(`/crm/${investorId}/tags`, { method: "POST", token: officerToken, body: { tag } });
+    },
+    removeInvestorTag: async (officerToken, investorId, tag) => {
+      await call(`/crm/${investorId}/tags/${encodeURIComponent(tag)}`, {
+        method: "DELETE",
+        token: officerToken,
+      });
+    },
+    addInvestorNote: (officerToken, investorId, text) =>
+      json(
+        call(`/crm/${investorId}/notes`, { method: "POST", token: officerToken, body: { text } }),
+      ),
+    createFollowUp: (officerToken, investorId, body) =>
+      json(call(`/crm/${investorId}/follow-ups`, { method: "POST", token: officerToken, body })),
+    completeFollowUp: async (officerToken, followUpId) => {
+      await call(`/crm/follow-ups/${followUpId}/complete`, {
+        method: "POST",
+        token: officerToken,
+      });
+    },
+    openFollowUps: (officerToken) => json(call("/crm/follow-ups", { token: officerToken })),
   };
 };
