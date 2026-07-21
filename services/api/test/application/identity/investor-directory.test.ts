@@ -20,9 +20,21 @@ import { PasswordHash } from "../../../src/domain/identity/password-hash.js";
 import type { KycState } from "../../../src/domain/identity/kyc-status.js";
 import { Redemption } from "../../../src/domain/redemptions/redemption.js";
 import { TokenTransfer } from "../../../src/domain/transfers/token-transfer.js";
+import { GetInvestorSales } from "../../../src/application/crm/investor-sales.js";
+import { GetInvestorTimeline } from "../../../src/application/crm/investor-timeline.js";
+import { CrmProfile } from "../../../src/domain/crm/crm-profile.js";
+import { FollowUp } from "../../../src/domain/crm/follow-up.js";
 import { InMemoryAssetRepository } from "../../fakes/asset-fakes.js";
+import { InMemoryAttestationRepository } from "../../fakes/attestation-fakes.js";
+import {
+  InMemoryCrmNoteRepository,
+  InMemoryCrmProfileRepository,
+  InMemoryFollowUpRepository,
+} from "../../fakes/crm-fakes.js";
 import { InMemoryInvestorRepository } from "../../fakes/identity-fakes.js";
+import { FixedClock, InMemoryOfferingRepository } from "../../fakes/offering-fakes.js";
 import { InMemoryRedemptionRepository } from "../../fakes/redemption-fakes.js";
+import { FakeTokenEventSource, InMemoryAssetEventStore } from "../../fakes/registry-fakes.js";
 import {
   FakeAssetTokenTransferrer,
   InMemoryTransferRepository,
@@ -122,25 +134,56 @@ const setup = async () => {
     }).fulfill(1_250_000_000n, T2),
   );
 
+  const clock = new FixedClock(new Date("2026-07-20T12:00:00Z"));
+  const profiles = new InMemoryCrmProfileRepository();
+  const notes = new InMemoryCrmNoteRepository();
+  const followUps = new InMemoryFollowUpRepository();
+  const holdings = new GetMyHoldings(assets, chain);
+  const sales = new GetInvestorSales(
+    new InMemoryOfferingRepository(),
+    assets,
+    new InMemoryAttestationRepository(),
+    new FakeTokenEventSource(),
+    holdings,
+    clock,
+  );
+  const timeline = new GetInvestorTimeline(notes, new InMemoryAssetEventStore(clock), assets);
+  await profiles.save(CrmProfile.initial("sara").withStage("active").addTag("qualified"));
+  await followUps.save(
+    FollowUp.create({
+      id: "f1",
+      investorId: "sara",
+      text: "Chase documents",
+      dueAt: new Date("2026-07-15T00:00:00Z"),
+      createdAt: T1,
+    }),
+  );
+
   return {
-    list: new ListInvestors(investors, ledger),
+    profiles,
+    list: new ListInvestors(investors, ledger, profiles, sales),
     detail: new GetInvestorDetail(
       investors,
       assets,
       ledger,
       chainDir,
-      new GetMyHoldings(assets, chain),
+      holdings,
       transfers,
       redemptions,
+      profiles,
+      followUps,
+      sales,
+      timeline,
+      clock,
     ),
   };
 };
 
 describe("ListInvestors (FR-PT-3 directory)", () => {
-  it("lists_every_investor_with_kyc_and_ledger_balances_sorted_by_email", async () => {
+  it("lists_every_investor_with_kyc_ledger_crm_and_sales_sorted_by_email", async () => {
     const s = await setup();
 
-    const list = await s.list.execute();
+    const { investors: list } = await s.list.execute();
 
     expect(list.map((e) => e.email)).toEqual(["bob@demo.com", "carol@demo.com", "sara@demo.com"]);
     expect(list[0]).toMatchObject({
@@ -148,10 +191,30 @@ describe("ListInvestors (FR-PT-3 directory)", () => {
       eligibleForClaims: true,
       balanceRial: "160000",
       heldRial: "40000",
+      stage: "lead",
+      tags: [],
     });
     expect(list[1]).toMatchObject({ kycState: "draft", balanceRial: "0" });
+    expect(list[2]).toMatchObject({
+      stage: "active",
+      tags: ["qualified"],
+      totalInvestedRial: "0",
+    });
     // Never leak credentials.
     expect(JSON.stringify(list)).not.toContain("hashed:pw");
+  });
+
+  it("totals_the_directory_in_a_summary", async () => {
+    const s = await setup();
+
+    const { summary } = await s.list.execute();
+
+    expect(summary).toEqual({
+      investorCount: 3,
+      totalBalanceRial: "1250300000",
+      totalInvestedRial: "0",
+      totalPortfolioValueRial: "0",
+    });
   });
 });
 
@@ -232,5 +295,40 @@ describe("GetInvestorDetail (FR-PT-3 user drill-down)", () => {
     await expect(s.detail.execute({ investorId: "missing" })).rejects.toThrow(
       InvestorNotFoundError,
     );
+  });
+
+  it("includes_the_crm_profile_with_overdue_follow_ups", async () => {
+    const s = await setup();
+
+    const { crm } = await s.detail.execute({ investorId: "sara" });
+
+    expect(crm.stage).toBe("active");
+    expect(crm.tags).toEqual(["qualified"]);
+    expect(crm.followUps).toEqual([
+      {
+        id: "f1",
+        text: "Chase documents",
+        dueAt: "2026-07-15T00:00:00.000Z",
+        state: "open",
+        overdue: true,
+      },
+    ]);
+  });
+
+  it("defaults_crm_to_a_lead_profile_when_none_exists", async () => {
+    const s = await setup();
+
+    const { crm } = await s.detail.execute({ investorId: "carol" });
+
+    expect(crm).toEqual({ stage: "lead", tags: [], followUps: [] });
+  });
+
+  it("includes_sales_and_timeline_sections", async () => {
+    const s = await setup();
+
+    const detail = await s.detail.execute({ investorId: "sara" });
+
+    expect(detail.sales).toMatchObject({ totalInvestedRial: "0", subscriptions: [] });
+    expect(Array.isArray(detail.timeline)).toBe(true);
   });
 });

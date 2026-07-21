@@ -268,3 +268,34 @@ model OnchainIdentity {
 
   @@map("onchain_identities")
 }
+
+model CrmProfile {
+  investorId String   @id @map("investor_id")
+  stage      String
+  tags       String[]
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("crm_profiles")
+}
+
+model CrmNote {
+  id         String   @id
+  investorId String   @map("investor_id")
+  authorId   String   @map("author_id")
+  text       String
+  createdAt  DateTime @map("created_at")
+
+  @@map("crm_notes")
+}
+
+model CrmFollowUp {
+  id         String    @id
+  investorId String    @map("investor_id")
+  text       String
+  dueAt      DateTime  @map("due_at")
+  state      String
+  doneAt     DateTime? @map("done_at")
+  createdAt  DateTime  @map("created_at")
+
+  @@map("crm_follow_ups")
+}

@@ -11,6 +11,28 @@ import { RejectKyc } from "./application/identity/reject-kyc.js";
 import { StartKycReview } from "./application/identity/start-kyc-review.js";
 import { SubmitKyc } from "./application/identity/submit-kyc.js";
 import { GetInvestorDetail, ListInvestors } from "./application/identity/investor-directory.js";
+import {
+  AddCrmNote,
+  AddInvestorTag,
+  CompleteFollowUp,
+  CreateFollowUp,
+  ListOpenFollowUps,
+  RemoveInvestorTag,
+  SetRelationshipStage,
+} from "./application/crm/crm-use-cases.js";
+import { GetInvestorSales } from "./application/crm/investor-sales.js";
+import { GetInvestorTimeline } from "./application/crm/investor-timeline.js";
+import type {
+  CrmNoteRepository,
+  CrmProfileRepository,
+  FollowUpRepository,
+} from "./application/crm/ports.js";
+import {
+  PrismaCrmNoteRepository,
+  PrismaCrmProfileRepository,
+  PrismaFollowUpRepository,
+} from "./infrastructure/persistence/prisma-crm-repositories.js";
+import { CrmController } from "./infrastructure/http/crm.controller.js";
 import type {
   ClaimIssuer,
   IdGenerator,
@@ -170,6 +192,9 @@ export const WALLET_DIRECTORY = "WALLET_DIRECTORY";
 export const ASSET_EVENT_READER = "ASSET_EVENT_READER";
 export const LEDGER_READER = "LEDGER_READER";
 export const INVESTOR_CHAIN_DIRECTORY = "INVESTOR_CHAIN_DIRECTORY";
+export const CRM_PROFILE_REPOSITORY = "CRM_PROFILE_REPOSITORY";
+export const CRM_NOTE_REPOSITORY = "CRM_NOTE_REPOSITORY";
+export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
 
 // Composition root: the only place where ports meet their adapters (see
 // docs/engineering/architecture.md). Use-cases stay framework-free — they are
@@ -186,6 +211,7 @@ export const INVESTOR_CHAIN_DIRECTORY = "INVESTOR_CHAIN_DIRECTORY";
     AttestationsController,
     TransfersController,
     RedemptionsController,
+    CrmController,
   ],
   providers: [
     PrismaService,
@@ -803,15 +829,109 @@ export const INVESTOR_CHAIN_DIRECTORY = "INVESTOR_CHAIN_DIRECTORY";
     },
     { provide: LEDGER_READER, useExisting: PrismaSettlementRail },
     {
+      provide: CRM_PROFILE_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaCrmProfileRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: CRM_NOTE_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaCrmNoteRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: FOLLOW_UP_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaFollowUpRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: GetInvestorSales,
+      useFactory: (
+        offerings: OfferingRepository,
+        assets: AssetRepository,
+        attestations: AttestationRepository,
+        supply: TokenEventSource,
+        holdings: GetMyHoldings,
+        clock: Clock,
+      ) => new GetInvestorSales(offerings, assets, attestations, supply, holdings, clock),
+      inject: [
+        OFFERING_REPOSITORY,
+        ASSET_REPOSITORY,
+        ATTESTATION_REPOSITORY,
+        TOKEN_EVENT_SOURCE,
+        GetMyHoldings,
+        CLOCK,
+      ],
+    },
+    {
+      provide: GetInvestorTimeline,
+      useFactory: (notes: CrmNoteRepository, events: AssetEventReader, assets: AssetRepository) =>
+        new GetInvestorTimeline(notes, events, assets),
+      inject: [CRM_NOTE_REPOSITORY, ASSET_EVENT_READER, ASSET_REPOSITORY],
+    },
+    {
+      provide: SetRelationshipStage,
+      useFactory: (profiles: CrmProfileRepository, investors: InvestorRepository) =>
+        new SetRelationshipStage(profiles, investors),
+      inject: [CRM_PROFILE_REPOSITORY, INVESTOR_REPOSITORY],
+    },
+    {
+      provide: AddInvestorTag,
+      useFactory: (profiles: CrmProfileRepository, investors: InvestorRepository) =>
+        new AddInvestorTag(profiles, investors),
+      inject: [CRM_PROFILE_REPOSITORY, INVESTOR_REPOSITORY],
+    },
+    {
+      provide: RemoveInvestorTag,
+      useFactory: (profiles: CrmProfileRepository, investors: InvestorRepository) =>
+        new RemoveInvestorTag(profiles, investors),
+      inject: [CRM_PROFILE_REPOSITORY, INVESTOR_REPOSITORY],
+    },
+    {
+      provide: AddCrmNote,
+      useFactory: (
+        notes: CrmNoteRepository,
+        investors: InvestorRepository,
+        ids: IdGenerator,
+        clock: Clock,
+      ) => new AddCrmNote(notes, investors, ids, clock),
+      inject: [CRM_NOTE_REPOSITORY, INVESTOR_REPOSITORY, ID_GENERATOR, CLOCK],
+    },
+    {
+      provide: CreateFollowUp,
+      useFactory: (
+        followUps: FollowUpRepository,
+        investors: InvestorRepository,
+        ids: IdGenerator,
+        clock: Clock,
+      ) => new CreateFollowUp(followUps, investors, ids, clock),
+      inject: [FOLLOW_UP_REPOSITORY, INVESTOR_REPOSITORY, ID_GENERATOR, CLOCK],
+    },
+    {
+      provide: CompleteFollowUp,
+      useFactory: (followUps: FollowUpRepository, clock: Clock) =>
+        new CompleteFollowUp(followUps, clock),
+      inject: [FOLLOW_UP_REPOSITORY, CLOCK],
+    },
+    {
+      provide: ListOpenFollowUps,
+      useFactory: (followUps: FollowUpRepository, investors: InvestorRepository, clock: Clock) =>
+        new ListOpenFollowUps(followUps, investors, clock),
+      inject: [FOLLOW_UP_REPOSITORY, INVESTOR_REPOSITORY, CLOCK],
+    },
+    {
       provide: INVESTOR_CHAIN_DIRECTORY,
       useFactory: (prisma: PrismaService) => new PrismaInvestorChainDirectory(prisma),
       inject: [PrismaService],
     },
     {
       provide: ListInvestors,
-      useFactory: (investors: InvestorRepository, ledger: LedgerReader) =>
-        new ListInvestors(investors, ledger),
-      inject: [INVESTOR_REPOSITORY, LEDGER_READER],
+      useFactory: (
+        investors: InvestorRepository,
+        ledger: LedgerReader,
+        profiles: CrmProfileRepository,
+        sales: GetInvestorSales,
+      ) => new ListInvestors(investors, ledger, profiles, sales),
+      inject: [INVESTOR_REPOSITORY, LEDGER_READER, CRM_PROFILE_REPOSITORY, GetInvestorSales],
     },
     {
       provide: GetInvestorDetail,
@@ -823,6 +943,11 @@ export const INVESTOR_CHAIN_DIRECTORY = "INVESTOR_CHAIN_DIRECTORY";
         holdings: GetMyHoldings,
         transfers: TransferRepository,
         redemptions: RedemptionRepository,
+        profiles: CrmProfileRepository,
+        followUps: FollowUpRepository,
+        sales: GetInvestorSales,
+        timeline: GetInvestorTimeline,
+        clock: Clock,
       ) =>
         new GetInvestorDetail(
           investors,
@@ -832,6 +957,11 @@ export const INVESTOR_CHAIN_DIRECTORY = "INVESTOR_CHAIN_DIRECTORY";
           holdings,
           transfers,
           redemptions,
+          profiles,
+          followUps,
+          sales,
+          timeline,
+          clock,
         ),
       inject: [
         INVESTOR_REPOSITORY,
@@ -841,6 +971,11 @@ export const INVESTOR_CHAIN_DIRECTORY = "INVESTOR_CHAIN_DIRECTORY";
         GetMyHoldings,
         TRANSFER_REPOSITORY,
         REDEMPTION_REPOSITORY,
+        CRM_PROFILE_REPOSITORY,
+        FOLLOW_UP_REPOSITORY,
+        GetInvestorSales,
+        GetInvestorTimeline,
+        CLOCK,
       ],
     },
     { provide: APP_GUARD, useClass: AuthGuard },

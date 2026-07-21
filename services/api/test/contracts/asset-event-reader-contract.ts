@@ -71,6 +71,16 @@ export const assetEventReaderContract = (
       expect(rows[0]?.event).toBe("a-event");
     });
 
+    it("filters_by_actor", async () => {
+      await log.append({ assetId: assetA, event: "by-sara", actor: `sara-${assetA}` });
+      await log.append({ assetId: assetA, event: "by-officer", actor: "officer-1" });
+
+      const rows = await reader.list({ assetId: assetA, actor: `sara-${assetA}` });
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.event).toBe("by-sara");
+    });
+
     it("spans_assets_newest_first_when_unfiltered", async () => {
       await log.append({ assetId: assetA, event: "older-cross", actor: "x" });
       await log.append({ assetId: assetB, event: "newer-cross", actor: "x" });

@@ -1,4 +1,11 @@
+import { CrmProfile } from "../../domain/crm/crm-profile.js";
+import type { RelationshipStage } from "../../domain/crm/crm-profile.js";
+import type { FollowUpState } from "../../domain/crm/follow-up.js";
 import type { AssetRepository } from "../assets/ports.js";
+import type { CrmProfileRepository, FollowUpRepository } from "../crm/ports.js";
+import type { GetInvestorSales, InvestorSalesView } from "../crm/investor-sales.js";
+import type { GetInvestorTimeline, TimelineItemView } from "../crm/investor-timeline.js";
+import type { Clock } from "../offerings/ports.js";
 import type { RedemptionRepository } from "../redemptions/ports.js";
 import type { GetMyHoldings, HoldingView } from "../transfers/get-holdings.js";
 import type { TransferRepository } from "../transfers/ports.js";
@@ -19,6 +26,36 @@ import type {
 export interface InvestorDirectoryEntry extends InvestorView {
   balanceRial: string;
   heldRial: string;
+  stage: RelationshipStage;
+  tags: string[];
+  totalInvestedRial: string;
+  portfolioValueRial: string;
+}
+
+export interface InvestorDirectorySummary {
+  investorCount: number;
+  totalBalanceRial: string;
+  totalInvestedRial: string;
+  totalPortfolioValueRial: string;
+}
+
+export interface InvestorDirectoryView {
+  investors: InvestorDirectoryEntry[];
+  summary: InvestorDirectorySummary;
+}
+
+export interface FollowUpView {
+  id: string;
+  text: string;
+  dueAt: string;
+  state: FollowUpState;
+  overdue: boolean;
+}
+
+export interface InvestorCrmView {
+  stage: RelationshipStage;
+  tags: string[];
+  followUps: FollowUpView[];
 }
 
 export interface InvestorTransferItem {
@@ -47,28 +84,54 @@ export interface InvestorDetailView {
   holdings: HoldingView[];
   transfers: InvestorTransferItem[];
   redemptions: InvestorRedemptionItem[];
+  crm: InvestorCrmView;
+  sales: InvestorSalesView;
+  timeline: TimelineItemView[];
 }
 
 export class ListInvestors {
   constructor(
     private readonly investors: InvestorRepository,
     private readonly ledger: LedgerReader,
+    private readonly profiles: CrmProfileRepository,
+    private readonly sales: GetInvestorSales,
   ) {}
 
-  async execute(): Promise<InvestorDirectoryEntry[]> {
+  async execute(): Promise<InvestorDirectoryView> {
     const all = [...(await this.investors.findAll())].sort((a, b) =>
       a.email.value.localeCompare(b.email.value),
     );
     const entries: InvestorDirectoryEntry[] = [];
+    let totalBalance = 0n;
+    let totalInvested = 0n;
+    let totalValue = 0n;
     for (const investor of all) {
       const { balanceRial, heldRial } = await this.ledger.balanceOf(investor.id);
+      const profile =
+        (await this.profiles.findByInvestor(investor.id)) ?? CrmProfile.initial(investor.id);
+      const sales = await this.sales.execute({ investorId: investor.id });
+      totalBalance += balanceRial;
+      totalInvested += BigInt(sales.totalInvestedRial);
+      totalValue += BigInt(sales.portfolioValueRial);
       entries.push({
         ...toInvestorView(investor),
         balanceRial: String(balanceRial),
         heldRial: String(heldRial),
+        stage: profile.stage,
+        tags: [...profile.tags],
+        totalInvestedRial: sales.totalInvestedRial,
+        portfolioValueRial: sales.portfolioValueRial,
       });
     }
-    return entries;
+    return {
+      investors: entries,
+      summary: {
+        investorCount: entries.length,
+        totalBalanceRial: String(totalBalance),
+        totalInvestedRial: String(totalInvested),
+        totalPortfolioValueRial: String(totalValue),
+      },
+    };
   }
 }
 
@@ -81,6 +144,11 @@ export class GetInvestorDetail {
     private readonly holdings: GetMyHoldings,
     private readonly transfers: TransferRepository,
     private readonly redemptions: RedemptionRepository,
+    private readonly profiles: CrmProfileRepository,
+    private readonly followUps: FollowUpRepository,
+    private readonly sales: GetInvestorSales,
+    private readonly timeline: GetInvestorTimeline,
+    private readonly clock: Clock,
   ) {}
 
   async execute(input: { investorId: string }): Promise<InvestorDetailView> {
@@ -144,6 +212,17 @@ export class GetInvestorDetail {
       });
     }
 
+    const now = this.clock.now();
+    const profile =
+      (await this.profiles.findByInvestor(investor.id)) ?? CrmProfile.initial(investor.id);
+    const followUps = (await this.followUps.listByInvestor(investor.id)).map((followUp) => ({
+      id: followUp.id,
+      text: followUp.text,
+      dueAt: followUp.dueAt.toISOString(),
+      state: followUp.state,
+      overdue: followUp.isOverdue(now),
+    }));
+
     return {
       investor: toInvestorView(investor),
       chain: await this.chainDirectory.forInvestor(investor.id),
@@ -151,6 +230,9 @@ export class GetInvestorDetail {
       holdings: await this.holdings.execute({ investorId: investor.id }),
       transfers,
       redemptions,
+      crm: { stage: profile.stage, tags: [...profile.tags], followUps },
+      sales: await this.sales.execute({ investorId: investor.id }),
+      timeline: await this.timeline.execute({ investorId: investor.id }),
     };
   }
 }

@@ -79,9 +79,17 @@ export class PrismaAssetEventLog implements AssetEventLog {
 export class PrismaAssetEventReader implements AssetEventReader {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async list(filter: { assetId?: string; limit?: number }): Promise<RecordedAssetEvent[]> {
+  async list(filter: {
+    assetId?: string;
+    actor?: string;
+    limit?: number;
+  }): Promise<RecordedAssetEvent[]> {
+    const where = {
+      ...(filter.assetId !== undefined ? { assetId: filter.assetId } : {}),
+      ...(filter.actor !== undefined ? { actor: filter.actor } : {}),
+    };
     const rows = await this.prisma.assetEvent.findMany({
-      ...(filter.assetId !== undefined ? { where: { assetId: filter.assetId } } : {}),
+      ...(Object.keys(where).length > 0 ? { where } : {}),
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       ...(filter.limit !== undefined ? { take: filter.limit } : {}),
     });

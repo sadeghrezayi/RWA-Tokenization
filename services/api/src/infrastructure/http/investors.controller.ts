@@ -5,7 +5,7 @@ import type { InvestorView } from "../../application/identity/get-investor.js";
 import { GetInvestorDetail, ListInvestors } from "../../application/identity/investor-directory.js";
 import type {
   InvestorDetailView,
-  InvestorDirectoryEntry,
+  InvestorDirectoryView,
 } from "../../application/identity/investor-directory.js";
 import { ListPendingKyc } from "../../application/identity/list-pending-kyc.js";
 import { RegisterInvestor } from "../../application/identity/register-investor.js";
@@ -79,7 +79,7 @@ export class InvestorsController {
 
   @RequireRole("officer")
   @Get()
-  list(): Promise<InvestorDirectoryEntry[]> {
+  list(): Promise<InvestorDirectoryView> {
     return this.listInvestors.execute();
   }
 

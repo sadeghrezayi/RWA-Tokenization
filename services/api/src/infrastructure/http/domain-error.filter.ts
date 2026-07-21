@@ -61,6 +61,14 @@ import {
   RedemptionNotFoundError,
 } from "../../application/redemptions/errors.js";
 import { AssetNotTokenizedForRegistryError } from "../../application/registry/errors.js";
+import { FollowUpNotFoundError } from "../../application/crm/errors.js";
+import {
+  InvalidFollowUpError,
+  InvalidFollowUpTransitionError,
+  InvalidNoteError,
+  InvalidStageError,
+  InvalidTagError,
+} from "../../domain/crm/errors.js";
 import {
   CorruptEventStreamError,
   InvalidRegistryEventError,
@@ -137,5 +145,11 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof AssetNotTokenizedForRegistryError) return 409;
   if (exception instanceof CorruptEventStreamError) return 409;
   if (exception instanceof InvalidRegistryEventError) return 409;
+  if (exception instanceof InvalidStageError) return 400;
+  if (exception instanceof InvalidTagError) return 400;
+  if (exception instanceof InvalidNoteError) return 400;
+  if (exception instanceof InvalidFollowUpError) return 400;
+  if (exception instanceof InvalidFollowUpTransitionError) return 409;
+  if (exception instanceof FollowUpNotFoundError) return 404;
   return 500;
 };

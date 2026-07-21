@@ -11,7 +11,7 @@ export interface RecordedAssetEvent {
 }
 
 export interface AssetEventReader {
-  list(filter: { assetId?: string; limit?: number }): Promise<RecordedAssetEvent[]>;
+  list(filter: { assetId?: string; actor?: string; limit?: number }): Promise<RecordedAssetEvent[]>;
 }
 
 // Reachability checks for the system-health view (NFR-8 operability,

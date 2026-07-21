@@ -63,9 +63,14 @@ export class InMemoryAssetEventStore implements AssetEventLog, AssetEventReader 
     return Promise.resolve();
   }
 
-  list(filter: { assetId?: string; limit?: number }): Promise<RecordedAssetEvent[]> {
+  list(filter: {
+    assetId?: string;
+    actor?: string;
+    limit?: number;
+  }): Promise<RecordedAssetEvent[]> {
     const matching = this.rows
       .filter((row) => filter.assetId === undefined || row.assetId === filter.assetId)
+      .filter((row) => filter.actor === undefined || row.actor === filter.actor)
       .sort((a, b) =>
         a.at.getTime() === b.at.getTime()
           ? Number(b.id) - Number(a.id)

@@ -77,6 +77,9 @@ describe("Registry & Audit API (e2e, real Postgres, fake chain)", () => {
     await prisma.redemption.deleteMany();
     await prisma.attestation.deleteMany();
     await prisma.assetEvent.deleteMany();
+    await prisma.crmNote.deleteMany();
+    await prisma.crmFollowUp.deleteMany();
+    await prisma.crmProfile.deleteMany();
     await prisma.asset.deleteMany();
     await prisma.asset.createMany({
       data: [
@@ -197,13 +200,98 @@ describe("Registry & Audit API (e2e, real Postgres, fake chain)", () => {
     expect(res.body as unknown[]).toHaveLength(2);
   });
 
-  it("lists_the_investor_directory_with_kyc_and_balances_for_the_officer", async () => {
+  it("lists_the_investor_directory_with_kyc_balances_crm_and_summary", async () => {
     const res = await request(server).get("/investors").set(auth(officerToken)).expect(200);
 
-    const directory = res.body as { email: string; kycState: string; balanceRial: string }[];
-    const alice = directory.find((entry) => entry.email === "reg.alice@example.com");
-    expect(alice).toMatchObject({ kycState: "approved", balanceRial: "0", heldRial: "0" });
-    expect(JSON.stringify(directory)).not.toContain("passwordHash");
+    const body = res.body as {
+      investors: { email: string; kycState: string; balanceRial: string; stage: string }[];
+      summary: { investorCount: number; totalBalanceRial: string };
+    };
+    const alice = body.investors.find((entry) => entry.email === "reg.alice@example.com");
+    expect(alice).toMatchObject({
+      kycState: "approved",
+      balanceRial: "0",
+      heldRial: "0",
+      stage: "lead",
+      tags: [],
+    });
+    expect(body.summary.investorCount).toBeGreaterThanOrEqual(2);
+    expect(JSON.stringify(body)).not.toContain("passwordHash");
+  });
+
+  it("runs_the_crm_flow_stage_tags_note_and_follow_up_end_to_end", async () => {
+    await request(server)
+      .put(`/crm/${aliceId}/stage`)
+      .set(auth(officerToken))
+      .send({ stage: "active" })
+      .expect(204);
+    await request(server)
+      .post(`/crm/${aliceId}/tags`)
+      .set(auth(officerToken))
+      .send({ tag: "qualified" })
+      .expect(204);
+    await request(server)
+      .post(`/crm/${aliceId}/notes`)
+      .set(auth(officerToken))
+      .send({ text: "Called about the offering." })
+      .expect(201);
+    const followUp = await request(server)
+      .post(`/crm/${aliceId}/follow-ups`)
+      .set(auth(officerToken))
+      .send({ text: "Send prospectus", dueAt: "2026-01-01T00:00:00.000Z" })
+      .expect(201);
+
+    const detail = (
+      await request(server).get(`/investors/${aliceId}/detail`).set(auth(officerToken)).expect(200)
+    ).body as {
+      crm: { stage: string; tags: string[]; followUps: { overdue: boolean }[] };
+      sales: { totalInvestedRial: string };
+      timeline: { kind: string; text: string }[];
+    };
+    expect(detail.crm.stage).toBe("active");
+    expect(detail.crm.tags).toEqual(["qualified"]);
+    expect(detail.crm.followUps[0]?.overdue).toBe(true); // due date in the past
+    expect(detail.timeline.some((i) => i.kind === "note")).toBe(true);
+    expect(detail.sales.totalInvestedRial).toBe("0");
+
+    const queue = (await request(server).get("/crm/follow-ups").set(auth(officerToken)).expect(200))
+      .body as { id: string; email: string; overdue: boolean }[];
+    const mine = queue.find((f) => f.email === "reg.alice@example.com");
+    expect(mine?.overdue).toBe(true);
+
+    await request(server)
+      .post(`/crm/follow-ups/${(followUp.body as { followUpId: string }).followUpId}/complete`)
+      .set(auth(officerToken))
+      .expect(204);
+    const after = (await request(server).get("/crm/follow-ups").set(auth(officerToken)).expect(200))
+      .body as { email: string }[];
+    expect(after.some((f) => f.email === "reg.alice@example.com")).toBe(false);
+  });
+
+  it("rejects_bad_crm_input_with_400_and_unknown_follow_up_with_404", async () => {
+    await request(server)
+      .put(`/crm/${aliceId}/stage`)
+      .set(auth(officerToken))
+      .send({ stage: "vip" })
+      .expect(400);
+    await request(server)
+      .post(`/crm/${aliceId}/notes`)
+      .set(auth(officerToken))
+      .send({ text: "   " })
+      .expect(400);
+    await request(server)
+      .post("/crm/follow-ups/ghost/complete")
+      .set(auth(officerToken))
+      .expect(404);
+  });
+
+  it("forbids_investors_from_the_crm_surface", async () => {
+    await request(server)
+      .put(`/crm/${aliceId}/stage`)
+      .set(auth(aliceToken))
+      .send({ stage: "active" })
+      .expect(403);
+    await request(server).get("/crm/follow-ups").set(auth(aliceToken)).expect(403);
   });
 
   it("drills_into_one_investor_with_chain_portfolio_and_history", async () => {
