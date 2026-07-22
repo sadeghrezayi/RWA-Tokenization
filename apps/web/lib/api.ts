@@ -278,6 +278,7 @@ export interface ApiClient {
   approve(officerToken: string, investorId: string): Promise<void>;
   reject(officerToken: string, investorId: string, reason: string): Promise<void>;
   listAssets(officerToken: string): Promise<AssetViewDto[]>;
+  getAsset(officerToken: string, assetId: string): Promise<AssetViewDto>;
   proposeAsset(officerToken: string, name: string): Promise<{ assetId: string }>;
   startStructuring(officerToken: string, assetId: string): Promise<void>;
   attachAssetDocument(
@@ -300,11 +301,13 @@ export interface ApiClient {
   ledgerMe(token: string): Promise<LedgerDto>;
   creditLedger(officerToken: string, investorId: string, amountRial: string): Promise<void>;
   listOfferings(token: string): Promise<OfferingViewDto[]>;
+  getOffering(token: string, offeringId: string): Promise<OfferingViewDto>;
   createOffering(officerToken: string, body: CreateOfferingBody): Promise<{ offeringId: string }>;
   openOffering(officerToken: string, offeringId: string): Promise<void>;
   closeOffering(officerToken: string, offeringId: string): Promise<CloseResultDto>;
   subscribeOffering(token: string, offeringId: string, tokens: string): Promise<void>;
   listDistributions(officerToken: string): Promise<DistributionViewDto[]>;
+  getDistribution(officerToken: string, distributionId: string): Promise<DistributionViewDto>;
   assetOverview(officerToken: string): Promise<PortfolioOverviewDto>;
   systemHealth(officerToken: string): Promise<SystemHealthDto>;
   publishAttestation(
@@ -498,6 +501,7 @@ export const createApiClient = (
       });
     },
     listAssets: (officerToken) => json(call("/assets", { token: officerToken })),
+    getAsset: (officerToken, assetId) => json(call(`/assets/${assetId}`, { token: officerToken })),
     proposeAsset: (officerToken, name) =>
       json(call("/assets", { method: "POST", token: officerToken, body: { name } })),
     startStructuring: async (officerToken, assetId) => {
@@ -537,6 +541,7 @@ export const createApiClient = (
       });
     },
     listOfferings: (token) => json(call("/offerings", { token })),
+    getOffering: (token, offeringId) => json(call(`/offerings/${offeringId}`, { token })),
     createOffering: (officerToken, body) =>
       json(call("/offerings", { method: "POST", token: officerToken, body })),
     openOffering: async (officerToken, offeringId) => {
@@ -552,6 +557,8 @@ export const createApiClient = (
       });
     },
     listDistributions: (officerToken) => json(call("/distributions", { token: officerToken })),
+    getDistribution: (officerToken, distributionId) =>
+      json(call(`/distributions/${distributionId}`, { token: officerToken })),
     declareDistribution: (officerToken, assetId, totalAmountRial) =>
       json(
         call("/distributions", {

@@ -172,6 +172,36 @@ export interface Dictionary {
   profileNav: string;
   signedInAs: string;
   investorPortalTitle: string;
+  backToAssets: string;
+  backToOfferings: string;
+  backToDistributions: string;
+  dossierLabel: string;
+  custodyLabel: string;
+  noDocuments: string;
+  documentRefLabel: string;
+  noCustody: string;
+  noChecklist: string;
+  structuringStarted: string;
+  documentAttached: string;
+  custodyRecorded: string;
+  checklistConfirmed: string;
+  assetApproved: string;
+  assetTokenized: string;
+  windowLabel: string;
+  minMaxLabel: string;
+  minimumRaiseLabel: string;
+  allocationsLabel: string;
+  requestedLabel: string;
+  allocatedLabel: string;
+  costLabel: string;
+  refundLabel: string;
+  payoutsLabel: string;
+  openOfferingAction: string;
+  closeOfferingAction: string;
+  payDistributionAction: string;
+  viewAssetLink: string;
+  assetProposed: string;
+  dossierCompleteLabel: string;
   balanceLabel: string;
   identityAddressLabel: string;
   portfolioLabel: string;
@@ -380,6 +410,36 @@ export const dictionaries: Record<Locale, Dictionary> = {
     profileNav: "Profile",
     signedInAs: "Signed in as",
     investorPortalTitle: "Investor Portal",
+    backToAssets: "← Back to assets",
+    backToOfferings: "← Back to offerings",
+    backToDistributions: "← Back to distributions",
+    dossierLabel: "Legal dossier",
+    custodyLabel: "Custody",
+    noDocuments: "No documents attached yet.",
+    documentRefLabel: "Reference (IPFS)",
+    noCustody: "No custody arrangement recorded.",
+    noChecklist: "No checklist items.",
+    structuringStarted: "Structuring started.",
+    documentAttached: "Document attached.",
+    custodyRecorded: "Custody recorded.",
+    checklistConfirmed: "Checklist item confirmed.",
+    assetApproved: "Asset approved.",
+    assetTokenized: "Asset tokenized.",
+    windowLabel: "Window",
+    minMaxLabel: "Per investor",
+    minimumRaiseLabel: "Minimum raise",
+    allocationsLabel: "Allocations",
+    requestedLabel: "Requested",
+    allocatedLabel: "Allocated",
+    costLabel: "Cost",
+    refundLabel: "Refund",
+    payoutsLabel: "Payouts",
+    openOfferingAction: "Open offering",
+    closeOfferingAction: "Close offering",
+    payDistributionAction: "Pay distribution",
+    viewAssetLink: "View asset",
+    assetProposed: "Asset proposed.",
+    dossierCompleteLabel: "Complete",
     balanceLabel: "Balance",
     identityAddressLabel: "On-chain identity",
     portfolioLabel: "Portfolio",
