@@ -30,4 +30,10 @@ Decisions the assistant must NOT make alone. Each has options + a recommendation
 A-1: Real estate is the first vertical; other asset types remain supported generically. · A-2: Rial integer minor-unit is the only settlement currency for pilot. · A-3: anvil stays the dev chain; Besu stand-up remains a pre-pilot gate (existing decision). · A-4: English remains default/demo language (standing policy). · A-5: The existing 616-test suite is the regression floor. · A-6: No production users/data exist today.
 
 ## Decision log
-*(empty — awaiting first confirmation round)*
+| Date | Decision | Outcome |
+|---|---|---|
+| 2026-07-22 | OD-1 | **(a) confirmed** — single-tenant install, tenant-ready schema with enforced scoping + isolation tests |
+| 2026-07-22 | OD-2 | **(a) confirmed** — one Next.js app, five route groups |
+| 2026-07-22 | OD-3 | **(a) confirmed** — pg-boss for background jobs |
+| 2026-07-22 | OD-4 | **Approved all** — Playwright + axe-core (dev), otplib, nodemailer; charts remain hand-rolled SVG |
+| 2026-07-22 | OD-19 | **(a) confirmed** — GitHub Actions CI |

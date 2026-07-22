@@ -1,0 +1,121 @@
+# CI — the enforcement layer for the project's Definition of Done (test
+# strategy §6). Runs the full verification battery on every push and PR:
+# lint, typecheck, unit (api+web), contracts, builds, a migration check
+# against an empty database, and the integration suite against real
+# Postgres + IPFS + anvil with freshly deployed contracts.
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Dev/test values only — never production secrets. The mnemonic is the
+  # public well-known anvil test mnemonic.
+  DATABASE_URL: postgresql://tokenization:tokenization@127.0.0.1:5432/tokenization
+  AUTH_TOKEN_SECRET: ci-only-token-secret-not-for-production
+  DEVNET_RPC_URL: http://127.0.0.1:8545
+  IPFS_API_URL: http://127.0.0.1:5001
+  PLATFORM_OPERATOR_MNEMONIC: "test test test test test test test test test test test junk"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tokenization
+          POSTGRES_PASSWORD: tokenization
+          POSTGRES_DB: tokenization
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U tokenization"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      ipfs:
+        image: ipfs/kubo:v0.34.1
+        ports:
+          - "5001:5001"
+        options: >-
+          --health-cmd "ipfs id"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # reads packageManager from package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @tokenization/api exec prisma generate
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Contract tests (Foundry)
+        working-directory: contracts
+        run: forge test -vv
+
+      - name: API unit tests
+        run: pnpm --filter @tokenization/api test
+
+      - name: Web tests
+        run: pnpm --filter @tokenization/web test
+
+      - name: Build API
+        run: pnpm --filter @tokenization/api build
+
+      - name: Build web
+        run: pnpm --filter @tokenization/web build
+
+      - name: Migration check (apply all migrations to empty database)
+        run: pnpm --filter @tokenization/api exec prisma migrate deploy
+
+      - name: Start anvil devnet
+        run: |
+          anvil --mnemonic "$PLATFORM_OPERATOR_MNEMONIC" &
+          for i in $(seq 1 30); do
+            if curl -sf -X POST -H 'Content-Type: application/json' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
+              http://127.0.0.1:8545 >/dev/null; then break; fi
+            sleep 1
+          done
+
+      - name: Deploy contracts to devnet
+        working-directory: contracts
+        run: |
+          forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast | tee deploy.log
+          grep -E '^\s*(ONCHAINID_CLAIM_ISSUER_ADDRESS|ATTESTATION_REGISTRY_ADDRESS)=' deploy.log \
+            | sed 's/^ *//' >> "$GITHUB_ENV"
+
+      - name: Integration tests (Postgres + IPFS + anvil)
+        run: pnpm --filter @tokenization/api test:integration
