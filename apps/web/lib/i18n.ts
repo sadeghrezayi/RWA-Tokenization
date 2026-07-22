@@ -162,6 +162,16 @@ export interface Dictionary {
   noInvestors: string;
   detailsButton: string;
   openButton: string;
+  navGroupMain: string;
+  navGroupInvestors: string;
+  navGroupAssets: string;
+  navGroupReporting: string;
+  navGroupAccount: string;
+  portfolioNav: string;
+  offeringsNav: string;
+  profileNav: string;
+  signedInAs: string;
+  investorPortalTitle: string;
   balanceLabel: string;
   identityAddressLabel: string;
   portfolioLabel: string;
@@ -360,6 +370,16 @@ export const dictionaries: Record<Locale, Dictionary> = {
     noInvestors: "No investors yet.",
     detailsButton: "Details",
     openButton: "Open",
+    navGroupMain: "Overview",
+    navGroupInvestors: "Investors",
+    navGroupAssets: "Assets",
+    navGroupReporting: "Reporting",
+    navGroupAccount: "Account",
+    portfolioNav: "Portfolio",
+    offeringsNav: "Offerings",
+    profileNav: "Profile",
+    signedInAs: "Signed in as",
+    investorPortalTitle: "Investor Portal",
     balanceLabel: "Balance",
     identityAddressLabel: "On-chain identity",
     portfolioLabel: "Portfolio",
