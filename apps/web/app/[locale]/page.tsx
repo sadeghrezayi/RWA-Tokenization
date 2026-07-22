@@ -1,11 +1,7 @@
-import { notFound } from "next/navigation";
-import { Dashboard } from "../../components/dashboard";
-import { isLocale } from "../../lib/i18n";
+import { redirect } from "next/navigation";
 
-export default async function DashboardPage({ params }: { params: Promise<{ locale: string }> }) {
+// The investor portal lives under section routes; land on the portfolio.
+export default async function PortalIndex({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
-  if (!isLocale(locale)) {
-    notFound();
-  }
-  return <Dashboard locale={locale} />;
+  redirect(`/${locale}/portfolio`);
 }
