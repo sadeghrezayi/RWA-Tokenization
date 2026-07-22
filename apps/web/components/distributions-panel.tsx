@@ -16,11 +16,18 @@ export interface DistributionsPanelProps {
   locale: Locale;
   api: ApiClient;
   token: string;
+  onOpenDistribution?: (distributionId: string) => void;
 }
 
 // FR-YD (FR-PT-3 subset): operator declares an income distribution for a
 // tokenized asset, reviews the pro-rata reconciliation, then pays it out.
-export const DistributionsPanel = ({ locale, api, token }: DistributionsPanelProps) => {
+// Each row opens the distribution's own page (full payout breakdown).
+export const DistributionsPanel = ({
+  locale,
+  api,
+  token,
+  onOpenDistribution,
+}: DistributionsPanelProps) => {
   const t = dictionaries[locale];
   const toast = useToast();
   const [distributions, setDistributions] = useState<DistributionViewDto[]>([]);
@@ -90,7 +97,21 @@ export const DistributionsPanel = ({ locale, api, token }: DistributionsPanelPro
                 const r = distribution.reconciliation;
                 return (
                   <tr key={distribution.id} data-testid={`distribution-${distribution.id}`}>
-                    <td>{distribution.assetName}</td>
+                    <td>
+                      {onOpenDistribution !== undefined ? (
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => {
+                            onOpenDistribution(distribution.id);
+                          }}
+                        >
+                          {distribution.assetName}
+                        </button>
+                      ) : (
+                        distribution.assetName
+                      )}
+                    </td>
                     <td>
                       <Badge tone={status.tone}>{status.label}</Badge>
                     </td>

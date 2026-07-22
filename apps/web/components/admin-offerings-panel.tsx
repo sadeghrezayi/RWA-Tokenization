@@ -17,11 +17,18 @@ export interface AdminOfferingsPanelProps {
   locale: Locale;
   api: ApiClient;
   token: string;
+  onOpenOffering?: (offeringId: string) => void;
 }
 
 // FR-PT-3 subset: operator credits the Rial ledger (simulated bank deposit),
-// configures offerings against a tokenized asset, opens and closes them.
-export const AdminOfferingsPanel = ({ locale, api, token }: AdminOfferingsPanelProps) => {
+// configures offerings against a tokenized asset, opens and closes them. Each
+// row links to the offering's own page.
+export const AdminOfferingsPanel = ({
+  locale,
+  api,
+  token,
+  onOpenOffering,
+}: AdminOfferingsPanelProps) => {
   const t = dictionaries[locale];
   const toast = useToast();
   const [offerings, setOfferings] = useState<OfferingViewDto[]>([]);
@@ -104,7 +111,21 @@ export const AdminOfferingsPanel = ({ locale, api, token }: AdminOfferingsPanelP
                 const status = offeringStatus(offering.state);
                 return (
                   <tr key={offering.id} data-testid={`admin-offering-${offering.id}`}>
-                    <td>{offering.assetName}</td>
+                    <td>
+                      {onOpenOffering !== undefined ? (
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => {
+                            onOpenOffering(offering.id);
+                          }}
+                        >
+                          {offering.assetName}
+                        </button>
+                      ) : (
+                        offering.assetName
+                      )}
+                    </td>
                     <td>
                       <Badge tone={status.tone}>{status.label}</Badge>
                     </td>
