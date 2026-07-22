@@ -19,6 +19,27 @@ const open: OfferingViewDto = {
   closesAt: "2026-08-01T00:00:00.000Z",
   state: "open",
   totalSubscribed: "60",
+  participants: [
+    { investorId: "sara", email: "sara@demo.com", subscribed: "60" },
+    { investorId: "bob", email: "bob@demo.com", subscribed: "40" },
+  ],
+};
+
+const closedWithAllocations: OfferingViewDto = {
+  ...open,
+  state: "closed_success",
+  totalSubscribed: "100",
+  participants: [
+    {
+      investorId: "sara",
+      email: "sara@demo.com",
+      subscribed: "60",
+      requested: "60",
+      allocated: "60",
+      costRial: "60000",
+      refundRial: "0",
+    },
+  ],
 };
 
 const apiWith = (offering: OfferingViewDto, overrides: Partial<ApiClient> = {}): ApiClient =>
@@ -77,6 +98,23 @@ describe("OfferingDetailPage", () => {
     expect(screen.getByText("Closed — funded")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close offering" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open offering" })).not.toBeInTheDocument();
+  });
+
+  it("lists_the_participants_with_emails_and_subscribed_amounts", async () => {
+    renderPage(apiWith(open));
+    await screen.findByRole("heading", { name: /Vanak Tower SPV/ });
+
+    expect(screen.getByText("sara@demo.com")).toBeInTheDocument();
+    expect(screen.getByText("bob@demo.com")).toBeInTheDocument();
+  });
+
+  it("shows_allocations_after_close", async () => {
+    renderPage(apiWith(closedWithAllocations));
+    await screen.findByRole("heading", { name: /Vanak Tower SPV/ });
+
+    const saraRow = screen.getByText("sara@demo.com").closest("tr");
+    expect(saraRow).not.toBeNull();
+    expect(saraRow).toHaveTextContent("60,000 ﷼"); // cost
   });
 
   it("surfaces_a_load_error", async () => {

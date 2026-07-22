@@ -13,8 +13,8 @@ const declared: DistributionViewDto = {
   totalAmountRial: "500000",
   state: "declared",
   payouts: [
-    { investorId: "sara", tokens: "35", amountRial: "175000" },
-    { investorId: "bob", tokens: "55", amountRial: "275000" },
+    { investorId: "sara", email: "sara@demo.com", tokens: "35", amountRial: "175000" },
+    { investorId: "bob", email: "bob@demo.com", tokens: "55", amountRial: "275000" },
   ],
   reconciliation: { declared: "500000", allocated: "450000", balanced: false },
 };
@@ -47,6 +47,9 @@ describe("DistributionDetailPage", () => {
     expect(screen.getByText("Declared")).toBeInTheDocument();
     expect(screen.getByText("175,000 ﷼")).toBeInTheDocument(); // sara payout
     expect(screen.getByText("275,000 ﷼")).toBeInTheDocument(); // bob payout
+    // P2: payouts name the holder (email), not a raw id.
+    expect(screen.getByText("sara@demo.com")).toBeInTheDocument();
+    expect(screen.getByText("bob@demo.com")).toBeInTheDocument();
   });
 
   it("pays_a_declared_distribution", async () => {

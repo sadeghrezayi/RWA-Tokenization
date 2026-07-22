@@ -13,8 +13,8 @@ const distribution = (overrides: Partial<DistributionViewDto>): DistributionView
   totalAmountRial: "100000",
   state: "declared",
   payouts: [
-    { investorId: "a", tokens: "67", amountRial: "67000" },
-    { investorId: "b", tokens: "33", amountRial: "33000" },
+    { investorId: "a", email: "a@demo.com", tokens: "67", amountRial: "67000" },
+    { investorId: "b", email: "b@demo.com", tokens: "33", amountRial: "33000" },
   ],
   reconciliation: { declared: "100000", allocated: "100000", balanced: true },
   ...overrides,

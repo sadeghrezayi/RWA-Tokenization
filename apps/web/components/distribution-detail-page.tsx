@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "../lib/api";
 import type { ApiClient, DistributionViewDto } from "../lib/api";
-import { formatRial, formatTokens, truncateAddress } from "../lib/format";
+import { formatRial, formatTokens } from "../lib/format";
 import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { Badge } from "./ui/badge";
@@ -109,7 +109,7 @@ export const DistributionDetailPage = ({
             <table className="table">
               <thead>
                 <tr>
-                  <th>{t.investorIdLabel}</th>
+                  <th>{t.investorLabel}</th>
                   <th className="table__num">{t.tokensLabel}</th>
                   <th className="table__num">{t.amountLabel}</th>
                 </tr>
@@ -117,7 +117,7 @@ export const DistributionDetailPage = ({
               <tbody>
                 {distribution.payouts.map((payout) => (
                   <tr key={payout.investorId}>
-                    <td className="mono text-sm">{truncateAddress(payout.investorId)}</td>
+                    <td>{payout.email}</td>
                     <td className="table__num num">{formatTokens(payout.tokens)}</td>
                     <td className="table__num num">{formatRial(payout.amountRial)}</td>
                   </tr>

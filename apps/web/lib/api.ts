@@ -379,7 +379,7 @@ export interface DistributionViewDto {
   tokenAddress: string;
   totalAmountRial: string;
   state: DistributionStateDto;
-  payouts: { investorId: string; tokens: string; amountRial: string }[];
+  payouts: { investorId: string; email: string; tokens: string; amountRial: string }[];
   reconciliation: { declared: string; allocated: string; balanced: boolean };
 }
 
@@ -406,6 +406,17 @@ export interface OfferingViewDto {
   totalSubscribed: string;
   mySubscribed?: string;
   myAllocation?: { requested: string; allocated: string; costRial: string; refundRial: string };
+  participants?: OfferingParticipantDto[];
+}
+
+export interface OfferingParticipantDto {
+  investorId: string;
+  email: string;
+  subscribed: string;
+  requested?: string;
+  allocated?: string;
+  costRial?: string;
+  refundRial?: string;
 }
 
 export interface CreateOfferingBody {

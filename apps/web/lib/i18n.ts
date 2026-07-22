@@ -135,6 +135,7 @@ export interface Dictionary {
   noTokenizedAssets: string;
   assetLabel: string;
   investorIdLabel: string;
+  investorLabel: string;
   amountLabel: string;
   distributionPaid: string;
   distributionDeclared: string;
@@ -373,6 +374,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
     noTokenizedAssets: "No tokenized assets yet — tokenize an asset first.",
     assetLabel: "Asset",
     investorIdLabel: "Investor ID",
+    investorLabel: "Investor",
     amountLabel: "Amount",
     distributionPaid: "Distribution paid.",
     distributionDeclared: "Distribution declared.",

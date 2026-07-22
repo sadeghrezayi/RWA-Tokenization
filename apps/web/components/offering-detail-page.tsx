@@ -148,6 +148,41 @@ export const OfferingDetailPage = ({
         </div>
       </Card>
 
+      {offering.participants !== undefined && offering.participants.length > 0 && (
+        <Card title={t.allocationsLabel}>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>{t.investorLabel}</th>
+                  <th className="table__num">{t.subscribedLabel}</th>
+                  <th className="table__num">{t.allocatedLabel}</th>
+                  <th className="table__num">{t.costLabel}</th>
+                  <th className="table__num">{t.refundLabel}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {offering.participants.map((p) => (
+                  <tr key={p.investorId}>
+                    <td>{p.email}</td>
+                    <td className="table__num num">{formatTokens(p.subscribed)}</td>
+                    <td className="table__num num">
+                      {p.allocated !== undefined ? formatTokens(p.allocated) : "—"}
+                    </td>
+                    <td className="table__num num">
+                      {p.costRial !== undefined ? formatRial(p.costRial) : "—"}
+                    </td>
+                    <td className="table__num num">
+                      {p.refundRial !== undefined ? formatRial(p.refundRial) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
       {error !== undefined && (
         <p className="field__error" role="alert">
           {error}
