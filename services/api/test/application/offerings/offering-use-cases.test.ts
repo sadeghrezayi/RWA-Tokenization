@@ -3,6 +3,7 @@ import { CreateOffering } from "../../../src/application/offerings/create-offeri
 import { OpenOffering } from "../../../src/application/offerings/open-offering.js";
 import { SubscribeToOffering } from "../../../src/application/offerings/subscribe-to-offering.js";
 import { CloseOffering } from "../../../src/application/offerings/close-offering.js";
+import { GetOffering } from "../../../src/application/offerings/get-offering.js";
 import {
   AssetNotTokenizedError,
   InsufficientFundsError,
@@ -75,6 +76,7 @@ const setup = async () => {
     open: new OpenOffering(offerings, events, clock),
     subscribe: new SubscribeToOffering(offerings, investors, rail, events, clock),
     close: new CloseOffering(offerings, rail, issuer, events, clock),
+    getOffering: new GetOffering(offerings, assets, investors),
   };
 };
 
@@ -239,5 +241,79 @@ describe("CloseOffering (FR-PI-3 both paths)", () => {
     await expect(s.close.execute({ offeringId: "missing", actor: ACTOR })).rejects.toThrow(
       OfferingNotFoundError,
     );
+  });
+});
+
+describe("GetOffering officer participants breakdown (P2)", () => {
+  const closed = async (s: Awaited<ReturnType<typeof setup>>) => {
+    const offeringId = await createOpen(s);
+    s.rail.credit("inv-1", 80_000n);
+    s.rail.credit("inv-2", 40_000n);
+    await s.subscribe.execute({ offeringId, investorId: "inv-1", tokens: 80n });
+    await s.subscribe.execute({ offeringId, investorId: "inv-2", tokens: 40n });
+    s.clock.current = AFTER;
+    await s.close.execute({ offeringId, actor: ACTOR });
+    return offeringId;
+  };
+
+  it("builds_a_per_investor_breakdown_with_emails_for_the_officer", async () => {
+    const s = await setup();
+    const offeringId = await closed(s);
+
+    const view = await s.getOffering.execute({ offeringId });
+
+    expect(view.participants).toEqual([
+      {
+        investorId: "inv-1",
+        email: "inv-1@example.com",
+        subscribed: "80",
+        requested: "80",
+        allocated: "67",
+        costRial: "67000",
+        refundRial: "13000",
+      },
+      {
+        investorId: "inv-2",
+        email: "inv-2@example.com",
+        subscribed: "40",
+        requested: "40",
+        allocated: "33",
+        costRial: "33000",
+        refundRial: "7000",
+      },
+    ]);
+  });
+
+  it("shows_subscriptions_without_allocations_before_close", async () => {
+    const s = await setup();
+    const offeringId = await createOpen(s);
+    s.rail.credit("inv-1", 80_000n);
+    await s.subscribe.execute({ offeringId, investorId: "inv-1", tokens: 30n });
+
+    const view = await s.getOffering.execute({ offeringId });
+
+    expect(view.participants).toEqual([
+      { investorId: "inv-1", email: "inv-1@example.com", subscribed: "30" },
+    ]);
+  });
+
+  it("never_exposes_participants_or_other_investors_on_the_investor_path", async () => {
+    const s = await setup();
+    const offeringId = await closed(s);
+
+    const view = await s.getOffering.execute({ offeringId, forInvestor: "inv-2" });
+
+    expect(view.participants).toBeUndefined();
+    expect(view.mySubscribed).toBe("40");
+    // No other holder's identity or numbers leak: the investor path carries no
+    // emails at all, and only the caller's own allocation. (The offering's own
+    // generated id coincidentally is "inv-1", so assert on emails, not the id.)
+    expect(JSON.stringify(view)).not.toContain("@example.com");
+    expect(view.myAllocation).toEqual({
+      requested: "40",
+      allocated: "33",
+      costRial: "33000",
+      refundRial: "7000",
+    });
   });
 });

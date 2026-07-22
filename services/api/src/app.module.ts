@@ -472,9 +472,12 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     },
     {
       provide: GetOffering,
-      useFactory: (offerings: OfferingRepository, assets: AssetRepository) =>
-        new GetOffering(offerings, assets),
-      inject: [OFFERING_REPOSITORY, ASSET_REPOSITORY],
+      useFactory: (
+        offerings: OfferingRepository,
+        assets: AssetRepository,
+        investors: InvestorRepository,
+      ) => new GetOffering(offerings, assets, investors),
+      inject: [OFFERING_REPOSITORY, ASSET_REPOSITORY, INVESTOR_REPOSITORY],
     },
     {
       provide: ListOfferings,
@@ -532,9 +535,12 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     },
     {
       provide: GetDistribution,
-      useFactory: (distributions: DistributionRepository, assets: AssetRepository) =>
-        new GetDistribution(distributions, assets),
-      inject: [DISTRIBUTION_REPOSITORY, ASSET_REPOSITORY],
+      useFactory: (
+        distributions: DistributionRepository,
+        assets: AssetRepository,
+        investors: InvestorRepository,
+      ) => new GetDistribution(distributions, assets, investors),
+      inject: [DISTRIBUTION_REPOSITORY, ASSET_REPOSITORY, INVESTOR_REPOSITORY],
     },
     {
       provide: ListDistributions,

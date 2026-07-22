@@ -237,6 +237,22 @@ describe("Offerings API (e2e, real Postgres + ledger, fake chain)", () => {
       myAllocation: { allocated: "33", refundRial: "7000" },
     });
     expect(JSON.stringify(view.body)).not.toContain(investorIds.get("alice"));
+    expect(view.body).not.toHaveProperty("participants");
+
+    // Officer view: the full participant breakdown with emails (P2).
+    const officerView = await http
+      .get(`/offerings/${offeringId}`)
+      .set(auth(officerToken))
+      .expect(200);
+    const { participants } = officerView.body as {
+      participants: { email: string; allocated: string; refundRial: string }[];
+    };
+    expect(participants.map((p) => p.email).sort()).toEqual([
+      "alice@example.com",
+      "bob@example.com",
+    ]);
+    const aliceParticipant = participants.find((p) => p.email === "alice@example.com");
+    expect(aliceParticipant).toMatchObject({ allocated: "67", refundRial: "13000" });
   }, 30_000);
 
   it("fails_a_raise_below_minimum_and_refunds_in_full", async () => {

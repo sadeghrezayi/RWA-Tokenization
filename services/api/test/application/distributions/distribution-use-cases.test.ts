@@ -13,8 +13,12 @@ import {
 import { Asset } from "../../../src/domain/assets/asset.js";
 import { LegalDossier } from "../../../src/domain/assets/legal-dossier.js";
 import { OnboardingChecklist } from "../../../src/domain/assets/onboarding-checklist.js";
+import { EmailAddress } from "../../../src/domain/identity/email-address.js";
+import { Investor } from "../../../src/domain/identity/investor.js";
+import { KycStatus } from "../../../src/domain/identity/kyc-status.js";
+import { PasswordHash } from "../../../src/domain/identity/password-hash.js";
 import { InMemoryAssetRepository, RecordingAssetEventLog } from "../../fakes/asset-fakes.js";
-import { SequentialIdGenerator } from "../../fakes/identity-fakes.js";
+import { InMemoryInvestorRepository, SequentialIdGenerator } from "../../fakes/identity-fakes.js";
 import {
   InMemoryDistributionRepository,
   RecordingDistributionLedger,
@@ -44,7 +48,18 @@ const setup = async () => {
   ]);
   const ledger = new RecordingDistributionLedger();
   const events = new RecordingAssetEventLog();
+  const investors = new InMemoryInvestorRepository();
   await assets.save(tokenizedAsset());
+  for (const id of ["a", "b"]) {
+    await investors.save(
+      Investor.restore(
+        id,
+        EmailAddress.of(`${id}@example.com`),
+        PasswordHash.of("hashed:pw"),
+        KycStatus.restore("approved"),
+      ),
+    );
+  }
   return {
     distributions,
     assets,
@@ -59,7 +74,7 @@ const setup = async () => {
       events,
     ),
     pay: new PayDistribution(distributions, ledger, events),
-    get: new GetDistribution(distributions, assets),
+    get: new GetDistribution(distributions, assets, investors),
     list: new ListDistributions(distributions, assets),
   };
 };
@@ -79,8 +94,8 @@ describe("DeclareDistribution", () => {
     expect(view.assetName).toBe("Pilot Real Estate SPV");
     expect(view.totalAmountRial).toBe("100000");
     expect(view.payouts).toEqual([
-      { investorId: "a", tokens: "67", amountRial: "67000" },
-      { investorId: "b", tokens: "33", amountRial: "33000" },
+      { investorId: "a", email: "a@example.com", tokens: "67", amountRial: "67000" },
+      { investorId: "b", email: "b@example.com", tokens: "33", amountRial: "33000" },
     ]);
     expect(view.reconciliation).toEqual({
       declared: "100000",

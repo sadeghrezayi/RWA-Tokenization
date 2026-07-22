@@ -45,5 +45,29 @@ describe("toOfferingView", () => {
     const view = toOfferingView(closed, { assetName: "Demo Real Estate SPV" });
     expect(view.mySubscribed).toBeUndefined();
     expect(view.myAllocation).toBeUndefined();
+    expect(view.participants).toBeUndefined();
+  });
+
+  it("passes_through_an_officer_participants_breakdown_when_provided", () => {
+    const view = toOfferingView(closed, {
+      assetName: "Demo Real Estate SPV",
+      participants: [
+        {
+          investorId: "inv-1",
+          email: "inv-1@example.com",
+          subscribed: "80",
+          requested: "80",
+          allocated: "67",
+          costRial: "67000",
+          refundRial: "13000",
+        },
+      ],
+    });
+    expect(view.participants).toHaveLength(1);
+    expect(view.participants?.[0]).toMatchObject({
+      email: "inv-1@example.com",
+      allocated: "67",
+      refundRial: "13000",
+    });
   });
 });

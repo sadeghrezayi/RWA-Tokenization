@@ -1,11 +1,24 @@
 import type { Offering, OfferingState } from "../../domain/offerings/offering.js";
 import type { AssetRepository } from "../assets/ports.js";
+import type { InvestorRepository } from "../identity/ports.js";
 import { loadOffering } from "./load-offering.js";
 import type { OfferingRepository } from "./ports.js";
 
 // Read model. bigints serialize as strings; other investors' positions are
-// never exposed — an investor sees totals plus only their own numbers.
-// assetName (P2) lets the UI lead with a human name, never the asset UUID.
+// never exposed to an investor — they see totals plus only their own numbers.
+// The officer (no forInvestor) additionally gets a `participants` breakdown so
+// the offering page shows who subscribed and how they were allocated (P2:
+// resolved to emails). assetName (P2) leads with a human name, not the UUID.
+export interface OfferingParticipant {
+  investorId: string;
+  email: string;
+  subscribed: string;
+  requested?: string;
+  allocated?: string;
+  costRial?: string;
+  refundRial?: string;
+}
+
 export interface OfferingView {
   id: string;
   assetId: string;
@@ -22,11 +35,12 @@ export interface OfferingView {
   totalSubscribed: string;
   mySubscribed?: string;
   myAllocation?: { requested: string; allocated: string; costRial: string; refundRial: string };
+  participants?: OfferingParticipant[];
 }
 
 export const toOfferingView = (
   offering: Offering,
-  opts: { assetName?: string; forInvestor?: string } = {},
+  opts: { assetName?: string; forInvestor?: string; participants?: OfferingParticipant[] } = {},
 ): OfferingView => {
   const totalSubscribed = offering.subscriptions.reduce((sum, s) => sum + s.tokens, 0n);
   const view: OfferingView = {
@@ -58,8 +72,45 @@ export const toOfferingView = (
         refundRial: String(allocation.refundRial),
       };
     }
+  } else if (opts.participants !== undefined) {
+    // Officer path only — never combined with forInvestor.
+    view.participants = opts.participants;
   }
   return view;
+};
+
+// Aggregates subscriptions by investor and joins each to its close-time
+// allocation, resolving emails (P2). Order follows first-subscription order.
+const buildParticipants = async (
+  offering: Offering,
+  investors: InvestorRepository,
+): Promise<OfferingParticipant[]> => {
+  const subscribedByInvestor = new Map<string, bigint>();
+  for (const subscription of offering.subscriptions) {
+    subscribedByInvestor.set(
+      subscription.investorId,
+      (subscribedByInvestor.get(subscription.investorId) ?? 0n) + subscription.tokens,
+    );
+  }
+  const participants: OfferingParticipant[] = [];
+  for (const [investorId, subscribed] of subscribedByInvestor) {
+    const email = (await investors.findById(investorId))?.email.value ?? investorId;
+    const allocation = offering.allocations?.find((a) => a.investorId === investorId);
+    participants.push({
+      investorId,
+      email,
+      subscribed: String(subscribed),
+      ...(allocation
+        ? {
+            requested: String(allocation.requested),
+            allocated: String(allocation.allocated),
+            costRial: String(allocation.costRial),
+            refundRial: String(allocation.refundRial),
+          }
+        : {}),
+    });
+  }
+  return participants;
 };
 
 // Builds an assetId → name lookup so lists don't issue one query per row.
@@ -72,14 +123,21 @@ export class GetOffering {
   constructor(
     private readonly offerings: OfferingRepository,
     private readonly assets: AssetRepository,
+    private readonly investors: InvestorRepository,
   ) {}
 
   async execute(input: { offeringId: string; forInvestor?: string }): Promise<OfferingView> {
     const offering = await loadOffering(this.offerings, input.offeringId);
     const asset = await this.assets.findById(offering.assetId);
+    // Officer path (no forInvestor) sees the full participant breakdown.
+    const participants =
+      input.forInvestor === undefined
+        ? await buildParticipants(offering, this.investors)
+        : undefined;
     return toOfferingView(offering, {
       ...(asset ? { assetName: asset.name } : {}),
       ...(input.forInvestor !== undefined ? { forInvestor: input.forInvestor } : {}),
+      ...(participants !== undefined ? { participants } : {}),
     });
   }
 }
