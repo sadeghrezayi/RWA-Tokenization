@@ -24,7 +24,7 @@ Crown jewels: operator/claim-issuer keys · custodial HD seed · investor PII + 
 | T12 | RPC outage | High impact today — sync calls block requests | Async workers + retries + DLQ (1.6), health alerting (have probe → 8), degraded-mode UX (freshness patterns exist) |
 | T13 | IPFS outage | Medium — uploads fail loudly; reads unexercised | Retry + pin redundancy, local cache, degraded banner (3.4/8) |
 | T14 | Database compromise | High — PII plaintext at rest | Encryption at rest for sensitive columns (8), least-privilege DB user, network isolation, backups encrypted (8), PII log redaction (8) |
-| T15 | Tenant data leakage | N/A now → real risk at P1 | Repository-enforced tenant predicate + isolation test suite (1.2), object-level authz tests (1.4) |
+| T15 | Tenant data leakage | **Mitigated (P1.2 done)** — scoped Prisma proxy + isolation suite | Repository-enforced tenant predicate + fail-closed TenantContext + isolation test suite (✅ 1.2); object-level authz tests (1.4) |
 | T16 | Privilege escalation | High — role checks exist but coarse | Granular permissions, deny-by-default, authz matrix tests per role (1.4), privileged grants behind approval (1.4) |
 | T17 | Malicious file upload | Medium — base64 docs accepted, no scanning | Size/type limits, malware-scan port with labeled dev no-op (3.4), never serve untransformed user files from app origin, CSP (8) |
 | T18 | Incorrect valuation → mispriced redemption | Medium — freshness enforced, single approver | Reviewer approval + four-eyes (7), dispute flow, redemption threshold approvals (5.4) |

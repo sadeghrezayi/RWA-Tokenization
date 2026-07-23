@@ -12,7 +12,7 @@ export class PrismaDistributionRepository implements DistributionRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findById(id: string): Promise<Distribution | undefined> {
-    const row = await this.prisma.distribution.findUnique({ where: { id }, include: INCLUDE });
+    const row = await this.prisma.distribution.findFirst({ where: { id }, include: INCLUDE });
     return row ? toDomain(row) : undefined;
   }
 
@@ -31,12 +31,12 @@ export class PrismaDistributionRepository implements DistributionRepository {
       totalAmountRial: distribution.totalAmountRial,
       state: distribution.state,
     };
+    // Tenant-safe pattern (no upsert): probe, then create or updateMany.
+    const exists = await this.prisma.distribution.findFirst({ where: { id: distribution.id } });
     await this.prisma.$transaction([
-      this.prisma.distribution.upsert({
-        where: { id: distribution.id },
-        create: { id: distribution.id, ...data },
-        update: data,
-      }),
+      exists
+        ? this.prisma.distribution.updateMany({ where: { id: distribution.id }, data })
+        : this.prisma.distribution.create({ data: { id: distribution.id, ...data } }),
       this.prisma.distributionPayout.deleteMany({ where: { distributionId: distribution.id } }),
       this.prisma.distributionPayout.createMany({
         data: distribution.payouts.map((p) => ({

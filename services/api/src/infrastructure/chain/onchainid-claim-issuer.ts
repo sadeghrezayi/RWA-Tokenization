@@ -78,7 +78,7 @@ export class OnchainidClaimIssuer implements ClaimIssuer {
   }
 
   private async ensureIdentity(investorId: string): Promise<string> {
-    const existing = await this.prisma.onchainIdentity.findUnique({ where: { investorId } });
+    const existing = await this.prisma.onchainIdentity.findFirst({ where: { investorId } });
     if (existing) {
       return existing.address;
     }

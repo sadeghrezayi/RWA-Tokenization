@@ -13,7 +13,7 @@ export class PrismaCrmProfileRepository implements CrmProfileRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findByInvestor(investorId: string): Promise<CrmProfile | undefined> {
-    const row = await this.prisma.crmProfile.findUnique({ where: { investorId } });
+    const row = await this.prisma.crmProfile.findFirst({ where: { investorId } });
     return row
       ? CrmProfile.restore({ investorId: row.investorId, stage: row.stage, tags: row.tags })
       : undefined;
@@ -21,11 +21,16 @@ export class PrismaCrmProfileRepository implements CrmProfileRepository {
 
   async save(profile: CrmProfile): Promise<void> {
     const data = { stage: profile.stage, tags: [...profile.tags] };
-    await this.prisma.crmProfile.upsert({
+    // Tenant-safe pattern (no upsert): probe, then create or updateMany.
+    const updated = await this.prisma.crmProfile.updateMany({
       where: { investorId: profile.investorId },
-      create: { investorId: profile.investorId, ...data },
-      update: data,
+      data,
     });
+    if (updated.count === 0) {
+      await this.prisma.crmProfile.create({
+        data: { investorId: profile.investorId, ...data },
+      });
+    }
   }
 }
 
@@ -65,7 +70,7 @@ export class PrismaFollowUpRepository implements FollowUpRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findById(id: string): Promise<FollowUp | undefined> {
-    const row = await this.prisma.crmFollowUp.findUnique({ where: { id } });
+    const row = await this.prisma.crmFollowUp.findFirst({ where: { id } });
     return row ? toFollowUp(row) : undefined;
   }
 
@@ -94,11 +99,14 @@ export class PrismaFollowUpRepository implements FollowUpRepository {
       doneAt: followUp.doneAt ?? null,
       createdAt: followUp.createdAt,
     };
-    await this.prisma.crmFollowUp.upsert({
+    // Tenant-safe pattern (no upsert): try update first, create when absent.
+    const updated = await this.prisma.crmFollowUp.updateMany({
       where: { id: followUp.id },
-      create: { id: followUp.id, ...data },
-      update: data,
+      data,
     });
+    if (updated.count === 0) {
+      await this.prisma.crmFollowUp.create({ data: { id: followUp.id, ...data } });
+    }
   }
 }
 

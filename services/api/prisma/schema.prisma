@@ -7,6 +7,60 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ---------------------------------------------------------------------------
+// Tenancy (OD-1a): single-tenant install on a tenant-ready schema. Every
+// tenant-owned row carries tenant_id (FK to tenants). Scoping is enforced by
+// the composition root (TenantContext + scoped Prisma extension), never
+// trusted from client input. The "default" tenant is seeded by migration.
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id
+  name      String
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organizations         Organization[]
+  tokenTransfers        TokenTransfer[]
+  redemptions           Redemption[]
+  attestations          Attestation[]
+  assets                Asset[]
+  assetDocuments        AssetDocument[]
+  assetEvents           AssetEvent[]
+  distributions         Distribution[]
+  distributionPayouts   DistributionPayout[]
+  offerings             Offering[]
+  offeringSubscriptions OfferingSubscription[]
+  offeringAllocations   OfferingAllocation[]
+  ledgerAccounts        LedgerAccount[]
+  ledgerEntries         LedgerEntry[]
+  investorWallets       InvestorWallet[]
+  investors             Investor[]
+  onchainIdentities     OnchainIdentity[]
+  crmProfiles           CrmProfile[]
+  crmNotes              CrmNote[]
+  crmFollowUps          CrmFollowUp[]
+
+  @@map("tenants")
+}
+
+// Organizations under a tenant: the platform operator itself, issuers, asset
+// owners, and service providers. Lifecycle/workflow arrives with the issuer
+// portal (Phase 3); the table exists now for schema stability.
+model Organization {
+  id        String   @id
+  tenantId  String   @default("default") @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  type      String
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("organizations")
+}
+
 enum KycState {
   draft
   submitted
@@ -28,6 +82,8 @@ enum AssetState {
 // FR-TR-1: executed compliant transfers (feeds the holder registry + history).
 model TokenTransfer {
   id             String   @id
+  tenantId       String   @default("default") @map("tenant_id")
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
   assetId        String   @map("asset_id")
   tokenAddress   String   @map("token_address")
   fromInvestorId String   @map("from_investor_id")
@@ -36,6 +92,7 @@ model TokenTransfer {
   executedAt     DateTime @map("executed_at")
   createdAt      DateTime @default(now()) @map("created_at")
 
+  @@index([tenantId])
   @@index([assetId])
   @@index([fromInvestorId])
   @@index([toInvestorId])
@@ -51,6 +108,8 @@ enum RedemptionState {
 // FR-TR-2: redemption requests and their resolution at attested value.
 model Redemption {
   id              String          @id
+  tenantId        String          @default("default") @map("tenant_id")
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
   assetId         String          @map("asset_id")
   tokenAddress    String          @map("token_address")
   investorId      String          @map("investor_id")
@@ -62,6 +121,7 @@ model Redemption {
   resolvedAt      DateTime?       @map("resolved_at")
   createdAt       DateTime        @default(now()) @map("created_at")
 
+  @@index([tenantId])
   @@index([investorId])
   @@map("redemptions")
 }
@@ -76,6 +136,8 @@ enum AttestationKind {
 // FR-OR: signed real-world facts about an asset, hash anchored on-chain.
 model Attestation {
   id          String          @id
+  tenantId    String          @default("default") @map("tenant_id")
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
   assetId     String          @map("asset_id")
   kind        AttestationKind
   valueRial   BigInt          @map("value_rial")
@@ -87,12 +149,15 @@ model Attestation {
   documentCid String?         @map("document_cid")
   createdAt   DateTime        @default(now()) @map("created_at")
 
+  @@index([tenantId])
   @@index([assetId, kind, issuedAt])
   @@map("attestations")
 }
 
 model Asset {
   id              String          @id
+  tenantId        String          @default("default") @map("tenant_id")
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
   name            String
   type            String
   state           AssetState
@@ -104,11 +169,14 @@ model Asset {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
+  @@index([tenantId])
   @@map("assets")
 }
 
 model AssetDocument {
   id        String   @id @default(uuid())
+  tenantId  String   @default("default") @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
   assetId   String   @map("asset_id")
   asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
   kind      String
@@ -117,18 +185,22 @@ model AssetDocument {
   sha256    String
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@index([tenantId])
   @@map("asset_documents")
 }
 
 // FR-AO-5 / seed of FR-RA-2: append-only audit trail of asset actions.
 model AssetEvent {
   id        BigInt   @id @default(autoincrement())
+  tenantId  String   @default("default") @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
   assetId   String   @map("asset_id")
   event     String
   actor     String
   details   Json?
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@index([tenantId])
   @@map("asset_events")
 }
 
@@ -139,6 +211,8 @@ enum DistributionState {
 
 model Distribution {
   id              String               @id
+  tenantId        String               @default("default") @map("tenant_id")
+  tenant          Tenant               @relation(fields: [tenantId], references: [id])
   assetId         String               @map("asset_id")
   tokenAddress    String               @map("token_address")
   totalAmountRial BigInt               @map("total_amount_rial")
@@ -147,11 +221,14 @@ model Distribution {
   createdAt       DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime             @updatedAt @map("updated_at")
 
+  @@index([tenantId])
   @@map("distributions")
 }
 
 model DistributionPayout {
   id             BigInt       @id @default(autoincrement())
+  tenantId       String       @default("default") @map("tenant_id")
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
   distributionId String       @map("distribution_id")
   distribution   Distribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
   investorId     String       @map("investor_id")
@@ -159,6 +236,7 @@ model DistributionPayout {
   amountRial     BigInt       @map("amount_rial")
   createdAt      DateTime     @default(now()) @map("created_at")
 
+  @@index([tenantId])
   @@map("distribution_payouts")
 }
 
@@ -171,6 +249,8 @@ enum OfferingState {
 
 model Offering {
   id             String                 @id
+  tenantId       String                 @default("default") @map("tenant_id")
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id])
   assetId        String                 @map("asset_id")
   tokenAddress   String                 @map("token_address")
   supply         BigInt
@@ -186,22 +266,28 @@ model Offering {
   createdAt      DateTime               @default(now()) @map("created_at")
   updatedAt      DateTime               @updatedAt @map("updated_at")
 
+  @@index([tenantId])
   @@map("offerings")
 }
 
 model OfferingSubscription {
   id         BigInt   @id @default(autoincrement())
+  tenantId   String   @default("default") @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
   offeringId String   @map("offering_id")
   offering   Offering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
   investorId String   @map("investor_id")
   tokens     BigInt
   createdAt  DateTime @default(now()) @map("created_at")
 
+  @@index([tenantId])
   @@map("offering_subscriptions")
 }
 
 model OfferingAllocation {
   id         BigInt   @id @default(autoincrement())
+  tenantId   String   @default("default") @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
   offeringId String   @map("offering_id")
   offering   Offering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
   investorId String   @map("investor_id")
@@ -211,6 +297,7 @@ model OfferingAllocation {
   refundRial BigInt   @map("refund_rial")
   createdAt  DateTime @default(now()) @map("created_at")
 
+  @@index([tenantId])
   @@map("offering_allocations")
 }
 
@@ -218,36 +305,48 @@ model OfferingAllocation {
 // append-only entries are the auditable record (NFR-2).
 model LedgerAccount {
   investorId String   @id @map("investor_id")
+  tenantId   String   @default("default") @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
   balance    BigInt   @default(0)
   held       BigInt   @default(0)
   updatedAt  DateTime @updatedAt @map("updated_at")
 
+  @@index([tenantId])
   @@map("ledger_accounts")
 }
 
 model LedgerEntry {
   id         BigInt   @id @default(autoincrement())
+  tenantId   String   @default("default") @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
   investorId String   @map("investor_id")
   kind       String
   amountRial BigInt   @map("amount_rial")
   actor      String
   createdAt  DateTime @default(now()) @map("created_at")
 
+  @@index([tenantId])
   @@map("ledger_entries")
 }
 
 // FR-CU-1 custodial wallets: HD-derived per investor from the platform key.
+// Addresses stay globally unique (chain reality); derivation index is global.
 model InvestorWallet {
   derivationIndex Int    @id @default(autoincrement()) @map("derivation_index")
+  tenantId        String @default("default") @map("tenant_id")
+  tenant          Tenant @relation(fields: [tenantId], references: [id])
   investorId      String @unique @map("investor_id")
   address         String @unique
 
+  @@index([tenantId])
   @@map("investor_wallets")
 }
 
 model Investor {
   id                 String           @id
-  email              String           @unique
+  tenantId           String           @default("default") @map("tenant_id")
+  tenant             Tenant           @relation(fields: [tenantId], references: [id])
+  email              String
   passwordHash       String           @map("password_hash")
   kycState           KycState         @map("kyc_state")
   kycRejectionReason String?          @map("kyc_rejection_reason")
@@ -255,6 +354,7 @@ model Investor {
   updatedAt          DateTime         @updatedAt @map("updated_at")
   onchainIdentity    OnchainIdentity?
 
+  @@unique([tenantId, email])
   @@map("investors")
 }
 
@@ -262,34 +362,45 @@ model Investor {
 // investor. Chain-infrastructure detail, deliberately outside the domain model.
 model OnchainIdentity {
   investorId String   @id @map("investor_id")
+  tenantId   String   @default("default") @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
   address    String   @unique
   createdAt  DateTime @default(now()) @map("created_at")
   investor   Investor @relation(fields: [investorId], references: [id])
 
+  @@index([tenantId])
   @@map("onchain_identities")
 }
 
 model CrmProfile {
   investorId String   @id @map("investor_id")
+  tenantId   String   @default("default") @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
   stage      String
   tags       String[]
   updatedAt  DateTime @updatedAt @map("updated_at")
 
+  @@index([tenantId])
   @@map("crm_profiles")
 }
 
 model CrmNote {
   id         String   @id
+  tenantId   String   @default("default") @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
   investorId String   @map("investor_id")
   authorId   String   @map("author_id")
   text       String
   createdAt  DateTime @map("created_at")
 
+  @@index([tenantId])
   @@map("crm_notes")
 }
 
 model CrmFollowUp {
   id         String    @id
+  tenantId   String    @default("default") @map("tenant_id")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
   investorId String    @map("investor_id")
   text       String
   dueAt      DateTime  @map("due_at")
@@ -297,5 +408,6 @@ model CrmFollowUp {
   doneAt     DateTime? @map("done_at")
   createdAt  DateTime  @map("created_at")
 
+  @@index([tenantId])
   @@map("crm_follow_ups")
 }

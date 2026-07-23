@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Logger, Module } from "@nestjs/common";
+import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { ApproveKyc } from "./application/identity/approve-kyc.js";
 import { AuthenticateInvestor } from "./application/identity/authenticate-investor.js";
@@ -159,6 +160,8 @@ import {
   PrismaInvestorRepository,
 } from "./infrastructure/persistence/prisma-investor-repository.js";
 import { PrismaService } from "./infrastructure/persistence/prisma.service.js";
+import { tenantScopedPrisma } from "./infrastructure/tenancy/tenant-scoped-prisma.js";
+import { tenantMiddleware } from "./infrastructure/tenancy/tenant.middleware.js";
 
 // Injection tokens for the application-layer ports.
 export const INVESTOR_REPOSITORY = "INVESTOR_REPOSITORY";
@@ -187,6 +190,7 @@ export const REDEMPTION_LEDGER = "REDEMPTION_LEDGER";
 export const ATTESTATION_SIGNER = "ATTESTATION_SIGNER";
 export const ATTESTATION_ANCHOR = "ATTESTATION_ANCHOR";
 export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
+export const SCOPED_PRISMA = "SCOPED_PRISMA";
 export const TOKEN_EVENT_SOURCE = "TOKEN_EVENT_SOURCE";
 export const WALLET_DIRECTORY = "WALLET_DIRECTORY";
 export const ASSET_EVENT_READER = "ASSET_EVENT_READER";
@@ -216,9 +220,17 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
   providers: [
     PrismaService,
     {
+      // OD-1a: every repository/adapter that touches tenant-owned tables gets
+      // the tenant-scoped client (fail-closed, invocation-time scoping). The
+      // raw PrismaService remains available for platform-level concerns only.
+      provide: SCOPED_PRISMA,
+      useFactory: (prisma: PrismaService) => tenantScopedPrisma(prisma),
+      inject: [PrismaService],
+    },
+    {
       provide: INVESTOR_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaInvestorRepository(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       // Real ONCHAINID issuance when the devnet env is configured; otherwise the
@@ -232,7 +244,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
           ? new OnchainidClaimIssuer(prisma, { rpcUrl, operatorMnemonic, claimIssuerAddress })
           : new DevLogClaimIssuer();
       },
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     { provide: ID_GENERATOR, useValue: { nextId: () => randomUUID() } satisfies IdGenerator },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
@@ -318,12 +330,12 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     {
       provide: ASSET_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaAssetRepository(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: ASSET_EVENT_LOG,
       useFactory: (prisma: PrismaService) => new PrismaAssetEventLog(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: DOCUMENT_STORE,
@@ -402,13 +414,13 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     {
       provide: PrismaSettlementRail,
       useFactory: (prisma: PrismaService) => new PrismaSettlementRail(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     { provide: SETTLEMENT_RAIL, useExisting: PrismaSettlementRail },
     {
       provide: OFFERING_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaOfferingRepository(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     { provide: CLOCK, useValue: { now: () => new Date() } satisfies Clock },
     {
@@ -430,7 +442,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
           Promise.reject(new Error("token issuance requires the devnet chain configuration"));
         return { mint: fail, finalize: fail };
       },
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: CreateOffering,
@@ -488,7 +500,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     {
       provide: DISTRIBUTION_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaDistributionRepository(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     { provide: DISTRIBUTION_LEDGER, useExisting: PrismaSettlementRail },
     {
@@ -505,7 +517,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
             Promise.reject(new Error("holder snapshot requires the devnet chain configuration")),
         };
       },
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: DeclareDistribution,
@@ -580,12 +592,12 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
           process.env.IPFS_API_URL ?? "http://127.0.0.1:5001",
           process.env.DEVNET_RPC_URL,
         ),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: ATTESTATION_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaAttestationRepository(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       // Real ECDSA signer when an attestor key (operator mnemonic) is present;
@@ -645,12 +657,12 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     {
       provide: TRANSFER_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaTransferRepository(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: REDEMPTION_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaRedemptionRepository(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       // Real chain moves when the devnet env is configured; otherwise fail
@@ -664,7 +676,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
           ? new TrexAssetTokenMover(prisma, { rpcUrl, operatorMnemonic, claimIssuerAddress })
           : undefined;
       },
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: ASSET_TOKEN_TRANSFERRER,
@@ -801,12 +813,12 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     {
       provide: WALLET_DIRECTORY,
       useFactory: (prisma: PrismaService) => new PrismaWalletDirectory(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: ASSET_EVENT_READER,
       useFactory: (prisma: PrismaService) => new PrismaAssetEventReader(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: GetHolderRegistry,
@@ -837,17 +849,17 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     {
       provide: CRM_PROFILE_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaCrmProfileRepository(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: CRM_NOTE_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaCrmNoteRepository(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: FOLLOW_UP_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaFollowUpRepository(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: GetInvestorSales,
@@ -927,7 +939,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     {
       provide: INVESTOR_CHAIN_DIRECTORY,
       useFactory: (prisma: PrismaService) => new PrismaInvestorChainDirectory(prisma),
-      inject: [PrismaService],
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: ListInvestors,
@@ -988,4 +1000,8 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     { provide: APP_FILTER, useClass: DomainErrorFilter },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(tenantMiddleware).forRoutes("*path");
+  }
+}

@@ -6,7 +6,7 @@ export class PrismaRedemptionRepository implements RedemptionRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findById(id: string): Promise<Redemption | undefined> {
-    const row = await this.prisma.redemption.findUnique({ where: { id } });
+    const row = await this.prisma.redemption.findFirst({ where: { id } });
     return row ? toDomain(row) : undefined;
   }
 
@@ -35,11 +35,14 @@ export class PrismaRedemptionRepository implements RedemptionRepository {
       rejectionReason: redemption.rejectionReason ?? null,
       resolvedAt: redemption.resolvedAt ?? null,
     };
-    await this.prisma.redemption.upsert({
+    // Tenant-safe pattern (no upsert): try update first, create when absent.
+    const updated = await this.prisma.redemption.updateMany({
       where: { id: redemption.id },
-      create: { id: redemption.id, ...data },
-      update: data,
+      data,
     });
+    if (updated.count === 0) {
+      await this.prisma.redemption.create({ data: { id: redemption.id, ...data } });
+    }
   }
 }
 

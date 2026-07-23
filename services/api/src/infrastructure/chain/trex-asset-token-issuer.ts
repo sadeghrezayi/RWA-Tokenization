@@ -55,7 +55,7 @@ export class TrexAssetTokenIssuer implements AssetTokenIssuer {
     await this.ensureUnpaused(token);
 
     const wallet = await this.walletFor(investorId);
-    const identity = await this.prisma.onchainIdentity.findUnique({ where: { investorId } });
+    const identity = await this.prisma.onchainIdentity.findFirst({ where: { investorId } });
     if (!identity) {
       throw new Error(
         `investor ${investorId} has no on-chain identity — the KYC claim must be issued first`,
@@ -76,7 +76,7 @@ export class TrexAssetTokenIssuer implements AssetTokenIssuer {
   }
 
   async walletAddressOf(investorId: string): Promise<string | undefined> {
-    const row = await this.prisma.investorWallet.findUnique({ where: { investorId } });
+    const row = await this.prisma.investorWallet.findFirst({ where: { investorId } });
     return row?.address;
   }
 
@@ -87,7 +87,7 @@ export class TrexAssetTokenIssuer implements AssetTokenIssuer {
   }
 
   private async walletFor(investorId: string): Promise<string> {
-    const existing = await this.prisma.investorWallet.findUnique({ where: { investorId } });
+    const existing = await this.prisma.investorWallet.findFirst({ where: { investorId } });
     if (existing && !existing.address.startsWith("pending:")) {
       return existing.address;
     }
@@ -101,7 +101,7 @@ export class TrexAssetTokenIssuer implements AssetTokenIssuer {
       undefined,
       investorWalletPath(row.derivationIndex),
     ).address;
-    await this.prisma.investorWallet.update({ where: { investorId }, data: { address } });
+    await this.prisma.investorWallet.updateMany({ where: { investorId }, data: { address } });
     return address;
   }
 

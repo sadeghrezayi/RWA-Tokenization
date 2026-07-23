@@ -13,11 +13,7 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
   async credit(investorId: string, amountRial: bigint, actor: string): Promise<void> {
     this.assertPositive(amountRial);
     await this.prisma.$transaction(async (tx) => {
-      await tx.ledgerAccount.upsert({
-        where: { investorId },
-        create: { investorId, balance: amountRial },
-        update: { balance: { increment: amountRial } },
-      });
+      await this.creditBalance(tx, investorId, amountRial);
       await tx.ledgerEntry.create({
         data: { investorId, kind: "credit", amountRial, actor },
       });
@@ -77,11 +73,7 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
   async payout(investorId: string, amountRial: bigint): Promise<void> {
     this.assertPositive(amountRial);
     await this.prisma.$transaction(async (tx) => {
-      await tx.ledgerAccount.upsert({
-        where: { investorId },
-        create: { investorId, balance: amountRial },
-        update: { balance: { increment: amountRial } },
-      });
+      await this.creditBalance(tx, investorId, amountRial);
       await tx.ledgerEntry.create({
         data: { investorId, kind: "distribution", amountRial, actor: "platform" },
       });
@@ -93,11 +85,7 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
   async payoutRedemption(investorId: string, amountRial: bigint): Promise<void> {
     this.assertPositive(amountRial);
     await this.prisma.$transaction(async (tx) => {
-      await tx.ledgerAccount.upsert({
-        where: { investorId },
-        create: { investorId, balance: amountRial },
-        update: { balance: { increment: amountRial } },
-      });
+      await this.creditBalance(tx, investorId, amountRial);
       await tx.ledgerEntry.create({
         data: { investorId, kind: "redemption", amountRial, actor: "platform" },
       });
@@ -105,8 +93,24 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
   }
 
   async balanceOf(investorId: string): Promise<{ balanceRial: bigint; heldRial: bigint }> {
-    const account = await this.prisma.ledgerAccount.findUnique({ where: { investorId } });
+    const account = await this.prisma.ledgerAccount.findFirst({ where: { investorId } });
     return { balanceRial: account?.balance ?? 0n, heldRial: account?.held ?? 0n };
+  }
+
+  // Tenant-safe balance credit (no upsert): try the guarded update first,
+  // create the account when it does not exist yet.
+  private async creditBalance(
+    tx: Pick<PrismaClient, "ledgerAccount">,
+    investorId: string,
+    amountRial: bigint,
+  ): Promise<void> {
+    const updated = await tx.ledgerAccount.updateMany({
+      where: { investorId },
+      data: { balance: { increment: amountRial } },
+    });
+    if (updated.count === 0) {
+      await tx.ledgerAccount.create({ data: { investorId, balance: amountRial } });
+    }
   }
 
   private assertPositive(amountRial: bigint): void {

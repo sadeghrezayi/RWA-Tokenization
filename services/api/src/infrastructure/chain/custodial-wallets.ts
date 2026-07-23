@@ -42,7 +42,7 @@ export const lookupWallet = (
   investorId: string,
 ): Promise<{ address: string; derivationIndex: number } | null> =>
   prisma.investorWallet
-    .findUnique({ where: { investorId } })
+    .findFirst({ where: { investorId } })
     .then((row) => (row && !row.address.startsWith("pending:") ? row : null));
 
 // Gets or derives+persists the investor's custodial wallet address.
@@ -51,7 +51,7 @@ export const resolveWallet = async (
   mnemonic: string,
   investorId: string,
 ): Promise<{ address: string; derivationIndex: number }> => {
-  const existing = await prisma.investorWallet.findUnique({ where: { investorId } });
+  const existing = await prisma.investorWallet.findFirst({ where: { investorId } });
   if (existing && !existing.address.startsWith("pending:")) {
     return existing;
   }
@@ -65,7 +65,7 @@ export const resolveWallet = async (
     undefined,
     investorWalletPath(row.derivationIndex),
   ).address;
-  await prisma.investorWallet.update({ where: { investorId }, data: { address } });
+  await prisma.investorWallet.updateMany({ where: { investorId }, data: { address } });
   return { address, derivationIndex: row.derivationIndex };
 };
 
@@ -78,7 +78,7 @@ export const ensureRegistered = async (
   investorId: string,
   wallet: string,
 ): Promise<void> => {
-  const identity = await prisma.onchainIdentity.findUnique({ where: { investorId } });
+  const identity = await prisma.onchainIdentity.findFirst({ where: { investorId } });
   if (!identity) {
     return;
   }

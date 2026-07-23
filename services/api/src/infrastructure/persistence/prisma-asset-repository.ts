@@ -13,7 +13,7 @@ export class PrismaAssetRepository implements AssetRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findById(id: string): Promise<Asset | undefined> {
-    const row = await this.prisma.asset.findUnique({
+    const row = await this.prisma.asset.findFirst({
       where: { id },
       include: { documents: true },
     });
@@ -46,12 +46,12 @@ export class PrismaAssetRepository implements AssetRepository {
       sha256: d.sha256,
     }));
     // Full-state save: replace the document set atomically with the asset row.
+    // Tenant-safe pattern (no upsert): probe, then create or updateMany.
+    const exists = await this.prisma.asset.findFirst({ where: { id: asset.id } });
     await this.prisma.$transaction([
-      this.prisma.asset.upsert({
-        where: { id: asset.id },
-        create: { id: asset.id, ...data },
-        update: data,
-      }),
+      exists
+        ? this.prisma.asset.updateMany({ where: { id: asset.id }, data })
+        : this.prisma.asset.create({ data: { id: asset.id, ...data } }),
       this.prisma.assetDocument.deleteMany({ where: { assetId: asset.id } }),
       this.prisma.assetDocument.createMany({ data: documents }),
     ]);

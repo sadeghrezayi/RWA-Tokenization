@@ -6,7 +6,7 @@ export class PrismaAttestationRepository implements AttestationRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findById(id: string): Promise<Attestation | undefined> {
-    const row = await this.prisma.attestation.findUnique({ where: { id } });
+    const row = await this.prisma.attestation.findFirst({ where: { id } });
     return row ? toDomain(row) : undefined;
   }
 
@@ -38,11 +38,14 @@ export class PrismaAttestationRepository implements AttestationRepository {
       signature: attestation.signature,
       documentCid: attestation.documentCid ?? null,
     };
-    await this.prisma.attestation.upsert({
+    // Tenant-safe pattern (no upsert): try update first, create when absent.
+    const updated = await this.prisma.attestation.updateMany({
       where: { id: attestation.id },
-      create: { id: attestation.id, ...data },
-      update: data,
+      data,
     });
+    if (updated.count === 0) {
+      await this.prisma.attestation.create({ data: { id: attestation.id, ...data } });
+    }
   }
 }
 

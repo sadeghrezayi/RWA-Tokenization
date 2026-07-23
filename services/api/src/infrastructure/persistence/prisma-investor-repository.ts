@@ -14,12 +14,14 @@ export class PrismaInvestorRepository implements InvestorRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findById(id: string): Promise<Investor | undefined> {
-    const row = await this.prisma.investor.findUnique({ where: { id } });
+    const row = await this.prisma.investor.findFirst({ where: { id } });
     return row ? toDomain(row) : undefined;
   }
 
   async findByEmail(email: EmailAddress): Promise<Investor | undefined> {
-    const row = await this.prisma.investor.findUnique({ where: { email: email.value } });
+    // Email is unique per tenant (schema @@unique([tenantId, email])); the
+    // scoped client narrows this lookup to the context tenant.
+    const row = await this.prisma.investor.findFirst({ where: { email: email.value } });
     return row ? toDomain(row) : undefined;
   }
 
@@ -42,11 +44,14 @@ export class PrismaInvestorRepository implements InvestorRepository {
       kycState: investor.kycStatus.state,
       kycRejectionReason: investor.kycStatus.rejectionReason ?? null,
     };
-    await this.prisma.investor.upsert({
+    // Tenant-safe pattern (no upsert): try update first, create when absent.
+    const updated = await this.prisma.investor.updateMany({
       where: { id: investor.id },
-      create: { id: investor.id, ...data },
-      update: data,
+      data,
     });
+    if (updated.count === 0) {
+      await this.prisma.investor.create({ data: { id: investor.id, ...data } });
+    }
   }
 }
 
@@ -58,8 +63,8 @@ export class PrismaInvestorChainDirectory implements InvestorChainDirectory {
 
   async forInvestor(investorId: string): Promise<InvestorChainInfo> {
     const [identity, wallet] = await Promise.all([
-      this.prisma.onchainIdentity.findUnique({ where: { investorId } }),
-      this.prisma.investorWallet.findUnique({ where: { investorId } }),
+      this.prisma.onchainIdentity.findFirst({ where: { investorId } }),
+      this.prisma.investorWallet.findFirst({ where: { investorId } }),
     ]);
     return {
       ...(identity !== null ? { identityAddress: identity.address } : {}),

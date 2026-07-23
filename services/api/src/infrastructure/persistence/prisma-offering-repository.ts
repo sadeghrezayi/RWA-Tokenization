@@ -13,7 +13,7 @@ export class PrismaOfferingRepository implements OfferingRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findById(id: string): Promise<Offering | undefined> {
-    const row = await this.prisma.offering.findUnique({ where: { id }, include: INCLUDE });
+    const row = await this.prisma.offering.findFirst({ where: { id }, include: INCLUDE });
     return row ? toDomain(row) : undefined;
   }
 
@@ -38,12 +38,12 @@ export class PrismaOfferingRepository implements OfferingRepository {
       closesAt: offering.closesAt,
       state: offering.state,
     };
+    // Tenant-safe pattern (no upsert): probe, then create or updateMany.
+    const exists = await this.prisma.offering.findFirst({ where: { id: offering.id } });
     await this.prisma.$transaction([
-      this.prisma.offering.upsert({
-        where: { id: offering.id },
-        create: { id: offering.id, ...data },
-        update: data,
-      }),
+      exists
+        ? this.prisma.offering.updateMany({ where: { id: offering.id }, data })
+        : this.prisma.offering.create({ data: { id: offering.id, ...data } }),
       this.prisma.offeringSubscription.deleteMany({ where: { offeringId: offering.id } }),
       this.prisma.offeringSubscription.createMany({
         data: offering.subscriptions.map((s) => ({
