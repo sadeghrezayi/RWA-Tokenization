@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpCode,
   Inject,
   Post,
@@ -11,7 +12,8 @@ import {
 import { AuthenticateInvestor } from "../../application/identity/authenticate-investor.js";
 import { AuthenticateOfficer } from "../../application/identity/authenticate-officer.js";
 import type { LoginThrottleService } from "../../application/identity/login-throttle-service.js";
-import { Public } from "./auth.guard.js";
+import type { Principal } from "../../application/identity/ports.js";
+import { CurrentPrincipal, Public } from "./auth.guard.js";
 import { AuthRateLimitGuard } from "./rate-limit.guard.js";
 import { LOGIN_THROTTLE_SERVICE } from "./http.tokens.js";
 import { newCsrfToken, sessionClearCookies, sessionSetCookies } from "./session.js";
@@ -70,6 +72,14 @@ export class AuthController {
     );
     const csrfToken = this.establishSession(res, result.token);
     return { ...result, csrfToken };
+  }
+
+  // Lets a browser verify its cookie session on page load without exposing the
+  // token to JS. Authenticated (cookie or bearer); returns the principal kind
+  // so a portal shell can confirm the right role is signed in.
+  @Get("session")
+  session(@CurrentPrincipal() principal: Principal): { kind: Principal["kind"] } {
+    return { kind: principal.kind };
   }
 
   @Post("logout")

@@ -269,8 +269,13 @@ export interface InvestorDetailDto {
 
 export interface ApiClient {
   register(email: string, password: string): Promise<{ investorId: string }>;
-  login(email: string, password: string): Promise<{ token: string; investorId: string }>;
-  officerLogin(email: string, password: string): Promise<{ token: string }>;
+  login(
+    email: string,
+    password: string,
+  ): Promise<{ token: string; investorId: string; csrfToken: string }>;
+  officerLogin(email: string, password: string): Promise<{ token: string; csrfToken: string }>;
+  getSession(): Promise<{ kind: "investor" | "officer" }>;
+  logout(csrfToken: string): Promise<void>;
   me(token: string): Promise<InvestorViewDto>;
   submitKyc(token: string): Promise<void>;
   pendingKyc(officerToken: string): Promise<InvestorViewDto[]>;
@@ -458,11 +463,17 @@ export const createApiClient = (
     path: string,
     init: { method?: string; token?: string; body?: unknown } = {},
   ): Promise<Response> => {
+    const method = init.method ?? "GET";
+    // Cookie-session auth: the httpOnly session cookie is sent automatically
+    // (credentials:include). State-changing requests carry the CSRF token
+    // (double-submit) — the `token` argument is that CSRF token, read by the
+    // caller from the readable tk_csrf cookie. GETs need no CSRF.
     const res = await fetch(`${baseUrl}${path}`, {
-      method: init.method ?? "GET",
+      method,
+      credentials: "include",
       headers: {
         ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
-        ...(init.token !== undefined ? { authorization: `Bearer ${init.token}` } : {}),
+        ...(method !== "GET" && init.token !== undefined ? { "x-csrf-token": init.token } : {}),
       },
       ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
     });
@@ -490,6 +501,10 @@ export const createApiClient = (
       json(call("/auth/login", { method: "POST", body: { email, password } })),
     officerLogin: (email, password) =>
       json(call("/auth/officer/login", { method: "POST", body: { email, password } })),
+    getSession: () => json(call("/auth/session")),
+    logout: async (csrfToken) => {
+      await call("/auth/logout", { method: "POST", token: csrfToken });
+    },
     me: (token) => json(call("/investors/me", { token })),
     submitKyc: async (token) => {
       await call("/investors/me/kyc/submit", { method: "POST", token });

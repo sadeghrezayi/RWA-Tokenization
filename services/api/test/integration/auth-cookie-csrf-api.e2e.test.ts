@@ -72,6 +72,15 @@ describe("Auth cookie + CSRF API (e2e, real Postgres)", () => {
     await request(server).get("/investors/me").set("Cookie", jar).expect(200);
   });
 
+  it("reports_the_principal_kind_from_the_session_endpoint", async () => {
+    const login = await request(server).post("/auth/login").send({ email, password: "Passw0rd-9" });
+    const jar = cookieHeader(cookiesFrom(login));
+    const res = await request(server).get("/auth/session").set("Cookie", jar).expect(200);
+    expect(res.body).toEqual({ kind: "investor" });
+    // No session ⇒ 401 (the shell then shows the login screen).
+    await request(server).get("/auth/session").expect(401);
+  });
+
   it("rejects_a_cookie_authenticated_POST_without_the_csrf_header", async () => {
     const login = await request(server).post("/auth/login").send({ email, password: "Passw0rd-9" });
     const jar = cookieHeader(cookiesFrom(login));

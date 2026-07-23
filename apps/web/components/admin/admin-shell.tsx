@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createApiClient } from "../../lib/api";
+import { readCsrfToken } from "../../lib/session";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
 import { OfficerLogin } from "../officer-login";
-import { AdminSessionProvider, OFFICER_TOKEN_KEY } from "./admin-session";
+import { AdminSessionProvider } from "./admin-session";
 
 interface NavItem {
   href: string;
@@ -27,13 +28,32 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
   const t = dictionaries[locale];
   const api = useMemo(() => createApiClient(), []);
   const pathname = usePathname();
-  const [token, setToken] = useState<string | undefined>(undefined);
-  const [hydrated, setHydrated] = useState(false);
+  // Auth is the httpOnly cookie session — verified once on mount via
+  // /auth/session (no token in JS). `csrf` is the readable double-submit token
+  // threaded to pages for state-changing requests.
+  const [status, setStatus] = useState<"loading" | "authed" | "anon">("loading");
+  const [csrf, setCsrf] = useState<string>("");
 
   useEffect(() => {
-    setToken(sessionStorage.getItem(OFFICER_TOKEN_KEY) ?? undefined);
-    setHydrated(true);
-  }, []);
+    let active = true;
+    api
+      .getSession()
+      .then((session) => {
+        if (!active) return;
+        if (session.kind === "officer") {
+          setCsrf(readCsrfToken() ?? "");
+          setStatus("authed");
+        } else {
+          setStatus("anon");
+        }
+      })
+      .catch(() => {
+        if (active) setStatus("anon");
+      });
+    return () => {
+      active = false;
+    };
+  }, [api]);
 
   const base = `/${locale}/admin`;
   const groups: NavGroup[] = [
@@ -66,11 +86,11 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
     },
   ];
 
-  if (!hydrated) {
+  if (status === "loading") {
     return null;
   }
 
-  if (token === undefined) {
+  if (status === "anon") {
     return (
       <div className="auth-screen">
         <div className="auth-screen__inner stack">
@@ -83,9 +103,9 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
           <OfficerLogin
             locale={locale}
             api={api}
-            onAuthed={(newToken) => {
-              sessionStorage.setItem(OFFICER_TOKEN_KEY, newToken);
-              setToken(newToken);
+            onAuthed={() => {
+              setCsrf(readCsrfToken() ?? "");
+              setStatus("authed");
             }}
           />
         </div>
@@ -96,7 +116,7 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <AdminSessionProvider value={{ api, token, locale }}>
+    <AdminSessionProvider value={{ api, token: csrf, locale }}>
       <div className="shell">
         <aside className="sidebar">
           <Link href={`${base}/overview`} className="brand sidebar__brand">
@@ -139,8 +159,10 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
               type="button"
               className="nav-link nav-link--muted"
               onClick={() => {
-                sessionStorage.removeItem(OFFICER_TOKEN_KEY);
-                setToken(undefined);
+                void api.logout(csrf).finally(() => {
+                  setStatus("anon");
+                  setCsrf("");
+                });
               }}
             >
               <span className="nav-link__icon" aria-hidden="true">

@@ -7,8 +7,8 @@ import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { Button, Card, Field } from "./ui/primitives";
 
-// Officer sign-in card. Auth is owned by the admin page so it survives tab
-// switches; this only collects credentials and hands the token up.
+// Officer sign-in card. On success the API sets the httpOnly session cookie;
+// this only collects credentials and signals success (no token touches JS).
 export const OfficerLogin = ({
   locale,
   api,
@@ -16,7 +16,7 @@ export const OfficerLogin = ({
 }: {
   locale: Locale;
   api: ApiClient;
-  onAuthed: (token: string) => void;
+  onAuthed: () => void;
 }) => {
   const t = dictionaries[locale];
   const [email, setEmail] = useState("");
@@ -35,8 +35,8 @@ export const OfficerLogin = ({
           setError(undefined);
           void (async () => {
             try {
-              const { token } = await api.officerLogin(email, password);
-              onAuthed(token);
+              await api.officerLogin(email, password);
+              onAuthed();
             } catch (e) {
               setError(e instanceof ApiError ? e.message : t.authFailed);
             } finally {

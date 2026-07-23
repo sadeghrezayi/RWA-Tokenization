@@ -11,9 +11,6 @@ export interface InvestorSession {
   locale: Locale;
 }
 
-// Matches the key the portal has always used (kept for continuity).
-export const INVESTOR_TOKEN_KEY = "tokenization.token";
-
 const InvestorSessionContext = createContext<InvestorSession | undefined>(undefined);
 
 export const InvestorSessionProvider = InvestorSessionContext.Provider;

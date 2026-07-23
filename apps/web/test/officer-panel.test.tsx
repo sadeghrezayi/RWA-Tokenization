@@ -14,18 +14,20 @@ const pendingInvestor: InvestorViewDto = {
 };
 
 describe("OfficerLogin", () => {
-  it("signs_in_and_hands_the_token_up", async () => {
+  it("signs_in_and_signals_success", async () => {
     const onAuthed = vi.fn();
-    const api = stubApi({ officerLogin: vi.fn().mockResolvedValue({ token: "off-tok" }) });
-    render(<OfficerLogin locale="en" api={api} onAuthed={onAuthed} />);
+    // Login establishes the httpOnly cookie server-side; onAuthed just signals.
+    const officerLogin = vi.fn().mockResolvedValue({ token: "off-tok", csrfToken: "csrf" });
+    render(<OfficerLogin locale="en" api={stubApi({ officerLogin })} onAuthed={onAuthed} />);
 
     await userEvent.type(screen.getByLabelText("Email"), "officer@example.com");
     await userEvent.type(screen.getByLabelText("Password"), "0fficer-pass");
     await userEvent.click(screen.getByRole("button", { name: "Log in" }));
 
     await waitFor(() => {
-      expect(onAuthed).toHaveBeenCalledWith("off-tok");
+      expect(onAuthed).toHaveBeenCalledTimes(1);
     });
+    expect(officerLogin).toHaveBeenCalledWith("officer@example.com", "0fficer-pass");
   });
 });
 

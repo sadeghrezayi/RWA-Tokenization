@@ -10,7 +10,7 @@ import { Button, Card, Field } from "./ui/primitives";
 export interface AuthPanelProps {
   locale: Locale;
   api: ApiClient;
-  onAuthed: (token: string) => void;
+  onAuthed: () => void;
 }
 
 // Register-or-login in one card; registration logs in right after (FR-ID-1).
@@ -33,9 +33,10 @@ export const AuthPanel = ({ locale, api, onAuthed }: AuthPanelProps) => {
     }
   };
 
+  // On success the API sets the httpOnly session cookie; nothing to store here.
   const login = async () => {
-    const { token } = await api.login(email, password);
-    onAuthed(token);
+    await api.login(email, password);
+    onAuthed();
   };
 
   return (

@@ -15,26 +15,32 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-const officerLogin = vi.fn().mockResolvedValue({ token: "officer-tok" });
+// The shell gates on the httpOnly cookie session, checked via getSession().
+const getSession = vi.fn();
+const officerLogin = vi.fn();
+const logout = vi.fn().mockResolvedValue(undefined);
 vi.mock("../lib/api", async (orig) => {
   const actual = await orig<typeof import("../lib/api")>();
-  return { ...actual, createApiClient: () => ({ officerLogin }) };
+  return { ...actual, createApiClient: () => ({ getSession, officerLogin, logout }) };
 });
 
 import { AdminShell } from "../components/admin/admin-shell";
 
-const SessionProbe = () => {
-  return <div data-testid="probe">section content</div>;
-};
+const SessionProbe = () => <div data-testid="probe">section content</div>;
+
+const asOfficer = () => getSession.mockResolvedValue({ kind: "officer" });
+const asAnon = () => getSession.mockRejectedValue(new Error("401"));
 
 describe("AdminShell", () => {
   beforeEach(() => {
-    sessionStorage.clear();
     mockPathname = "/en/admin/overview";
-    officerLogin.mockClear();
+    getSession.mockReset();
+    officerLogin.mockReset();
+    logout.mockClear();
   });
 
   it("shows_the_officer_login_when_there_is_no_session", async () => {
+    asAnon();
     render(
       <AdminShell locale="en">
         <SessionProbe />
@@ -46,8 +52,19 @@ describe("AdminShell", () => {
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 
-  it("renders_the_sidebar_and_children_once_authenticated", async () => {
-    sessionStorage.setItem("tokenization.officerToken", "officer-tok");
+  it("shows_the_login_when_a_non_officer_session_is_present", async () => {
+    getSession.mockResolvedValue({ kind: "investor" });
+    render(
+      <AdminShell locale="en">
+        <SessionProbe />
+      </AdminShell>,
+    );
+    expect(await screen.findByText("Compliance Review")).toBeInTheDocument();
+    expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
+  });
+
+  it("renders_the_sidebar_and_children_for_an_officer_session", async () => {
+    asOfficer();
     render(
       <AdminShell locale="en">
         <SessionProbe />
@@ -68,7 +85,7 @@ describe("AdminShell", () => {
   });
 
   it("marks_the_active_section_from_the_pathname", async () => {
-    sessionStorage.setItem("tokenization.officerToken", "officer-tok");
+    asOfficer();
     mockPathname = "/en/admin/investors";
     render(
       <AdminShell locale="en">
@@ -82,7 +99,7 @@ describe("AdminShell", () => {
   });
 
   it("keeps_the_detail_route_active_under_its_section", async () => {
-    sessionStorage.setItem("tokenization.officerToken", "officer-tok");
+    asOfficer();
     mockPathname = "/en/admin/investors/abc-123";
     render(
       <AdminShell locale="en">
@@ -94,8 +111,8 @@ describe("AdminShell", () => {
     expect(active).toHaveTextContent("Investors");
   });
 
-  it("logs_out_and_returns_to_the_login", async () => {
-    sessionStorage.setItem("tokenization.officerToken", "officer-tok");
+  it("logs_out_via_the_api_and_returns_to_the_login", async () => {
+    asOfficer();
     render(
       <AdminShell locale="en">
         <SessionProbe />
@@ -108,7 +125,7 @@ describe("AdminShell", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
     });
-    expect(sessionStorage.getItem("tokenization.officerToken")).toBeNull();
+    expect(logout).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Compliance Review")).toBeInTheDocument();
   });
 });

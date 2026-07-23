@@ -9,6 +9,8 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   register: vi.fn(),
   login: vi.fn(),
   officerLogin: vi.fn(),
+  getSession: vi.fn(),
+  logout: vi.fn(),
   me: vi.fn(),
   submitKyc: vi.fn(),
   pendingKyc: vi.fn(),
@@ -69,24 +71,29 @@ const fill = async (email: string, password: string) => {
 };
 
 describe("AuthPanel", () => {
-  it("registers_then_logs_in_and_reports_the_token", async () => {
+  it("registers_then_logs_in_and_signals_success", async () => {
     const register = vi.fn().mockResolvedValue({ investorId: "inv-1" });
-    const login = vi.fn().mockResolvedValue({ token: "tok-1", investorId: "inv-1" });
+    const login = vi
+      .fn()
+      .mockResolvedValue({ token: "tok-1", investorId: "inv-1", csrfToken: "csrf-1" });
     const onAuthed = vi.fn();
     render(<AuthPanel locale="en" api={stubApi({ register, login })} onAuthed={onAuthed} />);
 
     await fill("a@example.com", "s3cure-pass");
     await userEvent.click(screen.getByRole("button", { name: "Register" }));
 
+    // The session is now an httpOnly cookie — onAuthed just signals success.
     await waitFor(() => {
-      expect(onAuthed).toHaveBeenCalledWith("tok-1");
+      expect(onAuthed).toHaveBeenCalledTimes(1);
     });
     expect(register).toHaveBeenCalledWith("a@example.com", "s3cure-pass");
     expect(login).toHaveBeenCalledWith("a@example.com", "s3cure-pass");
   });
 
   it("logs_in_an_existing_investor", async () => {
-    const login = vi.fn().mockResolvedValue({ token: "tok-2", investorId: "inv-1" });
+    const login = vi
+      .fn()
+      .mockResolvedValue({ token: "tok-2", investorId: "inv-1", csrfToken: "csrf-2" });
     const onAuthed = vi.fn();
     render(<AuthPanel locale="en" api={stubApi({ login })} onAuthed={onAuthed} />);
 
@@ -94,7 +101,7 @@ describe("AuthPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Log in" }));
 
     await waitFor(() => {
-      expect(onAuthed).toHaveBeenCalledWith("tok-2");
+      expect(onAuthed).toHaveBeenCalledTimes(1);
     });
   });
 

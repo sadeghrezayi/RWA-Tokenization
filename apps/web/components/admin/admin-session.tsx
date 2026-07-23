@@ -12,9 +12,6 @@ export interface AdminSession {
   locale: Locale;
 }
 
-// Officer session token key — shared by the shell and any route that needs it.
-export const OFFICER_TOKEN_KEY = "tokenization.officerToken";
-
 const AdminSessionContext = createContext<AdminSession | undefined>(undefined);
 
 export const AdminSessionProvider = AdminSessionContext.Provider;

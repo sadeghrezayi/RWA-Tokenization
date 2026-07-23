@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createApiClient } from "../../lib/api";
+import { readCsrfToken } from "../../lib/session";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
 import { AuthPanel } from "../auth-panel";
-import { INVESTOR_TOKEN_KEY, InvestorSessionProvider } from "./investor-session";
+import { InvestorSessionProvider } from "./investor-session";
 
 // FR-PT-1 investor portal shell: the same sidebar chrome as the admin console,
 // with the investor's three areas (portfolio, offerings, profile) as routes.
@@ -21,13 +22,31 @@ export const InvestorShell = ({
   const t = dictionaries[locale];
   const api = useMemo(() => createApiClient(), []);
   const pathname = usePathname();
-  const [token, setToken] = useState<string | undefined>(undefined);
-  const [hydrated, setHydrated] = useState(false);
+  // httpOnly cookie session, verified on mount via /auth/session; `csrf` is the
+  // readable double-submit token threaded to pages for mutations.
+  const [status, setStatus] = useState<"loading" | "authed" | "anon">("loading");
+  const [csrf, setCsrf] = useState<string>("");
 
   useEffect(() => {
-    setToken(sessionStorage.getItem(INVESTOR_TOKEN_KEY) ?? undefined);
-    setHydrated(true);
-  }, []);
+    let active = true;
+    api
+      .getSession()
+      .then((session) => {
+        if (!active) return;
+        if (session.kind === "investor") {
+          setCsrf(readCsrfToken() ?? "");
+          setStatus("authed");
+        } else {
+          setStatus("anon");
+        }
+      })
+      .catch(() => {
+        if (active) setStatus("anon");
+      });
+    return () => {
+      active = false;
+    };
+  }, [api]);
 
   const base = `/${locale}`;
   const items = [
@@ -36,11 +55,11 @@ export const InvestorShell = ({
     { href: `${base}/profile`, label: t.profileNav, icon: "◑" },
   ];
 
-  if (!hydrated) {
+  if (status === "loading") {
     return null;
   }
 
-  if (token === undefined) {
+  if (status === "anon") {
     return (
       <div className="auth-screen">
         <div className="auth-screen__inner stack">
@@ -53,9 +72,9 @@ export const InvestorShell = ({
           <AuthPanel
             locale={locale}
             api={api}
-            onAuthed={(newToken) => {
-              sessionStorage.setItem(INVESTOR_TOKEN_KEY, newToken);
-              setToken(newToken);
+            onAuthed={() => {
+              setCsrf(readCsrfToken() ?? "");
+              setStatus("authed");
             }}
           />
         </div>
@@ -66,7 +85,7 @@ export const InvestorShell = ({
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <InvestorSessionProvider value={{ api, token, locale }}>
+    <InvestorSessionProvider value={{ api, token: csrf, locale }}>
       <div className="shell">
         <aside className="sidebar">
           <Link href={`${base}/portfolio`} className="brand sidebar__brand">
@@ -102,8 +121,10 @@ export const InvestorShell = ({
               type="button"
               className="nav-link nav-link--muted"
               onClick={() => {
-                sessionStorage.removeItem(INVESTOR_TOKEN_KEY);
-                setToken(undefined);
+                void api.logout(csrf).finally(() => {
+                  setStatus("anon");
+                  setCsrf("");
+                });
               }}
             >
               <span className="nav-link__icon" aria-hidden="true">
