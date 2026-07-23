@@ -5,6 +5,7 @@ import {
   HttpCode,
   Inject,
   Post,
+  Res,
   UseGuards,
 } from "@nestjs/common";
 import { AuthenticateInvestor } from "../../application/identity/authenticate-investor.js";
@@ -13,6 +14,12 @@ import type { LoginThrottleService } from "../../application/identity/login-thro
 import { Public } from "./auth.guard.js";
 import { AuthRateLimitGuard } from "./rate-limit.guard.js";
 import { LOGIN_THROTTLE_SERVICE } from "./http.tokens.js";
+import { newCsrfToken, sessionClearCookies, sessionSetCookies } from "./session.js";
+
+// Minimal response surface so no framework type leaks past this file.
+interface CookieResponse {
+  setHeader(name: string, value: string | string[]): void;
+}
 
 const credentials = (body: unknown): { email: string; password: string } => {
   const record = (body ?? {}) as Record<string, unknown>;
@@ -22,9 +29,10 @@ const credentials = (body: unknown): { email: string; password: string } => {
   return { email: record.email, password: record.password };
 };
 
-// Auth edge: every route is IP-rate-limited (guard) and every login is wrapped
-// in the per-account lockout throttle (T4). Officer and investor logins share
-// one throttle keyed by email so an attacker cannot bypass by picking a role.
+// Auth edge: every route is IP-rate-limited (guard); every login is wrapped in
+// the per-account lockout throttle (T4). On success we establish an httpOnly
+// session cookie + a readable CSRF cookie (T21). The token is also returned in
+// the body for bearer/service clients; browsers ignore it and rely on cookies.
 @Controller("auth")
 @UseGuards(AuthRateLimitGuard)
 export class AuthController {
@@ -37,16 +45,42 @@ export class AuthController {
   @Public()
   @Post("login")
   @HttpCode(200)
-  login(@Body() body: unknown): Promise<{ token: string; investorId: string }> {
+  async login(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: CookieResponse,
+  ): Promise<{ token: string; investorId: string; csrfToken: string }> {
     const creds = credentials(body);
-    return this.throttle.guard(creds.email, () => this.authenticateInvestor.execute(creds));
+    const result = await this.throttle.guard(creds.email, () =>
+      this.authenticateInvestor.execute(creds),
+    );
+    const csrfToken = this.establishSession(res, result.token);
+    return { ...result, csrfToken };
   }
 
   @Public()
   @Post("officer/login")
   @HttpCode(200)
-  officerLogin(@Body() body: unknown): Promise<{ token: string }> {
+  async officerLogin(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: CookieResponse,
+  ): Promise<{ token: string; csrfToken: string }> {
     const creds = credentials(body);
-    return this.throttle.guard(creds.email, () => this.authenticateOfficer.execute(creds));
+    const result = await this.throttle.guard(creds.email, () =>
+      this.authenticateOfficer.execute(creds),
+    );
+    const csrfToken = this.establishSession(res, result.token);
+    return { ...result, csrfToken };
+  }
+
+  @Post("logout")
+  @HttpCode(204)
+  logout(@Res({ passthrough: true }) res: CookieResponse): void {
+    res.setHeader("Set-Cookie", sessionClearCookies());
+  }
+
+  private establishSession(res: CookieResponse, token: string): string {
+    const csrfToken = newCsrfToken();
+    res.setHeader("Set-Cookie", sessionSetCookies(token, csrfToken));
+    return csrfToken;
   }
 }

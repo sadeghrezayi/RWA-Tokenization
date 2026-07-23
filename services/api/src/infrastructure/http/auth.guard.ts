@@ -10,6 +10,8 @@ import type { CanActivate, ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { Principal } from "../../application/identity/ports.js";
 import type { TokenVerifier } from "../auth/jwt-token-service.js";
+import { parseCookies } from "./cookies.js";
+import { SESSION_COOKIE } from "./session.js";
 
 export const TOKEN_VERIFIER = "TOKEN_VERIFIER";
 
@@ -19,9 +21,14 @@ const REQUIRED_ROLE = "auth:requiredRole";
 export const Public = () => SetMetadata(IS_PUBLIC, true);
 export const RequireRole = (role: Principal["kind"]) => SetMetadata(REQUIRED_ROLE, role);
 
-interface AuthableRequest {
+export type AuthVia = "cookie" | "bearer";
+
+export interface AuthableRequest {
   headers: Record<string, string | string[] | undefined>;
   principal?: Principal;
+  // How the principal authenticated — the CSRF guard only challenges cookie
+  // auth (bearer requests can't be forged cross-site).
+  authVia?: AuthVia;
 }
 
 export const CurrentPrincipal = createParamDecorator(
@@ -50,14 +57,26 @@ export class AuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<AuthableRequest>();
-    const header = request.headers.authorization;
-    const token =
-      typeof header === "string" && header.startsWith("Bearer ") ? header.slice(7) : undefined;
+    // Browsers authenticate with the httpOnly session cookie; service/API
+    // clients may still use a bearer token. Cookie wins when both are present.
+    const cookieHeader = request.headers.cookie;
+    const cookieToken = parseCookies(typeof cookieHeader === "string" ? cookieHeader : undefined)[
+      SESSION_COOKIE
+    ];
+    const authHeader = request.headers.authorization;
+    const bearerToken =
+      typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : undefined;
+    const via: AuthVia | undefined =
+      cookieToken !== undefined ? "cookie" : bearerToken !== undefined ? "bearer" : undefined;
+    const token = cookieToken ?? bearerToken;
     const principal = token === undefined ? undefined : await this.tokens.verify(token);
-    if (!principal) {
-      throw new UnauthorizedException("missing or invalid bearer token");
+    if (!principal || via === undefined) {
+      throw new UnauthorizedException("missing or invalid session");
     }
     request.principal = principal;
+    request.authVia = via;
 
     const role = this.reflector.getAllAndOverride<Principal["kind"] | undefined>(
       REQUIRED_ROLE,

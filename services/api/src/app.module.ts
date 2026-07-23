@@ -165,6 +165,7 @@ import {
 import type { LoginAttemptStore } from "./application/identity/ports.js";
 import { PrismaLoginAttemptStore } from "./infrastructure/persistence/prisma-login-attempt-store.js";
 import { AuthGuard, TOKEN_VERIFIER } from "./infrastructure/http/auth.guard.js";
+import { CsrfGuard } from "./infrastructure/http/csrf.guard.js";
 import { DomainErrorFilter } from "./infrastructure/http/domain-error.filter.js";
 import { InvestorsController } from "./infrastructure/http/investors.controller.js";
 import {
@@ -1032,6 +1033,9 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       ],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
+    // CSRF runs after AuthGuard (guard order follows provider order) so it can
+    // read how the request authenticated; only cookie auth is challenged.
+    { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_FILTER, useClass: DomainErrorFilter },
   ],
 })
