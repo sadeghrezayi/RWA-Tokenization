@@ -28,6 +28,20 @@ export interface Dictionary {
   registerButton: string;
   loginButton: string;
   authFailed: string;
+  forgotPassword: string;
+  resetRequestTitle: string;
+  resetRequestSubtitle: string;
+  sendResetLink: string;
+  resetRequestSent: string;
+  backToSignIn: string;
+  resetTitle: string;
+  resetSubtitle: string;
+  newPasswordLabel: string;
+  confirmPasswordLabel: string;
+  resetSubmit: string;
+  resetSuccess: string;
+  resetPasswordMismatch: string;
+  resetMissingToken: string;
   officerTitle: string;
   pendingKycTitle: string;
   emptyQueue: string;
@@ -267,6 +281,22 @@ export const dictionaries: Record<Locale, Dictionary> = {
     registerButton: "Register",
     loginButton: "Log in",
     authFailed: "Authentication failed. Please try again.",
+    forgotPassword: "Forgot password?",
+    resetRequestTitle: "Reset your password",
+    resetRequestSubtitle: "Enter your account email and we'll send a reset link.",
+    sendResetLink: "Send reset link",
+    resetRequestSent:
+      "If that email is registered, a password-reset link is on its way. Check your inbox.",
+    backToSignIn: "Back to sign in",
+    resetTitle: "Choose a new password",
+    resetSubtitle: "Enter a new password for your account.",
+    newPasswordLabel: "New password",
+    confirmPasswordLabel: "Confirm password",
+    resetSubmit: "Update password",
+    resetSuccess: "Your password has been updated. You can now sign in.",
+    resetPasswordMismatch: "Those passwords don't match.",
+    resetMissingToken:
+      "This reset link is missing its token. Request a new one from the sign-in page.",
     officerTitle: "Compliance Review",
     pendingKycTitle: "Pending KYC applications",
     emptyQueue: "No applications waiting for review.",

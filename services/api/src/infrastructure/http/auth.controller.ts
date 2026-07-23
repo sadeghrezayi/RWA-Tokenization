@@ -13,6 +13,8 @@ import { AuthenticateInvestor } from "../../application/identity/authenticate-in
 import { AuthenticateOfficer } from "../../application/identity/authenticate-officer.js";
 import type { LoginThrottleService } from "../../application/identity/login-throttle-service.js";
 import type { Principal } from "../../application/identity/ports.js";
+import { RequestPasswordReset } from "../../application/identity/request-password-reset.js";
+import { ResetPassword } from "../../application/identity/reset-password.js";
 import { CurrentPrincipal, Public } from "./auth.guard.js";
 import { AuthRateLimitGuard } from "./rate-limit.guard.js";
 import { LOGIN_THROTTLE_SERVICE } from "./http.tokens.js";
@@ -41,6 +43,8 @@ export class AuthController {
   constructor(
     private readonly authenticateInvestor: AuthenticateInvestor,
     private readonly authenticateOfficer: AuthenticateOfficer,
+    private readonly requestPasswordReset: RequestPasswordReset,
+    private readonly resetPassword: ResetPassword,
     @Inject(LOGIN_THROTTLE_SERVICE) private readonly throttle: LoginThrottleService,
   ) {}
 
@@ -86,6 +90,34 @@ export class AuthController {
   @HttpCode(204)
   logout(@Res({ passthrough: true }) res: CookieResponse): void {
     res.setHeader("Set-Cookie", sessionClearCookies());
+  }
+
+  // T4 self-service reset — request half. Always 202, never revealing whether
+  // the address is registered (no account enumeration). IP-rate-limited by the
+  // class guard so it can't be used to blast reset emails.
+  @Public()
+  @Post("password-reset/request")
+  @HttpCode(202)
+  async passwordResetRequest(@Body() body: unknown): Promise<{ status: "accepted" }> {
+    const record = (body ?? {}) as Record<string, unknown>;
+    if (typeof record.email !== "string") {
+      throw new BadRequestException(`"email" is required`);
+    }
+    await this.requestPasswordReset.execute({ email: record.email });
+    return { status: "accepted" };
+  }
+
+  // T4 self-service reset — redemption half. Consumes a single-use token and
+  // rotates the credential; invalid/expired token → 400, weak password → 400.
+  @Public()
+  @Post("password-reset")
+  @HttpCode(204)
+  async passwordResetConfirm(@Body() body: unknown): Promise<void> {
+    const record = (body ?? {}) as Record<string, unknown>;
+    if (typeof record.token !== "string" || typeof record.password !== "string") {
+      throw new BadRequestException(`"token" and "password" are required strings`);
+    }
+    await this.resetPassword.execute({ token: record.token, password: record.password });
   }
 
   private establishSession(res: CookieResponse, token: string): string {

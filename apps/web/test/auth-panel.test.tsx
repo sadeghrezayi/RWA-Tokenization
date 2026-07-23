@@ -9,6 +9,8 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   register: vi.fn(),
   login: vi.fn(),
   officerLogin: vi.fn(),
+  requestPasswordReset: vi.fn(),
+  resetPassword: vi.fn(),
   getSession: vi.fn(),
   logout: vi.fn(),
   me: vi.fn(),
@@ -113,5 +115,24 @@ describe("AuthPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Log in" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("invalid email or password");
+  });
+
+  it("requests_a_password_reset_and_shows_a_neutral_confirmation", async () => {
+    const requestPasswordReset = vi.fn().mockResolvedValue(undefined);
+    render(<AuthPanel locale="en" api={stubApi({ requestPasswordReset })} onAuthed={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Forgot password?" }));
+    // The reset-request view has its own email field.
+    await userEvent.type(screen.getByLabelText("Email"), "a@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Send reset link" }));
+
+    await waitFor(() => {
+      expect(requestPasswordReset).toHaveBeenCalledWith("a@example.com");
+    });
+    // Confirmation is deliberately non-committal (no account enumeration).
+    expect(screen.getByText(/link is on its way/i)).toBeInTheDocument();
+    // And the login form is reachable again.
+    await userEvent.click(screen.getByRole("button", { name: "Back to sign in" }));
+    expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
   });
 });

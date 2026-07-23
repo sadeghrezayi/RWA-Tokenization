@@ -274,6 +274,11 @@ export interface ApiClient {
     password: string,
   ): Promise<{ token: string; investorId: string; csrfToken: string }>;
   officerLogin(email: string, password: string): Promise<{ token: string; csrfToken: string }>;
+  // Self-service password reset (T4). Both are public and never reveal whether
+  // an account exists; the request half always resolves, the reset half rejects
+  // (ApiError 400) on an invalid/expired token or a weak password.
+  requestPasswordReset(email: string): Promise<void>;
+  resetPassword(token: string, password: string): Promise<void>;
   getSession(): Promise<{ kind: "investor" | "officer" }>;
   logout(csrfToken: string): Promise<void>;
   me(token: string): Promise<InvestorViewDto>;
@@ -501,6 +506,12 @@ export const createApiClient = (
       json(call("/auth/login", { method: "POST", body: { email, password } })),
     officerLogin: (email, password) =>
       json(call("/auth/officer/login", { method: "POST", body: { email, password } })),
+    requestPasswordReset: async (email) => {
+      await call("/auth/password-reset/request", { method: "POST", body: { email } });
+    },
+    resetPassword: async (token, password) => {
+      await call("/auth/password-reset", { method: "POST", body: { token, password } });
+    },
     getSession: () => json(call("/auth/session")),
     logout: async (csrfToken) => {
       await call("/auth/logout", { method: "POST", token: csrfToken });

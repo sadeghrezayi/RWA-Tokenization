@@ -162,8 +162,18 @@ import {
   DEFAULT_LOGIN_THROTTLE,
   LoginThrottleService,
 } from "./application/identity/login-throttle-service.js";
-import type { LoginAttemptStore } from "./application/identity/ports.js";
+import type {
+  EmailSender,
+  LoginAttemptStore,
+  PasswordResetTokenStore,
+  TokenGenerator,
+} from "./application/identity/ports.js";
+import { RequestPasswordReset } from "./application/identity/request-password-reset.js";
+import { ResetPassword } from "./application/identity/reset-password.js";
 import { PrismaLoginAttemptStore } from "./infrastructure/persistence/prisma-login-attempt-store.js";
+import { PrismaPasswordResetTokenStore } from "./infrastructure/persistence/prisma-password-reset-token-store.js";
+import { CryptoTokenGenerator } from "./infrastructure/auth/crypto-token-generator.js";
+import { DevEmailSender } from "./infrastructure/auth/dev-email-sender.js";
 import { AuthGuard, TOKEN_VERIFIER } from "./infrastructure/http/auth.guard.js";
 import { CsrfGuard } from "./infrastructure/http/csrf.guard.js";
 import { DomainErrorFilter } from "./infrastructure/http/domain-error.filter.js";
@@ -205,6 +215,9 @@ export const ATTESTATION_ANCHOR = "ATTESTATION_ANCHOR";
 export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
 export const SCOPED_PRISMA = "SCOPED_PRISMA";
 export const LOGIN_ATTEMPT_STORE = "LOGIN_ATTEMPT_STORE";
+export const PASSWORD_RESET_TOKEN_STORE = "PASSWORD_RESET_TOKEN_STORE";
+export const TOKEN_GENERATOR = "TOKEN_GENERATOR";
+export const EMAIL_SENDER = "EMAIL_SENDER";
 export const TOKEN_EVENT_SOURCE = "TOKEN_EVENT_SOURCE";
 export const WALLET_DIRECTORY = "WALLET_DIRECTORY";
 export const ASSET_EVENT_READER = "ASSET_EVENT_READER";
@@ -450,6 +463,43 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       useFactory: (store: LoginAttemptStore, clock: Clock) =>
         new LoginThrottleService(store, clock, DEFAULT_LOGIN_THROTTLE),
       inject: [LOGIN_ATTEMPT_STORE, CLOCK],
+    },
+    // T4 self-service password reset. The token store uses the RAW Prisma client
+    // (platform-level, keyed by digest, evaluated before tenant resolution). The
+    // email sender is the labeled dev sink until the SMTP adapter lands (OD-7).
+    {
+      provide: PASSWORD_RESET_TOKEN_STORE,
+      useFactory: (prisma: PrismaService) => new PrismaPasswordResetTokenStore(prisma),
+      inject: [PrismaService],
+    },
+    { provide: TOKEN_GENERATOR, useClass: CryptoTokenGenerator },
+    { provide: EMAIL_SENDER, useFactory: () => new DevEmailSender() },
+    {
+      provide: RequestPasswordReset,
+      useFactory: (
+        repo: InvestorRepository,
+        tokens: PasswordResetTokenStore,
+        email: EmailSender,
+        generator: TokenGenerator,
+        clock: Clock,
+      ) => new RequestPasswordReset(repo, tokens, email, generator, clock),
+      inject: [
+        INVESTOR_REPOSITORY,
+        PASSWORD_RESET_TOKEN_STORE,
+        EMAIL_SENDER,
+        TOKEN_GENERATOR,
+        CLOCK,
+      ],
+    },
+    {
+      provide: ResetPassword,
+      useFactory: (
+        repo: InvestorRepository,
+        tokens: PasswordResetTokenStore,
+        hasher: PasswordHasher,
+        clock: Clock,
+      ) => new ResetPassword(repo, tokens, hasher, clock),
+      inject: [INVESTOR_REPOSITORY, PASSWORD_RESET_TOKEN_STORE, PASSWORD_HASHER, CLOCK],
     },
     {
       // useFactory (not useValue) so each application instance gets its own

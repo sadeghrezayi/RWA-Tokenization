@@ -14,12 +14,16 @@ export interface AuthPanelProps {
 }
 
 // Register-or-login in one card; registration logs in right after (FR-ID-1).
+// A "Forgot password?" link switches to the self-service reset-request view
+// (T4). That view never confirms whether the email is registered.
 export const AuthPanel = ({ locale, api, onAuthed }: AuthPanelProps) => {
   const t = dictionaries[locale];
+  const [mode, setMode] = useState<"auth" | "forgot">("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -38,6 +42,67 @@ export const AuthPanel = ({ locale, api, onAuthed }: AuthPanelProps) => {
     await api.login(email, password);
     onAuthed();
   };
+
+  const showForgot = () => {
+    setMode("forgot");
+    setError(undefined);
+    setResetSent(false);
+  };
+  const showAuth = () => {
+    setMode("auth");
+    setError(undefined);
+  };
+
+  if (mode === "forgot") {
+    return (
+      <Card title={t.resetRequestTitle} subtitle={t.resetRequestSubtitle}>
+        {resetSent ? (
+          <div className="stack" style={{ maxWidth: "24rem" }}>
+            <p role="status">{t.resetRequestSent}</p>
+            <Button type="button" variant="secondary" onClick={showAuth}>
+              {t.backToSignIn}
+            </Button>
+          </div>
+        ) : (
+          <form
+            className="stack"
+            style={{ maxWidth: "24rem" }}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run(async () => {
+                await api.requestPasswordReset(email);
+                setResetSent(true);
+              });
+            }}
+          >
+            <Field
+              id="reset-email"
+              label={t.emailLabel}
+              type="email"
+              required
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+              }}
+            />
+            <div className="row">
+              <Button type="submit" loading={busy}>
+                {t.sendResetLink}
+              </Button>
+              <Button type="button" variant="ghost" disabled={busy} onClick={showAuth}>
+                {t.backToSignIn}
+              </Button>
+            </div>
+            {error !== undefined && (
+              <p className="field__error" role="alert">
+                {error}
+              </p>
+            )}
+          </form>
+        )}
+      </Card>
+    );
+  }
 
   return (
     <Card title={t.registerTitle} subtitle="Sign in, or create an account to get started.">
@@ -88,6 +153,9 @@ export const AuthPanel = ({ locale, api, onAuthed }: AuthPanelProps) => {
             {t.registerButton}
           </Button>
         </div>
+        <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={showForgot}>
+          {t.forgotPassword}
+        </Button>
         {error !== undefined && (
           <p className="field__error" role="alert">
             {error}

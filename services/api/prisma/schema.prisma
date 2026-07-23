@@ -61,6 +61,20 @@ model Organization {
   @@map("organizations")
 }
 
+// T4 self-service recovery: single-use password-reset tokens. Only the SHA-256
+// hash of the token is stored (a DB leak yields no usable reset link).
+// Platform-level (pre-auth flow), so not tenant-scoped.
+model PasswordResetToken {
+  tokenHash  String    @id @map("token_hash")
+  investorId String    @map("investor_id")
+  expiresAt  DateTime  @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([investorId])
+  @@map("password_reset_tokens")
+}
+
 // T4 account lockout: per-identifier failed-login state. Platform-level
 // (security infrastructure, evaluated pre-authentication) — deliberately NOT
 // tenant-scoped; the key is the normalized login identifier.

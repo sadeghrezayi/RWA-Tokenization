@@ -29,7 +29,7 @@ export class TenantScopeViolationError extends Error {
 }
 
 // Platform-level models that are not tenant-owned.
-const UNSCOPED_MODELS = new Set(["tenant", "loginAttempt"]);
+const UNSCOPED_MODELS = new Set(["tenant", "loginAttempt", "passwordResetToken"]);
 
 const WHERE_SCOPED = new Set([
   "findMany",

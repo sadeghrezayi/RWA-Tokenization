@@ -54,3 +54,34 @@ export interface LoginAttemptStore {
   load(key: string): Promise<LoginThrottle>;
   save(key: string, throttle: LoginThrottle): Promise<void>;
 }
+
+// High-entropy random token generator for out-of-band secrets (password-reset
+// links). The raw value is mailed once; only its digest is persisted.
+export interface TokenGenerator {
+  generate(): string;
+}
+
+// Outbound transactional email. Real SMTP adapter is deferred to deployment
+// (OD-7); the dev adapter writes to a sink so links are recoverable locally.
+export interface EmailSender {
+  sendPasswordReset(to: string, token: string): Promise<void>;
+}
+
+// A password-reset grant: only the token's digest is stored (T14), never the
+// raw token. Platform-level (not tenant-scoped) — keyed by the digest.
+export interface PasswordResetTokenRecord {
+  tokenHash: string;
+  investorId: string;
+  expiresAt: Date;
+  usedAt?: Date;
+}
+
+export interface PasswordResetTokenStore {
+  save(record: PasswordResetTokenRecord): Promise<void>;
+  // Valid = matching digest, not yet used, not past its expiry at `now`.
+  findValid(tokenHash: string, now: Date): Promise<PasswordResetTokenRecord | undefined>;
+  markUsed(tokenHash: string, at: Date): Promise<void>;
+  // Invalidate every outstanding grant for an investor (used on reset so a
+  // second in-flight link cannot be redeemed after the password changed).
+  invalidateForInvestor(investorId: string, at: Date): Promise<void>;
+}

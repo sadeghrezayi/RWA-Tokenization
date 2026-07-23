@@ -49,6 +49,11 @@ export class Investor {
     return this.kycStatus.state === "approved";
   }
 
+  // Credential rotation (password reset / change). KYC state is preserved.
+  withPasswordHash(passwordHash: PasswordHash): Investor {
+    return new Investor(this.id, this.email, passwordHash, this.kycStatus);
+  }
+
   private withKyc(kycStatus: KycStatus): Investor {
     return new Investor(this.id, this.email, this.passwordHash, kycStatus);
   }
