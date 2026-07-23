@@ -29,3 +29,18 @@ export class InvalidCredentialsError extends ApplicationError {
     super("invalid email or password");
   }
 }
+
+// T4: too many failed logins — the account is temporarily locked. Carries the
+// cooldown so the HTTP layer can set Retry-After and return 429.
+export class AccountLockedError extends ApplicationError {
+  constructor(public readonly retryAfterSeconds: number) {
+    super("too many failed login attempts — try again later");
+  }
+}
+
+// Too many auth requests from one source in a short window (edge rate limit).
+export class TooManyRequestsError extends ApplicationError {
+  constructor(public readonly retryAfterSeconds: number) {
+    super("too many requests — slow down and try again shortly");
+  }
+}

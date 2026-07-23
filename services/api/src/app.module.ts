@@ -152,6 +152,18 @@ import { JwtTokenService } from "./infrastructure/auth/jwt-token-service.js";
 import { DevLogClaimIssuer } from "./infrastructure/chain/dev-log-claim-issuer.js";
 import { OnchainidClaimIssuer } from "./infrastructure/chain/onchainid-claim-issuer.js";
 import { AuthController } from "./infrastructure/http/auth.controller.js";
+import { AuthRateLimitGuard } from "./infrastructure/http/rate-limit.guard.js";
+import { AUTH_RATE_LIMITER, LOGIN_THROTTLE_SERVICE } from "./infrastructure/http/http.tokens.js";
+// Re-exported so tests (and other composition entry points) can reference the
+// auth-throttle DI tokens from the module barrel.
+export { AUTH_RATE_LIMITER, LOGIN_THROTTLE_SERVICE } from "./infrastructure/http/http.tokens.js";
+import { InMemoryRateLimiter } from "./infrastructure/auth/rate-limiter.js";
+import {
+  DEFAULT_LOGIN_THROTTLE,
+  LoginThrottleService,
+} from "./application/identity/login-throttle-service.js";
+import type { LoginAttemptStore } from "./application/identity/ports.js";
+import { PrismaLoginAttemptStore } from "./infrastructure/persistence/prisma-login-attempt-store.js";
 import { AuthGuard, TOKEN_VERIFIER } from "./infrastructure/http/auth.guard.js";
 import { DomainErrorFilter } from "./infrastructure/http/domain-error.filter.js";
 import { InvestorsController } from "./infrastructure/http/investors.controller.js";
@@ -191,6 +203,7 @@ export const ATTESTATION_SIGNER = "ATTESTATION_SIGNER";
 export const ATTESTATION_ANCHOR = "ATTESTATION_ANCHOR";
 export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
 export const SCOPED_PRISMA = "SCOPED_PRISMA";
+export const LOGIN_ATTEMPT_STORE = "LOGIN_ATTEMPT_STORE";
 export const TOKEN_EVENT_SOURCE = "TOKEN_EVENT_SOURCE";
 export const WALLET_DIRECTORY = "WALLET_DIRECTORY";
 export const ASSET_EVENT_READER = "ASSET_EVENT_READER";
@@ -423,6 +436,28 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       inject: [SCOPED_PRISMA],
     },
     { provide: CLOCK, useValue: { now: () => new Date() } satisfies Clock },
+    // T4 brute-force protection: per-account lockout (persistent) + per-IP edge
+    // rate limit (in-memory). The store uses the RAW Prisma client — login
+    // throttling is platform-level and evaluated before tenant resolution.
+    {
+      provide: LOGIN_ATTEMPT_STORE,
+      useFactory: (prisma: PrismaService) => new PrismaLoginAttemptStore(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: LOGIN_THROTTLE_SERVICE,
+      useFactory: (store: LoginAttemptStore, clock: Clock) =>
+        new LoginThrottleService(store, clock, DEFAULT_LOGIN_THROTTLE),
+      inject: [LOGIN_ATTEMPT_STORE, CLOCK],
+    },
+    {
+      // useFactory (not useValue) so each application instance gets its own
+      // limiter — a single useValue instance would be created once at import
+      // time and leak counts across test modules in the same worker.
+      provide: AUTH_RATE_LIMITER,
+      useFactory: () => new InMemoryRateLimiter({ max: 20, windowSeconds: 60 }),
+    },
+    AuthRateLimitGuard,
     {
       // Real chain issuance when the devnet env is configured; otherwise fail
       // loudly — fake minting would falsify the registry (NFR-2).

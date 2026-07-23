@@ -1,9 +1,11 @@
 import { Catch, HttpException } from "@nestjs/common";
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
 import {
+  AccountLockedError,
   EmailAlreadyRegisteredError,
   InvalidCredentialsError,
   InvestorNotFoundError,
+  TooManyRequestsError,
   WeakPasswordError,
 } from "../../application/identity/errors.js";
 import {
@@ -76,6 +78,7 @@ import {
 
 interface MinimalResponse {
   status(code: number): { json(body: unknown): void };
+  setHeader(name: string, value: string): void;
 }
 
 @Catch()
@@ -86,6 +89,11 @@ export class DomainErrorFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       response.status(exception.getStatus()).json(exception.getResponse());
       return;
+    }
+
+    // T4: throttled responses advertise how long to wait (RFC 7231 Retry-After).
+    if (exception instanceof AccountLockedError || exception instanceof TooManyRequestsError) {
+      response.setHeader("Retry-After", String(exception.retryAfterSeconds));
     }
 
     const status = statusFor(exception);
@@ -100,6 +108,8 @@ export class DomainErrorFilter implements ExceptionFilter {
 }
 
 const statusFor = (exception: unknown): number => {
+  if (exception instanceof AccountLockedError) return 429;
+  if (exception instanceof TooManyRequestsError) return 429;
   if (exception instanceof InvalidCredentialsError) return 401;
   if (exception instanceof InvestorNotFoundError) return 404;
   if (exception instanceof AssetNotFoundError) return 404;

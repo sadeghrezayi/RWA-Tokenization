@@ -61,6 +61,19 @@ model Organization {
   @@map("organizations")
 }
 
+// T4 account lockout: per-identifier failed-login state. Platform-level
+// (security infrastructure, evaluated pre-authentication) — deliberately NOT
+// tenant-scoped; the key is the normalized login identifier.
+model LoginAttempt {
+  key             String    @id
+  failures        Int       @default(0)
+  windowStartedAt DateTime? @map("window_started_at")
+  lockedUntil     DateTime? @map("locked_until")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("login_attempts")
+}
+
 enum KycState {
   draft
   submitted

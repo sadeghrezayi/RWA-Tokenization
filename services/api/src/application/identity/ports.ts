@@ -1,6 +1,7 @@
 import type { EmailAddress } from "../../domain/identity/email-address.js";
 import type { Investor } from "../../domain/identity/investor.js";
 import type { KycState } from "../../domain/identity/kyc-status.js";
+import type { LoginThrottle } from "../../domain/identity/login-throttle.js";
 
 export interface InvestorRepository {
   findById(id: string): Promise<Investor | undefined>;
@@ -45,4 +46,11 @@ export type Principal =
 
 export interface TokenIssuer {
   issue(principal: Principal): Promise<string>;
+}
+
+// T4: persistent per-account login-throttle state (account lockout survives
+// restarts). Keyed by the normalized login identifier (lowercased email).
+export interface LoginAttemptStore {
+  load(key: string): Promise<LoginThrottle>;
+  save(key: string, throttle: LoginThrottle): Promise<void>;
 }
