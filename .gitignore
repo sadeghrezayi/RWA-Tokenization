@@ -50,3 +50,7 @@ Thumbs.db
 *.log
 tmp/
 .cache/
+
+# Local deliverable exports (not product code)
+platform-overview/
+platform-overview.zip
