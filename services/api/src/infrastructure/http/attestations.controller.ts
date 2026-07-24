@@ -8,7 +8,8 @@ import {
 } from "../../application/attestations/get-attestation.js";
 import type { AttestationView } from "../../application/attestations/get-attestation.js";
 import type { Principal } from "../../application/identity/ports.js";
-import { CurrentPrincipal, RequireRole } from "./auth.guard.js";
+import { CurrentPrincipal, RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 
 const requireString = (value: unknown, field: string): string => {
   if (typeof value !== "string" || value.trim() === "") {
@@ -47,7 +48,7 @@ const requireIsoDate = (value: unknown, field: string): Date => {
 // latest value and the full history. Own /attestations resource (no /assets/:id
 // route collision).
 @Controller("attestations")
-@RequireRole("officer")
+@RequirePermission(PERMISSIONS.ATTESTATION_PUBLISH)
 export class AttestationsController {
   constructor(
     private readonly publishAttestation: PublishAttestation,

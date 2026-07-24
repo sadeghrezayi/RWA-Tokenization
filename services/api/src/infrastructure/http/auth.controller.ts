@@ -22,7 +22,8 @@ import { ConfirmMfaEnrollment } from "../../application/identity/confirm-mfa-enr
 import { DisableMfa } from "../../application/identity/disable-mfa.js";
 import { GetMfaStatus } from "../../application/identity/get-mfa-status.js";
 import { CompleteOfficerMfaChallenge } from "../../application/identity/complete-officer-mfa-challenge.js";
-import { CurrentPrincipal, Public, RequireRole } from "./auth.guard.js";
+import { CurrentPrincipal, Public, RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 import { AuthRateLimitGuard } from "./rate-limit.guard.js";
 import { LOGIN_THROTTLE_SERVICE } from "./http.tokens.js";
 import { newCsrfToken, sessionClearCookies, sessionSetCookies } from "./session.js";
@@ -40,7 +41,7 @@ const credentials = (body: unknown): { email: string; password: string } => {
   return { email: record.email, password: record.password };
 };
 
-// The @RequireRole("officer") guard guarantees the officer kind; this narrows
+// The @RequirePermission(PERMISSIONS.MFA_SELF) guard guarantees the officer kind; this narrows
 // the union for the type system and yields the MFA store key.
 const officerIdOf = (principal: Principal): string => {
   if (principal.kind !== "officer") throw new BadRequestException();
@@ -128,7 +129,7 @@ export class AuthController {
 
   // --- officer MFA management (authenticated officer) ---
 
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.MFA_SELF)
   @Get("officer/mfa/status")
   officerMfaStatus(
     @CurrentPrincipal() principal: Principal,
@@ -137,7 +138,7 @@ export class AuthController {
   }
 
   // Begin enrollment: returns the TOTP secret + otpauth URI to render as a QR.
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.MFA_SELF)
   @Post("officer/mfa/enroll")
   @HttpCode(200)
   officerMfaEnroll(
@@ -148,7 +149,7 @@ export class AuthController {
   }
 
   // Confirm enrollment with a live code; returns single-use recovery codes once.
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.MFA_SELF)
   @Post("officer/mfa/confirm")
   @HttpCode(200)
   officerMfaConfirm(
@@ -165,7 +166,7 @@ export class AuthController {
     });
   }
 
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.MFA_SELF)
   @Post("officer/mfa/disable")
   @HttpCode(204)
   async officerMfaDisable(@CurrentPrincipal() principal: Principal): Promise<void> {

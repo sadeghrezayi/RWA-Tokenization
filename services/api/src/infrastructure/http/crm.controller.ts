@@ -21,7 +21,8 @@ import {
 import type { OpenFollowUpView } from "../../application/crm/crm-use-cases.js";
 import type { RelationshipStage } from "../../domain/crm/crm-profile.js";
 import type { Principal } from "../../application/identity/ports.js";
-import { CurrentPrincipal, RequireRole } from "./auth.guard.js";
+import { CurrentPrincipal, RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 
 const requireString = (body: unknown, field: string): string => {
   const value = (body as Record<string, unknown> | null | undefined)?.[field];
@@ -45,7 +46,7 @@ const officerIdOf = (principal: Principal): string =>
 // CRM write surface (user-approved scope 2026-07-20). Officer-only; stage and
 // content rules are enforced by the domain (invalid stage/blank note => 400).
 @Controller("crm")
-@RequireRole("officer")
+@RequirePermission(PERMISSIONS.CRM_MANAGE)
 export class CrmController {
   constructor(
     private readonly setStage: SetRelationshipStage,

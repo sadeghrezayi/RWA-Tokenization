@@ -12,7 +12,8 @@ import {
   ExportTransferHistoryCsv,
 } from "../../application/registry/export-csv.js";
 import type { CsvExport } from "../../application/registry/export-csv.js";
-import { RequireRole } from "./auth.guard.js";
+import { RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 
 // Response surface needed for CSV downloads — kept minimal like the error
 // filter's, so no framework types leak beyond this file.
@@ -23,7 +24,7 @@ interface CsvResponse {
 // Reporting surfaces for the admin console (FR-RA / FR-PT-3). Operator-only.
 // Own `/reporting` prefix so nothing collides with `/assets/:id` etc.
 @Controller("reporting")
-@RequireRole("officer")
+@RequirePermission(PERMISSIONS.REPORTING_READ)
 export class ReportingController {
   constructor(
     private readonly assetOverview: GetAssetOverview,

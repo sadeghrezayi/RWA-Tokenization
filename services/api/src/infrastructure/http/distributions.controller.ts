@@ -7,7 +7,8 @@ import {
 import type { DistributionView } from "../../application/distributions/get-distribution.js";
 import { PayDistribution } from "../../application/distributions/pay-distribution.js";
 import type { Principal } from "../../application/identity/ports.js";
-import { CurrentPrincipal, RequireRole } from "./auth.guard.js";
+import { CurrentPrincipal, RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 
 const requireString = (body: unknown, field: string): string => {
   const value = (body as Record<string, unknown> | null | undefined)?.[field];
@@ -34,7 +35,7 @@ const actorOf = (principal: Principal): string =>
 
 // FR-YD endpoints — operator-only (declare income, review reconciliation, pay).
 @Controller("distributions")
-@RequireRole("officer")
+@RequirePermission(PERMISSIONS.DISTRIBUTION_MANAGE)
 export class DistributionsController {
   constructor(
     private readonly declareDistribution: DeclareDistribution,

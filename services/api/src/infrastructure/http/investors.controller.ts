@@ -23,7 +23,8 @@ import { RejectKyc } from "../../application/identity/reject-kyc.js";
 import { StartKycReview } from "../../application/identity/start-kyc-review.js";
 import { SubmitKyc } from "../../application/identity/submit-kyc.js";
 import type { Principal } from "../../application/identity/ports.js";
-import { CurrentPrincipal, Public, RequireRole } from "./auth.guard.js";
+import { CurrentPrincipal, Public, RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 
 const requireString = (body: unknown, field: string): string => {
   const value = (body as Record<string, unknown> | null | undefined)?.[field];
@@ -74,13 +75,13 @@ export class InvestorsController {
 
   // --- investor self-service (bearer token, investor role) ---
 
-  @RequireRole("investor")
+  @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
   @Get("me")
   me(@CurrentPrincipal() principal: Principal): Promise<InvestorView> {
     return this.getInvestor.execute({ investorId: investorIdOf(principal) });
   }
 
-  @RequireRole("investor")
+  @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
   @Post("me/kyc/submit")
   @HttpCode(204)
   submitOwnKyc(@CurrentPrincipal() principal: Principal): Promise<void> {
@@ -89,7 +90,7 @@ export class InvestorsController {
 
   // --- compliance-officer actions (FR-ID-4) ---
 
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
   @Get("pending-kyc")
   pendingKyc(): Promise<InvestorView[]> {
     return this.listPendingKyc.execute();
@@ -97,39 +98,39 @@ export class InvestorsController {
 
   // FR-PT-3 user management: the full directory and the per-user drill-down.
 
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.INVESTOR_READ)
   @Get()
   list(): Promise<InvestorDirectoryView> {
     return this.listInvestors.execute();
   }
 
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.INVESTOR_READ)
   @Get(":id/detail")
   detail(@Param("id") id: string): Promise<InvestorDetailView> {
     return this.getInvestorDetail.execute({ investorId: id });
   }
 
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.INVESTOR_READ)
   @Get(":id")
   get(@Param("id") id: string): Promise<InvestorView> {
     return this.getInvestor.execute({ investorId: id });
   }
 
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
   @Post(":id/kyc/start-review")
   @HttpCode(204)
   startReview(@Param("id") id: string): Promise<void> {
     return this.startKycReview.execute({ investorId: id });
   }
 
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
   @Post(":id/kyc/approve")
   @HttpCode(204)
   approve(@Param("id") id: string): Promise<void> {
     return this.approveKyc.execute({ investorId: id });
   }
 
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
   @Post(":id/kyc/reject")
   @HttpCode(204)
   reject(@Param("id") id: string, @Body() body: unknown): Promise<void> {

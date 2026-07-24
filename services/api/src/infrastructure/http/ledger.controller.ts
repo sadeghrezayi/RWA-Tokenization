@@ -1,7 +1,8 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
 import type { Principal } from "../../application/identity/ports.js";
 import { PrismaSettlementRail } from "../settlement/prisma-settlement-rail.js";
-import { CurrentPrincipal, RequireRole } from "./auth.guard.js";
+import { CurrentPrincipal, RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 
 // D3 pilot rail: the operator records bank deposits by crediting the ledger;
 // investors read their own balance. Real bank integration replaces the credit
@@ -12,7 +13,7 @@ export class LedgerController {
 
   @Post(":investorId/credit")
   @HttpCode(204)
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.LEDGER_CREDIT)
   async credit(
     @Param("investorId") investorId: string,
     @Body() body: unknown,
@@ -39,7 +40,7 @@ export class LedgerController {
   }
 
   @Get("me")
-  @RequireRole("investor")
+  @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
   async me(
     @CurrentPrincipal() principal: Principal,
   ): Promise<{ balanceRial: string; heldRial: string }> {

@@ -40,3 +40,4 @@ A-1: Real estate is the first vertical; other asset types remain supported gener
 | 2026-07-22 | OD-4 | **Approved all** — Playwright + axe-core (dev), otplib, nodemailer; charts remain hand-rolled SVG |
 | 2026-07-22 | OD-19 | **(a) confirmed** — GitHub Actions CI |
 | 2026-07-24 | OD-23 (scope) | **Officers/staff only, opt-in** for P1.3d — user decision. Mandatory-for-privileged + investor MFA revisited with RBAC (1.4) |
+| 2026-07-24 | Phase 1.4 scope | **Build RBAC + maker-checker comprehensively** ("all features"), delivered in verified sub-slices 1.4a–d. First maker-checker action = **ledger credit** (assistant recommendation, user-accepted): highest-risk money-in in the closed-loop Rial system |

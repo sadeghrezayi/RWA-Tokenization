@@ -5,7 +5,8 @@ import { RejectRedemption } from "../../application/redemptions/reject-redemptio
 import { ListRedemptions } from "../../application/redemptions/get-redemptions.js";
 import type { RedemptionView } from "../../application/redemptions/get-redemptions.js";
 import type { Principal } from "../../application/identity/ports.js";
-import { CurrentPrincipal, RequireRole } from "./auth.guard.js";
+import { CurrentPrincipal, RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 
 const requireString = (body: unknown, field: string): string => {
   const value = (body as Record<string, unknown> | null | undefined)?.[field];
@@ -42,7 +43,7 @@ export class RedemptionsController {
   ) {}
 
   @Post()
-  @RequireRole("investor")
+  @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
   request(
     @Body() body: unknown,
     @CurrentPrincipal() principal: Principal,
@@ -58,20 +59,20 @@ export class RedemptionsController {
   }
 
   @Get("me")
-  @RequireRole("investor")
+  @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
   mine(@CurrentPrincipal() principal: Principal): Promise<RedemptionView[]> {
     const investorId = principal.kind === "investor" ? principal.investorId : "";
     return this.listRedemptions.executeForInvestor({ investorId });
   }
 
   @Get()
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.REDEMPTION_MANAGE)
   all(): Promise<RedemptionView[]> {
     return this.listRedemptions.executeAll();
   }
 
   @Post(":id/fulfill")
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.REDEMPTION_MANAGE)
   fulfill(
     @Param("id") id: string,
     @CurrentPrincipal() principal: Principal,
@@ -81,7 +82,7 @@ export class RedemptionsController {
 
   @Post(":id/reject")
   @HttpCode(204)
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.REDEMPTION_MANAGE)
   async reject(
     @Param("id") id: string,
     @Body() body: unknown,

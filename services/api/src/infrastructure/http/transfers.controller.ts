@@ -6,7 +6,8 @@ import { GetMyHoldings } from "../../application/transfers/get-holdings.js";
 import type { HoldingView } from "../../application/transfers/get-holdings.js";
 import { ResolveInvestorByEmail } from "../../application/identity/resolve-investor-by-email.js";
 import type { Principal } from "../../application/identity/ports.js";
-import { CurrentPrincipal, RequireRole } from "./auth.guard.js";
+import { CurrentPrincipal, RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 
 const requireString = (body: unknown, field: string): string => {
   const value = (body as Record<string, unknown> | null | undefined)?.[field];
@@ -31,7 +32,7 @@ const requireBigInt = (body: unknown, field: string): bigint => {
 // FR-TR-1: a verified holder transfers tokens to another verified holder,
 // addressed by email (P2 — no UUIDs in the user's hands).
 @Controller("transfers")
-@RequireRole("investor")
+@RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
 export class TransfersController {
   constructor(
     private readonly transferTokens: TransferTokens,

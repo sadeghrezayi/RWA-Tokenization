@@ -13,7 +13,8 @@ import type { DossierDocumentKind } from "../../domain/assets/legal-dossier.js";
 import { CHECKLIST_ITEMS } from "../../domain/assets/onboarding-checklist.js";
 import type { ChecklistItem } from "../../domain/assets/onboarding-checklist.js";
 import type { Principal } from "../../application/identity/ports.js";
-import { CurrentPrincipal, RequireRole } from "./auth.guard.js";
+import { CurrentPrincipal, RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 
 const requireString = (body: unknown, field: string): string => {
   const value = (body as Record<string, unknown> | null | undefined)?.[field];
@@ -43,7 +44,7 @@ const actorOf = (principal: Principal): string =>
 // FR-AO endpoints. Gated to the staff account (acting operator — see PRD §5
 // role seams; per-officer accounts arrive with the FR-RA-2 audit log).
 @Controller("assets")
-@RequireRole("officer")
+@RequirePermission(PERMISSIONS.ASSET_MANAGE)
 export class AssetsController {
   constructor(
     private readonly proposeAsset: ProposeAsset,

@@ -6,7 +6,8 @@ import type { OfferingView } from "../../application/offerings/get-offering.js";
 import { OpenOffering } from "../../application/offerings/open-offering.js";
 import { SubscribeToOffering } from "../../application/offerings/subscribe-to-offering.js";
 import type { Principal } from "../../application/identity/ports.js";
-import { CurrentPrincipal, RequireRole } from "./auth.guard.js";
+import { CurrentPrincipal, RequirePermission } from "./auth.guard.js";
+import { PERMISSIONS } from "../../application/identity/authorization.js";
 
 const field = (body: unknown, name: string): unknown =>
   (body as Record<string, unknown> | null | undefined)?.[name];
@@ -52,7 +53,7 @@ export class OfferingsController {
   ) {}
 
   @Post()
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.OFFERING_MANAGE)
   create(
     @Body() body: unknown,
     @CurrentPrincipal() principal: Principal,
@@ -72,7 +73,7 @@ export class OfferingsController {
 
   @Post(":id/open")
   @HttpCode(204)
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.OFFERING_MANAGE)
   open(@Param("id") id: string, @CurrentPrincipal() principal: Principal): Promise<void> {
     return this.openOffering.execute({
       offeringId: id,
@@ -82,7 +83,7 @@ export class OfferingsController {
 
   @Post(":id/subscribe")
   @HttpCode(204)
-  @RequireRole("investor")
+  @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
   async subscribe(
     @Param("id") id: string,
     @Body() body: unknown,
@@ -99,7 +100,7 @@ export class OfferingsController {
   }
 
   @Post(":id/close")
-  @RequireRole("officer")
+  @RequirePermission(PERMISSIONS.OFFERING_MANAGE)
   async close(
     @Param("id") id: string,
     @CurrentPrincipal() principal: Principal,

@@ -8,6 +8,8 @@ import {
 } from "@nestjs/common";
 import type { CanActivate, ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import type { Permission } from "../../application/identity/authorization.js";
+import { principalHasPermission } from "../../application/identity/authorization.js";
 import type { Principal } from "../../application/identity/ports.js";
 import type { TokenVerifier } from "../auth/jwt-token-service.js";
 import { parseCookies } from "./cookies.js";
@@ -17,9 +19,14 @@ export const TOKEN_VERIFIER = "TOKEN_VERIFIER";
 
 const IS_PUBLIC = "auth:isPublic";
 const REQUIRED_ROLE = "auth:requiredRole";
+const REQUIRED_PERMISSION = "auth:requiredPermission";
 
 export const Public = () => SetMetadata(IS_PUBLIC, true);
 export const RequireRole = (role: Principal["kind"]) => SetMetadata(REQUIRED_ROLE, role);
+// Deny-by-default RBAC (T16): the handler runs only if the principal's role
+// grants this permission; otherwise 403.
+export const RequirePermission = (permission: Permission) =>
+  SetMetadata(REQUIRED_PERMISSION, permission);
 
 export type AuthVia = "cookie" | "bearer";
 
@@ -84,6 +91,14 @@ export class AuthGuard implements CanActivate {
     );
     if (role !== undefined && principal.kind !== role) {
       throw new ForbiddenException(`requires ${role} role`);
+    }
+
+    const permission = this.reflector.getAllAndOverride<Permission | undefined>(
+      REQUIRED_PERMISSION,
+      targets,
+    );
+    if (permission !== undefined && !principalHasPermission(principal, permission)) {
+      throw new ForbiddenException(`requires the "${permission}" permission`);
     }
     return true;
   }
