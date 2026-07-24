@@ -72,6 +72,14 @@ export interface Dictionary {
   mfaRecoveryHint: string;
   mfaEnabledNotice: string;
   mfaDisabledNotice: string;
+  approvalsNav: string;
+  approvalsTitle: string;
+  approvalsSubtitle: string;
+  noApprovals: string;
+  requestedByLabel: string;
+  creditSubmittedForApproval: string;
+  approvalApproved: string;
+  approvalRejected: string;
   officerTitle: string;
   pendingKycTitle: string;
   emptyQueue: string;
@@ -361,6 +369,16 @@ export const dictionaries: Record<Locale, Dictionary> = {
       "Each code works once if you lose your authenticator. They are shown only now — store them somewhere safe.",
     mfaEnabledNotice: "Two-factor authentication is on for this account.",
     mfaDisabledNotice: "Two-factor authentication has been turned off.",
+    approvalsNav: "Approvals",
+    approvalsTitle: "Pending approvals",
+    approvalsSubtitle:
+      "Two-person review for sensitive actions. You can't approve your own request.",
+    noApprovals: "Nothing is awaiting approval.",
+    requestedByLabel: "Requested by",
+    creditSubmittedForApproval:
+      "This credit is above the approval threshold — it's been submitted for a second officer to approve.",
+    approvalApproved: "Approved and applied.",
+    approvalRejected: "Request rejected.",
     officerTitle: "Compliance Review",
     pendingKycTitle: "Pending KYC applications",
     emptyQueue: "No applications waiting for review.",

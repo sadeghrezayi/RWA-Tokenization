@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   AUDIT_READ: "audit.read",
   CRM_MANAGE: "crm.manage",
   REPORTING_READ: "reporting.read",
+  APPROVAL_DECIDE: "approval.decide",
   MFA_SELF: "mfa.self",
   INVESTOR_PORTAL: "investor.portal",
 } as const;
@@ -44,6 +45,7 @@ const OPERATOR_PERMISSIONS: readonly Permission[] = [
   PERMISSIONS.AUDIT_READ,
   PERMISSIONS.CRM_MANAGE,
   PERMISSIONS.REPORTING_READ,
+  PERMISSIONS.APPROVAL_DECIDE,
   PERMISSIONS.MFA_SELF,
 ];
 

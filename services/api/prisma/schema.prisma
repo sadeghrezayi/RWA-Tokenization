@@ -40,6 +40,7 @@ model Tenant {
   crmProfiles           CrmProfile[]
   crmNotes              CrmNote[]
   crmFollowUps          CrmFollowUp[]
+  approvals             Approval[]
 
   @@map("tenants")
 }
@@ -84,6 +85,26 @@ model EmailVerificationToken {
 
   @@index([investorId])
   @@map("email_verification_tokens")
+}
+
+// T1/T3 maker-checker: a sensitive action awaiting a second person's decision.
+// Tenant-owned. payload holds the action parameters (e.g. ledger.credit →
+// { investorId, amountRial }).
+model Approval {
+  id        String    @id
+  tenantId  String    @default("default") @map("tenant_id")
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  action    String
+  payload   Json
+  makerId   String    @map("maker_id")
+  status    String
+  checkerId String?   @map("checker_id")
+  reason    String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  decidedAt DateTime? @map("decided_at")
+
+  @@index([tenantId, status])
+  @@map("approvals")
 }
 
 // T1/T4 MFA enrollment, keyed by principal id (officer id today; staff/user id

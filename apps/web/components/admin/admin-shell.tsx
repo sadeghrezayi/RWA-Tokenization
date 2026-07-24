@@ -86,7 +86,10 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
     },
     {
       label: t.navGroupAccount,
-      items: [{ href: `${base}/security`, label: t.securityNav, icon: "⛨" }],
+      items: [
+        { href: `${base}/approvals`, label: t.approvalsNav, icon: "☑" },
+        { href: `${base}/security`, label: t.securityNav, icon: "⛨" },
+      ],
     },
   ];
 

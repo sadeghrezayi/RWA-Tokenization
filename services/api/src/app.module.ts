@@ -75,6 +75,20 @@ import { LedgerController } from "./infrastructure/http/ledger.controller.js";
 import { OfferingsController } from "./infrastructure/http/offerings.controller.js";
 import { PrismaOfferingRepository } from "./infrastructure/persistence/prisma-offering-repository.js";
 import { PrismaSettlementRail } from "./infrastructure/settlement/prisma-settlement-rail.js";
+import {
+  CreditInvestorLedger,
+  DEFAULT_LEDGER_CREDIT_APPROVAL_THRESHOLD_RIAL,
+} from "./application/approvals/credit-investor-ledger.js";
+import { DecideApproval } from "./application/approvals/decide-approval.js";
+import { ListApprovals } from "./application/approvals/list-approvals.js";
+import { ApprovalActionDispatcher } from "./application/approvals/ledger-credit-executor.js";
+import type {
+  ApprovalActionExecutor,
+  ApprovalRepository,
+  LedgerCredit,
+} from "./application/approvals/ports.js";
+import { PrismaApprovalRepository } from "./infrastructure/persistence/prisma-approval-repository.js";
+import { ApprovalsController } from "./infrastructure/http/approvals.controller.js";
 import { DeclareDistribution } from "./application/distributions/declare-distribution.js";
 import { PayDistribution } from "./application/distributions/pay-distribution.js";
 import {
@@ -218,6 +232,8 @@ export const ASSET_EVENT_LOG = "ASSET_EVENT_LOG";
 export const TOKEN_DEPLOYER = "TOKEN_DEPLOYER";
 export const OFFERING_REPOSITORY = "OFFERING_REPOSITORY";
 export const SETTLEMENT_RAIL = "SETTLEMENT_RAIL";
+export const APPROVAL_REPOSITORY = "APPROVAL_REPOSITORY";
+export const APPROVAL_EXECUTOR = "APPROVAL_EXECUTOR";
 export const ASSET_TOKEN_ISSUER = "ASSET_TOKEN_ISSUER";
 export const CLOCK = "CLOCK";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
@@ -267,6 +283,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     TransfersController,
     RedemptionsController,
     CrmController,
+    ApprovalsController,
   ],
   providers: [
     PrismaService,
@@ -520,6 +537,45 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       inject: [SCOPED_PRISMA],
     },
     { provide: SETTLEMENT_RAIL, useExisting: PrismaSettlementRail },
+    // T1/T3 maker-checker: threshold ledger credit + approval engine.
+    {
+      provide: APPROVAL_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaApprovalRepository(prisma),
+      inject: [SCOPED_PRISMA],
+    },
+    {
+      provide: APPROVAL_EXECUTOR,
+      useFactory: (rail: LedgerCredit) => new ApprovalActionDispatcher(rail),
+      inject: [PrismaSettlementRail],
+    },
+    {
+      provide: CreditInvestorLedger,
+      useFactory: (
+        rail: LedgerCredit,
+        approvals: ApprovalRepository,
+        ids: IdGenerator,
+        clock: Clock,
+      ) => {
+        const configured = process.env.LEDGER_CREDIT_APPROVAL_THRESHOLD_RIAL;
+        const threshold =
+          configured !== undefined && configured.trim() !== ""
+            ? BigInt(configured)
+            : DEFAULT_LEDGER_CREDIT_APPROVAL_THRESHOLD_RIAL;
+        return new CreditInvestorLedger(rail, approvals, ids, clock, threshold);
+      },
+      inject: [PrismaSettlementRail, APPROVAL_REPOSITORY, ID_GENERATOR, CLOCK],
+    },
+    {
+      provide: DecideApproval,
+      useFactory: (approvals: ApprovalRepository, executor: ApprovalActionExecutor, clock: Clock) =>
+        new DecideApproval(approvals, executor, clock),
+      inject: [APPROVAL_REPOSITORY, APPROVAL_EXECUTOR, CLOCK],
+    },
+    {
+      provide: ListApprovals,
+      useFactory: (approvals: ApprovalRepository) => new ListApprovals(approvals),
+      inject: [APPROVAL_REPOSITORY],
+    },
     {
       provide: OFFERING_REPOSITORY,
       useFactory: (prisma: PrismaService) => new PrismaOfferingRepository(prisma),

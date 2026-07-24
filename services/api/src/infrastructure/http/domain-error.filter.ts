@@ -81,6 +81,11 @@ import {
   CorruptEventStreamError,
   InvalidRegistryEventError,
 } from "../../domain/registry/errors.js";
+import {
+  InvalidApprovalTransitionError,
+  SelfApprovalError,
+} from "../../domain/approvals/errors.js";
+import { ApprovalNotFoundError } from "../../application/approvals/errors.js";
 
 interface MinimalResponse {
   status(code: number): { json(body: unknown): void };
@@ -175,5 +180,9 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidFollowUpError) return 400;
   if (exception instanceof InvalidFollowUpTransitionError) return 409;
   if (exception instanceof FollowUpNotFoundError) return 404;
+  // Maker-checker (T1/T3): four-eyes / already-decided → 409; unknown → 404.
+  if (exception instanceof SelfApprovalError) return 409;
+  if (exception instanceof InvalidApprovalTransitionError) return 409;
+  if (exception instanceof ApprovalNotFoundError) return 404;
   return 500;
 };

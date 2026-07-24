@@ -29,7 +29,7 @@ const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
     createOffering: vi.fn().mockResolvedValue({ offeringId: "off-1" }),
     openOffering: vi.fn().mockResolvedValue(undefined),
     closeOffering: vi.fn().mockResolvedValue({ state: "closed_success", allocations: [] }),
-    creditLedger: vi.fn().mockResolvedValue(undefined),
+    creditLedger: vi.fn().mockResolvedValue({ status: "credited" }),
     ...overrides,
   }) as ApiClient;
 
@@ -82,7 +82,7 @@ describe("AdminOfferingsPanel", () => {
   });
 
   it("credits_an_investor_ledger_via_the_modal", async () => {
-    const creditLedger = vi.fn().mockResolvedValue(undefined);
+    const creditLedger = vi.fn().mockResolvedValue({ status: "credited" });
     render(<AdminOfferingsPanel locale="en" api={apiWith({ creditLedger })} token="tok" />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Credit ledger" }));

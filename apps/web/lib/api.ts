@@ -2,6 +2,23 @@ export type KycState = "draft" | "submitted" | "in_review" | "approved" | "rejec
 
 export type MfaStatusDto = "none" | "pending" | "active";
 
+export type CreditResultDto =
+  { status: "credited" } | { status: "pending_approval"; approvalId: string };
+
+export type ApprovalStatusDto = "pending" | "approved" | "rejected";
+
+export interface ApprovalViewDto {
+  id: string;
+  action: string;
+  status: ApprovalStatusDto;
+  summary: string;
+  makerId: string;
+  checkerId?: string;
+  reason?: string;
+  createdAt: string;
+  decidedAt?: string;
+}
+
 // Officer login is two-step when MFA is active: a correct password yields either
 // a session (token) or an "mfaRequired" challenge to complete with a code.
 export type OfficerLoginResult =
@@ -328,7 +345,16 @@ export interface ApiClient {
     symbol: string,
   ): Promise<{ tokenAddress: string }>;
   ledgerMe(token: string): Promise<LedgerDto>;
-  creditLedger(officerToken: string, investorId: string, amountRial: string): Promise<void>;
+  // T1/T3: a credit at/above the approval threshold returns pending_approval
+  // (parked for a second officer) instead of applying immediately.
+  creditLedger(
+    officerToken: string,
+    investorId: string,
+    amountRial: string,
+  ): Promise<CreditResultDto>;
+  listApprovals(officerToken: string): Promise<ApprovalViewDto[]>;
+  approveApproval(officerToken: string, approvalId: string): Promise<void>;
+  rejectApproval(officerToken: string, approvalId: string, reason: string): Promise<void>;
   listOfferings(token: string): Promise<OfferingViewDto[]>;
   getOffering(token: string, offeringId: string): Promise<OfferingViewDto>;
   createOffering(officerToken: string, body: CreateOfferingBody): Promise<{ offeringId: string }>;
@@ -606,10 +632,26 @@ export const createApiClient = (
       ),
     ledgerMe: (token) => json(call("/ledger/me", { token })),
     creditLedger: async (officerToken, investorId, amountRial) => {
-      await call(`/ledger/${investorId}/credit`, {
+      const res = await call(`/ledger/${investorId}/credit`, {
         method: "POST",
         token: officerToken,
         body: { amountRial },
+      });
+      // 204 = applied directly; 202 = parked for approval (with a body).
+      if (res.status === 204) {
+        return { status: "credited" };
+      }
+      return (await res.json()) as { status: "pending_approval"; approvalId: string };
+    },
+    listApprovals: (officerToken) => json(call("/approvals", { token: officerToken })),
+    approveApproval: async (officerToken, approvalId) => {
+      await call(`/approvals/${approvalId}/approve`, { method: "POST", token: officerToken });
+    },
+    rejectApproval: async (officerToken, approvalId, reason) => {
+      await call(`/approvals/${approvalId}/reject`, {
+        method: "POST",
+        token: officerToken,
+        body: { reason },
       });
     },
     listOfferings: (token) => json(call("/offerings", { token })),

@@ -201,7 +201,15 @@ export const AdminOfferingsPanel = ({
         }}
         onCredit={(investorId, amount) => {
           setCrediting(false);
-          guard(() => api.creditLedger(token, investorId, amount), t.ledgerCredited);
+          guard(async () => {
+            const result = await api.creditLedger(token, investorId, amount);
+            toast.show(
+              result.status === "pending_approval"
+                ? t.creditSubmittedForApproval
+                : t.ledgerCredited,
+              "success",
+            );
+          });
         }}
       />
     </Card>
