@@ -42,6 +42,16 @@ export interface Dictionary {
   resetSuccess: string;
   resetPasswordMismatch: string;
   resetMissingToken: string;
+  emailLabelShort: string;
+  emailVerifiedLabel: string;
+  emailUnverifiedLabel: string;
+  resendVerificationButton: string;
+  verificationSent: string;
+  verifyEmailTitle: string;
+  verifyEmailSubtitle: string;
+  verifyEmailButton: string;
+  verifyEmailSuccess: string;
+  verifyMissingToken: string;
   officerTitle: string;
   pendingKycTitle: string;
   emptyQueue: string;
@@ -297,6 +307,17 @@ export const dictionaries: Record<Locale, Dictionary> = {
     resetPasswordMismatch: "Those passwords don't match.",
     resetMissingToken:
       "This reset link is missing its token. Request a new one from the sign-in page.",
+    emailLabelShort: "Email",
+    emailVerifiedLabel: "Verified",
+    emailUnverifiedLabel: "Unverified",
+    resendVerificationButton: "Resend verification email",
+    verificationSent: "Verification email sent. Check your inbox for the link.",
+    verifyEmailTitle: "Verify your email",
+    verifyEmailSubtitle: "Confirm this is your email address to finish setting up your account.",
+    verifyEmailButton: "Verify email",
+    verifyEmailSuccess: "Your email is verified. Thanks for confirming.",
+    verifyMissingToken:
+      "This verification link is missing its token. Request a new one from your profile.",
     officerTitle: "Compliance Review",
     pendingKycTitle: "Pending KYC applications",
     emptyQueue: "No applications waiting for review.",

@@ -10,6 +10,7 @@ const directory: InvestorDirectoryDto = {
     {
       id: "sara-id",
       email: "sara@demo.com",
+      emailVerified: true,
       kycState: "approved",
       eligibleForClaims: true,
       balanceRial: "1250140000",
@@ -22,6 +23,7 @@ const directory: InvestorDirectoryDto = {
     {
       id: "carol-id",
       email: "carol@demo.com",
+      emailVerified: false,
       kycState: "draft",
       eligibleForClaims: false,
       balanceRial: "0",

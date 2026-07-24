@@ -62,4 +62,33 @@ describe("Investor", () => {
     expect(approved.isEligibleForClaims()).toBe(true);
     expect(approved.expireKyc().isEligibleForClaims()).toBe(false);
   });
+
+  // T4: a freshly-registered email is unverified until the investor confirms it.
+  it("registers_with_an_unverified_email_and_verifies_idempotently", () => {
+    const investor = register();
+    expect(investor.emailVerified).toBe(false);
+
+    const verified = investor.verifyEmail();
+    expect(verified).not.toBe(investor);
+    expect(verified.emailVerified).toBe(true);
+    expect(investor.emailVerified).toBe(false); // immutable
+    // Idempotent: verifying again stays verified.
+    expect(verified.verifyEmail().emailVerified).toBe(true);
+  });
+
+  it("carries_email_verification_through_kyc_transitions", () => {
+    const verified = register().verifyEmail();
+    expect(verified.submitKyc().emailVerified).toBe(true);
+  });
+
+  it("restores_the_persisted_email_verification_flag", () => {
+    const restored = Investor.restore(
+      "inv-9",
+      EmailAddress.of("stored@example.com"),
+      PasswordHash.of("hashed:stored"),
+      KycStatus.restore("approved"),
+      true,
+    );
+    expect(restored.emailVerified).toBe(true);
+  });
 });

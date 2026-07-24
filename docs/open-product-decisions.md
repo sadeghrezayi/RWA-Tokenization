@@ -25,6 +25,7 @@ Decisions the assistant must NOT make alone. Each has options + a recommendation
 | OD-19 | CI runner | (a) GitHub Actions; (b) self-hosted runner (C1 self-hosting posture) | **(b) if repo must stay fully self-hosted**, else (a); need your call |
 | OD-20 | Fee model activation | PRD §13 fee options exist; which fees are real for pilot (platform fee? issuance fee? none)? | Business decision — needed before checkout fee-summary step (P2.4) copy is real |
 | OD-21 | Projected-yield methodology | Who computes/approves projected yield shown publicly; display rules | Business+legal — required before public offering pages show yield |
+| OD-22 | Email-verification enforcement | (a) informational only (verify anytime; nothing blocked); (b) gate KYC submission on a verified email; (c) gate login/investing on it | **(a) shipped in P1.3c-ii** (status shown, no behaviour gated). Choosing (b)/(c) is a product call — confirm before adding any block; jurisdictions may *require* verified contact before onboarding (policy item) |
 
 ## Standing assumptions carried into Phase 0 docs (flag if wrong)
 A-1: Real estate is the first vertical; other asset types remain supported generically. · A-2: Rial integer minor-unit is the only settlement currency for pilot. · A-3: anvil stays the dev chain; Besu stand-up remains a pre-pilot gate (existing decision). · A-4: English remains default/demo language (standing policy). · A-5: The existing 616-test suite is the regression floor. · A-6: No production users/data exist today.

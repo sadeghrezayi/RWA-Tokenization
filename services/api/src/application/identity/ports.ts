@@ -65,23 +65,33 @@ export interface TokenGenerator {
 // (OD-7); the dev adapter writes to a sink so links are recoverable locally.
 export interface EmailSender {
   sendPasswordReset(to: string, token: string): Promise<void>;
+  sendEmailVerification(to: string, token: string): Promise<void>;
 }
 
-// A password-reset grant: only the token's digest is stored (T14), never the
-// raw token. Platform-level (not tenant-scoped) — keyed by the digest.
-export interface PasswordResetTokenRecord {
+// A single-use out-of-band grant (password-reset, email-verification): only the
+// token's digest is stored (T14), never the raw token. Platform-level (not
+// tenant-scoped) — keyed by the digest.
+export interface SingleUseTokenRecord {
   tokenHash: string;
   investorId: string;
   expiresAt: Date;
   usedAt?: Date;
 }
 
-export interface PasswordResetTokenStore {
-  save(record: PasswordResetTokenRecord): Promise<void>;
+export interface SingleUseTokenStore {
+  save(record: SingleUseTokenRecord): Promise<void>;
   // Valid = matching digest, not yet used, not past its expiry at `now`.
-  findValid(tokenHash: string, now: Date): Promise<PasswordResetTokenRecord | undefined>;
+  findValid(tokenHash: string, now: Date): Promise<SingleUseTokenRecord | undefined>;
   markUsed(tokenHash: string, at: Date): Promise<void>;
-  // Invalidate every outstanding grant for an investor (used on reset so a
-  // second in-flight link cannot be redeemed after the password changed).
+  // Invalidate every outstanding grant for an investor (used on redemption so a
+  // second in-flight link cannot be replayed after the account state changed).
   invalidateForInvestor(investorId: string, at: Date): Promise<void>;
 }
+
+// One store shape, two backing tables (distinct so a reset link can't be
+// redeemed as a verification link or vice-versa). Named aliases keep call sites
+// self-documenting.
+export type PasswordResetTokenRecord = SingleUseTokenRecord;
+export type PasswordResetTokenStore = SingleUseTokenStore;
+export type EmailVerificationTokenRecord = SingleUseTokenRecord;
+export type EmailVerificationTokenStore = SingleUseTokenStore;

@@ -9,6 +9,7 @@ import { stubApi } from "./auth-panel.test";
 const pendingInvestor: InvestorViewDto = {
   id: "inv-9",
   email: "p@example.com",
+  emailVerified: true,
   kycState: "submitted",
   eligibleForClaims: false,
 };

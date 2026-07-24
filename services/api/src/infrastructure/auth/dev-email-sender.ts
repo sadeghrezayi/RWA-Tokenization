@@ -18,4 +18,10 @@ export class DevEmailSender implements EmailSender {
     this.log.warn(`[DEV EMAIL — NOT DELIVERED] password reset for ${to}: ${link}`);
     return Promise.resolve();
   }
+
+  sendEmailVerification(to: string, token: string): Promise<void> {
+    const link = `${this.webBaseUrl}/en/verify-email?token=${encodeURIComponent(token)}`;
+    this.log.warn(`[DEV EMAIL — NOT DELIVERED] email verification for ${to}: ${link}`);
+    return Promise.resolve();
+  }
 }

@@ -8,6 +8,7 @@ import { stubApi } from "./auth-panel.test";
 const investor = (overrides: Partial<InvestorViewDto>): InvestorViewDto => ({
   id: "inv-1",
   email: "a@example.com",
+  emailVerified: true,
   kycState: "draft",
   eligibleForClaims: false,
   ...overrides,
@@ -57,5 +58,31 @@ describe("KycStatusCard", () => {
 
     expect(await screen.findByText("In review")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Submit KYC documents" })).not.toBeInTheDocument();
+  });
+
+  it("shows_verified_and_no_resend_when_the_email_is_verified", async () => {
+    const me = vi.fn().mockResolvedValue(investor({ emailVerified: true }));
+    render(<KycStatusCard locale="en" api={stubApi({ me })} token="tok-1" />);
+
+    expect(await screen.findByText("Verified")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Resend verification email" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows_unverified_and_resends_the_verification_email", async () => {
+    const me = vi.fn().mockResolvedValue(investor({ emailVerified: false }));
+    const requestEmailVerification = vi.fn().mockResolvedValue(undefined);
+    render(
+      <KycStatusCard locale="en" api={stubApi({ me, requestEmailVerification })} token="tok-1" />,
+    );
+
+    expect(await screen.findByText("Unverified")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Resend verification email" }));
+
+    await waitFor(() => {
+      expect(requestEmailVerification).toHaveBeenCalledWith("a@example.com");
+    });
+    expect(screen.getByText(/Verification email sent/i)).toBeInTheDocument();
   });
 });

@@ -15,6 +15,8 @@ import type { LoginThrottleService } from "../../application/identity/login-thro
 import type { Principal } from "../../application/identity/ports.js";
 import { RequestPasswordReset } from "../../application/identity/request-password-reset.js";
 import { ResetPassword } from "../../application/identity/reset-password.js";
+import { RequestEmailVerification } from "../../application/identity/request-email-verification.js";
+import { VerifyEmail } from "../../application/identity/verify-email.js";
 import { CurrentPrincipal, Public } from "./auth.guard.js";
 import { AuthRateLimitGuard } from "./rate-limit.guard.js";
 import { LOGIN_THROTTLE_SERVICE } from "./http.tokens.js";
@@ -45,6 +47,8 @@ export class AuthController {
     private readonly authenticateOfficer: AuthenticateOfficer,
     private readonly requestPasswordReset: RequestPasswordReset,
     private readonly resetPassword: ResetPassword,
+    private readonly requestEmailVerification: RequestEmailVerification,
+    private readonly verifyEmail: VerifyEmail,
     @Inject(LOGIN_THROTTLE_SERVICE) private readonly throttle: LoginThrottleService,
   ) {}
 
@@ -118,6 +122,33 @@ export class AuthController {
       throw new BadRequestException(`"token" and "password" are required strings`);
     }
     await this.resetPassword.execute({ token: record.token, password: record.password });
+  }
+
+  // T4 email verification — request half (also used for "resend"). Always 202;
+  // no-op for an unknown or already-verified address (no enumeration).
+  @Public()
+  @Post("email-verification/request")
+  @HttpCode(202)
+  async emailVerificationRequest(@Body() body: unknown): Promise<{ status: "accepted" }> {
+    const record = (body ?? {}) as Record<string, unknown>;
+    if (typeof record.email !== "string") {
+      throw new BadRequestException(`"email" is required`);
+    }
+    await this.requestEmailVerification.execute({ email: record.email });
+    return { status: "accepted" };
+  }
+
+  // T4 email verification — redemption half. Consumes a single-use token and
+  // marks the email verified; invalid/expired token → 400.
+  @Public()
+  @Post("verify-email")
+  @HttpCode(204)
+  async emailVerificationConfirm(@Body() body: unknown): Promise<void> {
+    const record = (body ?? {}) as Record<string, unknown>;
+    if (typeof record.token !== "string") {
+      throw new BadRequestException(`"token" is required`);
+    }
+    await this.verifyEmail.execute({ token: record.token });
   }
 
   private establishSession(res: CookieResponse, token: string): string {

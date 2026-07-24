@@ -5,6 +5,7 @@ import {
   EmailAlreadyRegisteredError,
   InvalidCredentialsError,
   InvalidResetTokenError,
+  InvalidVerificationTokenError,
   InvestorNotFoundError,
   TooManyRequestsError,
   WeakPasswordError,
@@ -126,6 +127,7 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidRejectionReasonError) return 400;
   if (exception instanceof WeakPasswordError) return 400;
   if (exception instanceof InvalidResetTokenError) return 400;
+  if (exception instanceof InvalidVerificationTokenError) return 400;
   if (exception instanceof InvalidDossierDocumentError) return 400;
   if (exception instanceof InvalidCustodyArrangementError) return 400;
   if (exception instanceof EmptyDocumentError) return 400;

@@ -11,6 +11,8 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   officerLogin: vi.fn(),
   requestPasswordReset: vi.fn(),
   resetPassword: vi.fn(),
+  requestEmailVerification: vi.fn(),
+  verifyEmail: vi.fn(),
   getSession: vi.fn(),
   logout: vi.fn(),
   me: vi.fn(),

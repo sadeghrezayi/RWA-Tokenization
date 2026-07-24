@@ -164,14 +164,18 @@ import {
 } from "./application/identity/login-throttle-service.js";
 import type {
   EmailSender,
+  EmailVerificationTokenStore,
   LoginAttemptStore,
   PasswordResetTokenStore,
   TokenGenerator,
 } from "./application/identity/ports.js";
 import { RequestPasswordReset } from "./application/identity/request-password-reset.js";
 import { ResetPassword } from "./application/identity/reset-password.js";
+import { RequestEmailVerification } from "./application/identity/request-email-verification.js";
+import { VerifyEmail } from "./application/identity/verify-email.js";
 import { PrismaLoginAttemptStore } from "./infrastructure/persistence/prisma-login-attempt-store.js";
 import { PrismaPasswordResetTokenStore } from "./infrastructure/persistence/prisma-password-reset-token-store.js";
+import { PrismaEmailVerificationTokenStore } from "./infrastructure/persistence/prisma-email-verification-token-store.js";
 import { CryptoTokenGenerator } from "./infrastructure/auth/crypto-token-generator.js";
 import { DevEmailSender } from "./infrastructure/auth/dev-email-sender.js";
 import { AuthGuard, TOKEN_VERIFIER } from "./infrastructure/http/auth.guard.js";
@@ -216,6 +220,7 @@ export const DISTRIBUTION_LEDGER = "DISTRIBUTION_LEDGER";
 export const SCOPED_PRISMA = "SCOPED_PRISMA";
 export const LOGIN_ATTEMPT_STORE = "LOGIN_ATTEMPT_STORE";
 export const PASSWORD_RESET_TOKEN_STORE = "PASSWORD_RESET_TOKEN_STORE";
+export const EMAIL_VERIFICATION_TOKEN_STORE = "EMAIL_VERIFICATION_TOKEN_STORE";
 export const TOKEN_GENERATOR = "TOKEN_GENERATOR";
 export const EMAIL_SENDER = "EMAIL_SENDER";
 export const TOKEN_EVENT_SOURCE = "TOKEN_EVENT_SOURCE";
@@ -500,6 +505,36 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         clock: Clock,
       ) => new ResetPassword(repo, tokens, hasher, clock),
       inject: [INVESTOR_REPOSITORY, PASSWORD_RESET_TOKEN_STORE, PASSWORD_HASHER, CLOCK],
+    },
+    // T4 email verification. Same token-store shape as reset, distinct table so
+    // a reset link can't be redeemed as a verification link or vice-versa.
+    {
+      provide: EMAIL_VERIFICATION_TOKEN_STORE,
+      useFactory: (prisma: PrismaService) => new PrismaEmailVerificationTokenStore(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: RequestEmailVerification,
+      useFactory: (
+        repo: InvestorRepository,
+        tokens: EmailVerificationTokenStore,
+        email: EmailSender,
+        generator: TokenGenerator,
+        clock: Clock,
+      ) => new RequestEmailVerification(repo, tokens, email, generator, clock),
+      inject: [
+        INVESTOR_REPOSITORY,
+        EMAIL_VERIFICATION_TOKEN_STORE,
+        EMAIL_SENDER,
+        TOKEN_GENERATOR,
+        CLOCK,
+      ],
+    },
+    {
+      provide: VerifyEmail,
+      useFactory: (repo: InvestorRepository, tokens: EmailVerificationTokenStore, clock: Clock) =>
+        new VerifyEmail(repo, tokens, clock),
+      inject: [INVESTOR_REPOSITORY, EMAIL_VERIFICATION_TOKEN_STORE, CLOCK],
     },
     {
       // useFactory (not useValue) so each application instance gets its own

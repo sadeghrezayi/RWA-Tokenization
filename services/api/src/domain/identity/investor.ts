@@ -8,10 +8,12 @@ export class Investor {
     public readonly email: EmailAddress,
     public readonly passwordHash: PasswordHash,
     public readonly kycStatus: KycStatus,
+    // T4: whether the investor has confirmed control of their email address.
+    public readonly emailVerified: boolean,
   ) {}
 
   static register(id: string, email: EmailAddress, passwordHash: PasswordHash): Investor {
-    return new Investor(id, email, passwordHash, KycStatus.draft());
+    return new Investor(id, email, passwordHash, KycStatus.draft(), false);
   }
 
   // Persistence-only: rehydrates a stored investor without replaying transitions.
@@ -20,8 +22,9 @@ export class Investor {
     email: EmailAddress,
     passwordHash: PasswordHash,
     kycStatus: KycStatus,
+    emailVerified = false,
   ): Investor {
-    return new Investor(id, email, passwordHash, kycStatus);
+    return new Investor(id, email, passwordHash, kycStatus, emailVerified);
   }
 
   submitKyc(): Investor {
@@ -49,12 +52,18 @@ export class Investor {
     return this.kycStatus.state === "approved";
   }
 
-  // Credential rotation (password reset / change). KYC state is preserved.
+  // T4: confirm control of the email address. Idempotent — re-verifying a
+  // verified investor is a no-op transition (still returns a fresh instance).
+  verifyEmail(): Investor {
+    return new Investor(this.id, this.email, this.passwordHash, this.kycStatus, true);
+  }
+
+  // Credential rotation (password reset / change). KYC + verification preserved.
   withPasswordHash(passwordHash: PasswordHash): Investor {
-    return new Investor(this.id, this.email, passwordHash, this.kycStatus);
+    return new Investor(this.id, this.email, passwordHash, this.kycStatus, this.emailVerified);
   }
 
   private withKyc(kycStatus: KycStatus): Investor {
-    return new Investor(this.id, this.email, this.passwordHash, kycStatus);
+    return new Investor(this.id, this.email, this.passwordHash, kycStatus, this.emailVerified);
   }
 }

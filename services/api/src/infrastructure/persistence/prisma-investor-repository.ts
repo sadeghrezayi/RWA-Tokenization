@@ -41,6 +41,7 @@ export class PrismaInvestorRepository implements InvestorRepository {
     const data = {
       email: investor.email.value,
       passwordHash: investor.passwordHash.value,
+      emailVerified: investor.emailVerified,
       kycState: investor.kycStatus.state,
       kycRejectionReason: investor.kycStatus.rejectionReason ?? null,
     };
@@ -81,4 +82,5 @@ const toDomain = (row: InvestorRow): Investor =>
     EmailAddress.of(row.email),
     PasswordHash.of(row.passwordHash),
     KycStatus.restore(row.kycState, row.kycRejectionReason ?? undefined),
+    row.emailVerified,
   );

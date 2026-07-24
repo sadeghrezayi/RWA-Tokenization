@@ -3,6 +3,7 @@ export type KycState = "draft" | "submitted" | "in_review" | "approved" | "rejec
 export interface InvestorViewDto {
   id: string;
   email: string;
+  emailVerified: boolean;
   kycState: KycState;
   kycRejectionReason?: string;
   eligibleForClaims: boolean;
@@ -279,6 +280,10 @@ export interface ApiClient {
   // (ApiError 400) on an invalid/expired token or a weak password.
   requestPasswordReset(email: string): Promise<void>;
   resetPassword(token: string, password: string): Promise<void>;
+  // Email verification (T4). Request (also used for "resend") always resolves;
+  // verify rejects (ApiError 400) on an invalid or expired token.
+  requestEmailVerification(email: string): Promise<void>;
+  verifyEmail(token: string): Promise<void>;
   getSession(): Promise<{ kind: "investor" | "officer" }>;
   logout(csrfToken: string): Promise<void>;
   me(token: string): Promise<InvestorViewDto>;
@@ -511,6 +516,12 @@ export const createApiClient = (
     },
     resetPassword: async (token, password) => {
       await call("/auth/password-reset", { method: "POST", body: { token, password } });
+    },
+    requestEmailVerification: async (email) => {
+      await call("/auth/email-verification/request", { method: "POST", body: { email } });
+    },
+    verifyEmail: async (token) => {
+      await call("/auth/verify-email", { method: "POST", body: { token } });
     },
     getSession: () => json(call("/auth/session")),
     logout: async (csrfToken) => {

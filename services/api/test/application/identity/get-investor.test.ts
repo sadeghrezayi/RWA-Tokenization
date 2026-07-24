@@ -34,6 +34,7 @@ describe("GetInvestor", () => {
     expect(view).toEqual({
       id: investorId,
       email: "investor@example.com",
+      emailVerified: false, // freshly registered — unverified until confirmed
       kycState: "draft",
       eligibleForClaims: false,
     });

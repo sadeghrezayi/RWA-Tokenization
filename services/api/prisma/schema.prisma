@@ -75,6 +75,17 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+model EmailVerificationToken {
+  tokenHash  String    @id @map("token_hash")
+  investorId String    @map("investor_id")
+  expiresAt  DateTime  @map("expires_at")
+  usedAt     DateTime? @map("used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([investorId])
+  @@map("email_verification_tokens")
+}
+
 // T4 account lockout: per-identifier failed-login state. Platform-level
 // (security infrastructure, evaluated pre-authentication) — deliberately NOT
 // tenant-scoped; the key is the normalized login identifier.
@@ -375,6 +386,7 @@ model Investor {
   tenant             Tenant           @relation(fields: [tenantId], references: [id])
   email              String
   passwordHash       String           @map("password_hash")
+  emailVerified      Boolean          @default(false) @map("email_verified")
   kycState           KycState         @map("kyc_state")
   kycRejectionReason String?          @map("kyc_rejection_reason")
   createdAt          DateTime         @default(now()) @map("created_at")

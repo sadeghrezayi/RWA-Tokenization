@@ -9,6 +9,7 @@ const detail: InvestorDetailDto = {
   investor: {
     id: "sara-id",
     email: "sara@demo.com",
+    emailVerified: true,
     kycState: "approved",
     eligibleForClaims: true,
   },

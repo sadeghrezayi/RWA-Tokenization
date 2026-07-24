@@ -52,3 +52,11 @@ export class InvalidResetTokenError extends ApplicationError {
     super("this reset link is invalid or has expired — request a new one");
   }
 }
+
+// Email-verification token was unknown, already used, or expired. Same
+// no-enumeration rationale as the reset token.
+export class InvalidVerificationTokenError extends ApplicationError {
+  constructor() {
+    super("this verification link is invalid or has expired — request a new one");
+  }
+}

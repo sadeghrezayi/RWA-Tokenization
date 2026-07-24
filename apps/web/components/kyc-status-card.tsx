@@ -18,6 +18,7 @@ export const KycStatusCard = ({ locale, api, token }: KycStatusCardProps) => {
   const t = dictionaries[locale];
   const [investor, setInvestor] = useState<InvestorViewDto | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [verificationSent, setVerificationSent] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -31,6 +32,16 @@ export const KycStatusCard = ({ locale, api, token }: KycStatusCardProps) => {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const resendVerification = async (emailAddress: string) => {
+    try {
+      await api.requestEmailVerification(emailAddress);
+      setVerificationSent(true);
+      setError(undefined);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   const submitKyc = async () => {
     try {
@@ -58,6 +69,30 @@ export const KycStatusCard = ({ locale, api, token }: KycStatusCardProps) => {
         )
       ) : (
         <div className="stack">
+          <div className="row" style={{ alignItems: "center", gap: "0.5rem" }}>
+            <span className="muted">{t.emailLabelShort}:</span>
+            <span>{investor.email}</span>
+            <Badge tone={investor.emailVerified ? "success" : "warning"}>
+              {investor.emailVerified ? t.emailVerifiedLabel : t.emailUnverifiedLabel}
+            </Badge>
+          </div>
+          {!investor.emailVerified &&
+            (verificationSent ? (
+              <p className="muted" role="status">
+                {t.verificationSent}
+              </p>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  void resendVerification(investor.email);
+                }}
+              >
+                {t.resendVerificationButton}
+              </Button>
+            ))}
           <p className={investor.eligibleForClaims ? "" : "muted"}>
             {investor.eligibleForClaims ? t.eligible : t.notEligible}
           </p>

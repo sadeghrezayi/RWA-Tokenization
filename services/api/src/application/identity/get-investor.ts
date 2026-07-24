@@ -7,6 +7,7 @@ import type { InvestorRepository } from "./ports.js";
 export interface InvestorView {
   id: string;
   email: string;
+  emailVerified: boolean;
   kycState: KycState;
   kycRejectionReason?: string;
   eligibleForClaims: boolean;
@@ -17,6 +18,7 @@ export const toInvestorView = (investor: Investor): InvestorView => {
   return {
     id: investor.id,
     email: investor.email.value,
+    emailVerified: investor.emailVerified,
     kycState: investor.kycStatus.state,
     eligibleForClaims: investor.isEligibleForClaims(),
     ...(reason !== undefined ? { kycRejectionReason: reason } : {}),

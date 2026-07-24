@@ -65,6 +65,7 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
     expect(res.body).toEqual({
       id: investorId,
       email: INVESTOR.email,
+      emailVerified: false, // T4: unverified until the emailed link is confirmed
       kycState: "draft",
       eligibleForClaims: false,
     });

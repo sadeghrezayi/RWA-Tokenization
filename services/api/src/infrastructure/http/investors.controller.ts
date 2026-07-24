@@ -1,4 +1,13 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Logger,
+  Param,
+  Post,
+} from "@nestjs/common";
 import { ApproveKyc } from "../../application/identity/approve-kyc.js";
 import { GetInvestor } from "../../application/identity/get-investor.js";
 import type { InvestorView } from "../../application/identity/get-investor.js";
@@ -9,6 +18,7 @@ import type {
 } from "../../application/identity/investor-directory.js";
 import { ListPendingKyc } from "../../application/identity/list-pending-kyc.js";
 import { RegisterInvestor } from "../../application/identity/register-investor.js";
+import { RequestEmailVerification } from "../../application/identity/request-email-verification.js";
 import { RejectKyc } from "../../application/identity/reject-kyc.js";
 import { StartKycReview } from "../../application/identity/start-kyc-review.js";
 import { SubmitKyc } from "../../application/identity/submit-kyc.js";
@@ -31,6 +41,8 @@ const investorIdOf = (principal: Principal): string => {
 
 @Controller("investors")
 export class InvestorsController {
+  private readonly log = new Logger(InvestorsController.name);
+
   constructor(
     private readonly registerInvestor: RegisterInvestor,
     private readonly submitKyc: SubmitKyc,
@@ -41,15 +53,23 @@ export class InvestorsController {
     private readonly listPendingKyc: ListPendingKyc,
     private readonly listInvestors: ListInvestors,
     private readonly getInvestorDetail: GetInvestorDetail,
+    private readonly requestEmailVerification: RequestEmailVerification,
   ) {}
 
   @Public()
   @Post()
-  register(@Body() body: unknown): Promise<{ investorId: string }> {
-    return this.registerInvestor.execute({
-      email: requireString(body, "email"),
+  async register(@Body() body: unknown): Promise<{ investorId: string }> {
+    const email = requireString(body, "email");
+    const result = await this.registerInvestor.execute({
+      email,
       password: requireString(body, "password"),
     });
+    // Send the first verification email best-effort: a transport failure must
+    // not fail an otherwise-successful signup (the user can resend). T4.
+    await this.requestEmailVerification.execute({ email }).catch((error: unknown) => {
+      this.log.warn(`could not send verification email on registration: ${String(error)}`);
+    });
+    return result;
   }
 
   // --- investor self-service (bearer token, investor role) ---
