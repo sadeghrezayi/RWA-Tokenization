@@ -60,3 +60,34 @@ export class InvalidVerificationTokenError extends ApplicationError {
     super("this verification link is invalid or has expired — request a new one");
   }
 }
+
+// --- T1/T4 MFA ---
+
+// Tried to start enrollment while MFA is already active.
+export class MfaAlreadyEnrolledError extends ApplicationError {
+  constructor() {
+    super("multi-factor authentication is already enabled");
+  }
+}
+
+// Tried to confirm/disable/challenge without an enrollment in the right state.
+export class MfaNotEnrolledError extends ApplicationError {
+  constructor() {
+    super("no multi-factor enrollment is in progress");
+  }
+}
+
+// The submitted 6-digit code (or recovery code) did not match.
+export class InvalidMfaCodeError extends ApplicationError {
+  constructor() {
+    super("that verification code is incorrect or has expired");
+  }
+}
+
+// The MFA challenge token from the password step was missing, invalid, or
+// expired — the officer must restart the login.
+export class InvalidMfaChallengeError extends ApplicationError {
+  constructor() {
+    super("your sign-in session expired — please log in again");
+  }
+}

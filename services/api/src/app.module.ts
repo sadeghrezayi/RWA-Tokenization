@@ -173,11 +173,26 @@ import { RequestPasswordReset } from "./application/identity/request-password-re
 import { ResetPassword } from "./application/identity/reset-password.js";
 import { RequestEmailVerification } from "./application/identity/request-email-verification.js";
 import { VerifyEmail } from "./application/identity/verify-email.js";
+import { StartMfaEnrollment } from "./application/identity/start-mfa-enrollment.js";
+import { ConfirmMfaEnrollment } from "./application/identity/confirm-mfa-enrollment.js";
+import { DisableMfa } from "./application/identity/disable-mfa.js";
+import { GetMfaStatus } from "./application/identity/get-mfa-status.js";
+import { CompleteOfficerMfaChallenge } from "./application/identity/complete-officer-mfa-challenge.js";
+import type {
+  MfaChallengeIssuer,
+  MfaStore,
+  RecoveryCodeGenerator,
+  TotpService,
+} from "./application/identity/ports.js";
 import { PrismaLoginAttemptStore } from "./infrastructure/persistence/prisma-login-attempt-store.js";
 import { PrismaPasswordResetTokenStore } from "./infrastructure/persistence/prisma-password-reset-token-store.js";
 import { PrismaEmailVerificationTokenStore } from "./infrastructure/persistence/prisma-email-verification-token-store.js";
+import { PrismaMfaStore } from "./infrastructure/persistence/prisma-mfa-store.js";
 import { CryptoTokenGenerator } from "./infrastructure/auth/crypto-token-generator.js";
 import { DevEmailSender } from "./infrastructure/auth/dev-email-sender.js";
+import { OtplibTotpService } from "./infrastructure/auth/otplib-totp-service.js";
+import { CryptoRecoveryCodeGenerator } from "./infrastructure/auth/crypto-recovery-code-generator.js";
+import { JwtMfaChallengeService } from "./infrastructure/auth/jwt-mfa-challenge-service.js";
 import { AuthGuard, TOKEN_VERIFIER } from "./infrastructure/http/auth.guard.js";
 import { CsrfGuard } from "./infrastructure/http/csrf.guard.js";
 import { DomainErrorFilter } from "./infrastructure/http/domain-error.filter.js";
@@ -223,6 +238,10 @@ export const PASSWORD_RESET_TOKEN_STORE = "PASSWORD_RESET_TOKEN_STORE";
 export const EMAIL_VERIFICATION_TOKEN_STORE = "EMAIL_VERIFICATION_TOKEN_STORE";
 export const TOKEN_GENERATOR = "TOKEN_GENERATOR";
 export const EMAIL_SENDER = "EMAIL_SENDER";
+export const TOTP_SERVICE = "TOTP_SERVICE";
+export const MFA_STORE = "MFA_STORE";
+export const RECOVERY_CODE_GENERATOR = "RECOVERY_CODE_GENERATOR";
+export const MFA_CHALLENGE_ISSUER = "MFA_CHALLENGE_ISSUER";
 export const TOKEN_EVENT_SOURCE = "TOKEN_EVENT_SOURCE";
 export const WALLET_DIRECTORY = "WALLET_DIRECTORY";
 export const ASSET_EVENT_READER = "ASSET_EVENT_READER";
@@ -325,9 +344,61 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     },
     {
       provide: AuthenticateOfficer,
-      useFactory: (hasher: PasswordHasher, tokens: TokenIssuer, officer: OfficerCredentials) =>
-        new AuthenticateOfficer(hasher, tokens, officer),
-      inject: [PASSWORD_HASHER, TOKEN_ISSUER, OFFICER_CREDENTIALS],
+      useFactory: (
+        hasher: PasswordHasher,
+        tokens: TokenIssuer,
+        officer: OfficerCredentials,
+        mfa: MfaStore,
+        challenge: MfaChallengeIssuer,
+      ) => new AuthenticateOfficer(hasher, tokens, officer, mfa, challenge),
+      inject: [PASSWORD_HASHER, TOKEN_ISSUER, OFFICER_CREDENTIALS, MFA_STORE, MFA_CHALLENGE_ISSUER],
+    },
+    // T1/T4 officer MFA. Platform-level store (raw Prisma). The challenge issuer
+    // reuses the auth secret with a distinct purpose claim (see the service).
+    { provide: TOTP_SERVICE, useClass: OtplibTotpService },
+    { provide: RECOVERY_CODE_GENERATOR, useClass: CryptoRecoveryCodeGenerator },
+    {
+      provide: MFA_STORE,
+      useFactory: (prisma: PrismaService) => new PrismaMfaStore(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: MFA_CHALLENGE_ISSUER,
+      useFactory: () =>
+        new JwtMfaChallengeService(
+          process.env.AUTH_TOKEN_SECRET ?? "insecure-dev-secret-change-me",
+        ),
+    },
+    {
+      provide: StartMfaEnrollment,
+      useFactory: (store: MfaStore, totp: TotpService) => new StartMfaEnrollment(store, totp),
+      inject: [MFA_STORE, TOTP_SERVICE],
+    },
+    {
+      provide: ConfirmMfaEnrollment,
+      useFactory: (store: MfaStore, totp: TotpService, recovery: RecoveryCodeGenerator) =>
+        new ConfirmMfaEnrollment(store, totp, recovery),
+      inject: [MFA_STORE, TOTP_SERVICE, RECOVERY_CODE_GENERATOR],
+    },
+    {
+      provide: DisableMfa,
+      useFactory: (store: MfaStore) => new DisableMfa(store),
+      inject: [MFA_STORE],
+    },
+    {
+      provide: GetMfaStatus,
+      useFactory: (store: MfaStore) => new GetMfaStatus(store),
+      inject: [MFA_STORE],
+    },
+    {
+      provide: CompleteOfficerMfaChallenge,
+      useFactory: (
+        challenge: MfaChallengeIssuer,
+        store: MfaStore,
+        totp: TotpService,
+        tokens: TokenIssuer,
+      ) => new CompleteOfficerMfaChallenge(challenge, store, totp, tokens),
+      inject: [MFA_CHALLENGE_ISSUER, MFA_STORE, TOTP_SERVICE, TOKEN_ISSUER],
     },
     {
       provide: SubmitKyc,

@@ -86,6 +86,20 @@ model EmailVerificationToken {
   @@map("email_verification_tokens")
 }
 
+// T1/T4 MFA enrollment, keyed by principal id (officer id today; staff/user id
+// after 1.4). Platform-level, not tenant-scoped. The TOTP secret is stored
+// reversibly (must verify codes) — encryption-at-rest is a T14/Phase-8 item.
+model MfaEnrollment {
+  principalId        String   @id @map("principal_id")
+  secret             String
+  status             String
+  recoveryCodeHashes String[] @map("recovery_code_hashes")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("mfa_enrollments")
+}
+
 // T4 account lockout: per-identifier failed-login state. Platform-level
 // (security infrastructure, evaluated pre-authentication) — deliberately NOT
 // tenant-scoped; the key is the normalized login identifier.

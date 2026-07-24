@@ -55,6 +55,47 @@ export interface LoginAttemptStore {
   save(key: string, throttle: LoginThrottle): Promise<void>;
 }
 
+// T1/T4 MFA: TOTP crypto (RFC 6238), provided by the otplib adapter. The domain
+// never sees the algorithm — only "make a secret", "make a provisioning URI",
+// "does this 6-digit code match the secret right now".
+export interface TotpService {
+  generateSecret(): string;
+  keyUri(secret: string, accountName: string): string;
+  verify(secret: string, code: string): Promise<boolean>;
+}
+
+export type MfaStatus = "pending" | "active";
+
+// Persistent per-principal MFA enrollment. Platform-level (pre-session for the
+// login challenge), keyed by the principal id (officer id today; staff/user id
+// after 1.4). The shared secret must be recoverable to verify codes, so it is
+// stored reversibly — encryption-at-rest is a T14/Phase-8 item, tracked there.
+// Recovery codes are single-use and stored only as digests.
+export interface MfaEnrollment {
+  secret: string;
+  status: MfaStatus;
+  recoveryCodeHashes: string[];
+}
+
+export interface MfaStore {
+  load(principalId: string): Promise<MfaEnrollment | undefined>;
+  save(principalId: string, enrollment: MfaEnrollment): Promise<void>;
+  delete(principalId: string): Promise<void>;
+}
+
+// Single-use human-typeable backup codes handed out once at enrollment.
+export interface RecoveryCodeGenerator {
+  generate(count: number): string[];
+}
+
+// Short-lived, purpose-scoped token proving the password step of a two-step
+// officer login succeeded. It is NOT a session (carries no Principal), so it
+// cannot access resources — only be redeemed for the MFA step.
+export interface MfaChallengeIssuer {
+  issue(principalId: string): Promise<string>;
+  verify(token: string): Promise<string | undefined>;
+}
+
 // High-entropy random token generator for out-of-band secrets (password-reset
 // links). The raw value is mailed once; only its digest is persisted.
 export interface TokenGenerator {

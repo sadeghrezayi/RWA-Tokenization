@@ -84,6 +84,10 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
         { href: `${base}/audit`, label: t.auditTitle, icon: "≡" },
       ],
     },
+    {
+      label: t.navGroupAccount,
+      items: [{ href: `${base}/security`, label: t.securityNav, icon: "⛨" }],
+    },
   ];
 
   if (status === "loading") {

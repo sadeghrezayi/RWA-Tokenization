@@ -52,6 +52,26 @@ export interface Dictionary {
   verifyEmailButton: string;
   verifyEmailSuccess: string;
   verifyMissingToken: string;
+  mfaChallengeTitle: string;
+  mfaChallengeSubtitle: string;
+  mfaCodeLabel: string;
+  mfaCodeHint: string;
+  mfaVerifyButton: string;
+  securityNav: string;
+  securityTitle: string;
+  securitySubtitle: string;
+  mfaCardTitle: string;
+  mfaStatusActiveLabel: string;
+  mfaStatusInactiveLabel: string;
+  mfaEnableButton: string;
+  mfaDisableButton: string;
+  mfaScanInstruction: string;
+  mfaSetupKeyLabel: string;
+  mfaConfirmButton: string;
+  mfaRecoveryTitle: string;
+  mfaRecoveryHint: string;
+  mfaEnabledNotice: string;
+  mfaDisabledNotice: string;
   officerTitle: string;
   pendingKycTitle: string;
   emptyQueue: string;
@@ -318,6 +338,29 @@ export const dictionaries: Record<Locale, Dictionary> = {
     verifyEmailSuccess: "Your email is verified. Thanks for confirming.",
     verifyMissingToken:
       "This verification link is missing its token. Request a new one from your profile.",
+    mfaChallengeTitle: "Two-factor authentication",
+    mfaChallengeSubtitle:
+      "Enter the 6-digit code from your authenticator app to finish signing in.",
+    mfaCodeLabel: "Authentication code",
+    mfaCodeHint: "You can also enter one of your recovery codes.",
+    mfaVerifyButton: "Verify",
+    securityNav: "Security",
+    securityTitle: "Security",
+    securitySubtitle: "Protect the operator account with two-factor authentication.",
+    mfaCardTitle: "Two-factor authentication (TOTP)",
+    mfaStatusActiveLabel: "Enabled",
+    mfaStatusInactiveLabel: "Not enabled",
+    mfaEnableButton: "Enable two-factor",
+    mfaDisableButton: "Disable two-factor",
+    mfaScanInstruction:
+      "Add this setup key to an authenticator app (Google Authenticator, 1Password, etc.), then enter a generated code to activate.",
+    mfaSetupKeyLabel: "Setup key",
+    mfaConfirmButton: "Confirm & activate",
+    mfaRecoveryTitle: "Save your recovery codes",
+    mfaRecoveryHint:
+      "Each code works once if you lose your authenticator. They are shown only now — store them somewhere safe.",
+    mfaEnabledNotice: "Two-factor authentication is on for this account.",
+    mfaDisabledNotice: "Two-factor authentication has been turned off.",
     officerTitle: "Compliance Review",
     pendingKycTitle: "Pending KYC applications",
     emptyQueue: "No applications waiting for review.",

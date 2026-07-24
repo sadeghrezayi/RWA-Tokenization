@@ -30,6 +30,31 @@ describe("OfficerLogin", () => {
     });
     expect(officerLogin).toHaveBeenCalledWith("officer@example.com", "0fficer-pass");
   });
+
+  it("prompts_for_a_code_when_mfa_is_required_then_completes", async () => {
+    const onAuthed = vi.fn();
+    const officerLogin = vi.fn().mockResolvedValue({ mfaRequired: true, mfaToken: "mfa-tok" });
+    const officerMfa = vi.fn().mockResolvedValue({ token: "off-tok", csrfToken: "csrf" });
+    render(
+      <OfficerLogin locale="en" api={stubApi({ officerLogin, officerMfa })} onAuthed={onAuthed} />,
+    );
+
+    await userEvent.type(screen.getByLabelText("Email"), "officer@example.com");
+    await userEvent.type(screen.getByLabelText("Password"), "0fficer-pass");
+    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    // Password alone did not sign us in — a code prompt appears.
+    const codeField = await screen.findByLabelText("Authentication code");
+    expect(onAuthed).not.toHaveBeenCalled();
+
+    await userEvent.type(codeField, "123456");
+    await userEvent.click(screen.getByRole("button", { name: "Verify" }));
+
+    await waitFor(() => {
+      expect(officerMfa).toHaveBeenCalledWith("mfa-tok", "123456");
+    });
+    expect(onAuthed).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("OfficerPanel (KYC queue)", () => {

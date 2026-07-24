@@ -1,5 +1,12 @@
 export type KycState = "draft" | "submitted" | "in_review" | "approved" | "rejected" | "expired";
 
+export type MfaStatusDto = "none" | "pending" | "active";
+
+// Officer login is two-step when MFA is active: a correct password yields either
+// a session (token) or an "mfaRequired" challenge to complete with a code.
+export type OfficerLoginResult =
+  { token: string; csrfToken: string } | { mfaRequired: true; mfaToken: string };
+
 export interface InvestorViewDto {
   id: string;
   email: string;
@@ -274,7 +281,14 @@ export interface ApiClient {
     email: string,
     password: string,
   ): Promise<{ token: string; investorId: string; csrfToken: string }>;
-  officerLogin(email: string, password: string): Promise<{ token: string; csrfToken: string }>;
+  officerLogin(email: string, password: string): Promise<OfficerLoginResult>;
+  // Officer MFA (T4). Login step 2 (public); plus authenticated management
+  // (enroll/confirm/disable) that carries the CSRF token, and a GET status.
+  officerMfa(mfaToken: string, code: string): Promise<{ token: string; csrfToken: string }>;
+  officerMfaStatus(): Promise<{ status: MfaStatusDto }>;
+  officerMfaEnroll(csrfToken: string): Promise<{ secret: string; keyUri: string }>;
+  officerMfaConfirm(csrfToken: string, code: string): Promise<{ recoveryCodes: string[] }>;
+  officerMfaDisable(csrfToken: string): Promise<void>;
   // Self-service password reset (T4). Both are public and never reveal whether
   // an account exists; the request half always resolves, the reset half rejects
   // (ApiError 400) on an invalid/expired token or a weak password.
@@ -511,6 +525,16 @@ export const createApiClient = (
       json(call("/auth/login", { method: "POST", body: { email, password } })),
     officerLogin: (email, password) =>
       json(call("/auth/officer/login", { method: "POST", body: { email, password } })),
+    officerMfa: (mfaToken, code) =>
+      json(call("/auth/officer/mfa", { method: "POST", body: { mfaToken, code } })),
+    officerMfaStatus: () => json(call("/auth/officer/mfa/status")),
+    officerMfaEnroll: (csrfToken) =>
+      json(call("/auth/officer/mfa/enroll", { method: "POST", token: csrfToken })),
+    officerMfaConfirm: (csrfToken, code) =>
+      json(call("/auth/officer/mfa/confirm", { method: "POST", token: csrfToken, body: { code } })),
+    officerMfaDisable: async (csrfToken) => {
+      await call("/auth/officer/mfa/disable", { method: "POST", token: csrfToken });
+    },
     requestPasswordReset: async (email) => {
       await call("/auth/password-reset/request", { method: "POST", body: { email } });
     },

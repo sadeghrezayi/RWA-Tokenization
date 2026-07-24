@@ -17,7 +17,12 @@ import { RequestPasswordReset } from "../../application/identity/request-passwor
 import { ResetPassword } from "../../application/identity/reset-password.js";
 import { RequestEmailVerification } from "../../application/identity/request-email-verification.js";
 import { VerifyEmail } from "../../application/identity/verify-email.js";
-import { CurrentPrincipal, Public } from "./auth.guard.js";
+import { StartMfaEnrollment } from "../../application/identity/start-mfa-enrollment.js";
+import { ConfirmMfaEnrollment } from "../../application/identity/confirm-mfa-enrollment.js";
+import { DisableMfa } from "../../application/identity/disable-mfa.js";
+import { GetMfaStatus } from "../../application/identity/get-mfa-status.js";
+import { CompleteOfficerMfaChallenge } from "../../application/identity/complete-officer-mfa-challenge.js";
+import { CurrentPrincipal, Public, RequireRole } from "./auth.guard.js";
 import { AuthRateLimitGuard } from "./rate-limit.guard.js";
 import { LOGIN_THROTTLE_SERVICE } from "./http.tokens.js";
 import { newCsrfToken, sessionClearCookies, sessionSetCookies } from "./session.js";
@@ -35,6 +40,13 @@ const credentials = (body: unknown): { email: string; password: string } => {
   return { email: record.email, password: record.password };
 };
 
+// The @RequireRole("officer") guard guarantees the officer kind; this narrows
+// the union for the type system and yields the MFA store key.
+const officerIdOf = (principal: Principal): string => {
+  if (principal.kind !== "officer") throw new BadRequestException();
+  return principal.officerId;
+};
+
 // Auth edge: every route is IP-rate-limited (guard); every login is wrapped in
 // the per-account lockout throttle (T4). On success we establish an httpOnly
 // session cookie + a readable CSRF cookie (T21). The token is also returned in
@@ -49,6 +61,11 @@ export class AuthController {
     private readonly resetPassword: ResetPassword,
     private readonly requestEmailVerification: RequestEmailVerification,
     private readonly verifyEmail: VerifyEmail,
+    private readonly startMfaEnrollment: StartMfaEnrollment,
+    private readonly confirmMfaEnrollment: ConfirmMfaEnrollment,
+    private readonly disableMfa: DisableMfa,
+    private readonly getMfaStatus: GetMfaStatus,
+    private readonly completeOfficerMfa: CompleteOfficerMfaChallenge,
     @Inject(LOGIN_THROTTLE_SERVICE) private readonly throttle: LoginThrottleService,
   ) {}
 
@@ -67,19 +84,92 @@ export class AuthController {
     return { ...result, csrfToken };
   }
 
+  // Officer login step 1 (password). Officers with active MFA get back
+  // { mfaRequired: true, mfaToken } instead of a session — no cookie is set
+  // until the MFA step (POST /auth/officer/mfa) succeeds (T4).
   @Public()
   @Post("officer/login")
   @HttpCode(200)
   async officerLogin(
     @Body() body: unknown,
     @Res({ passthrough: true }) res: CookieResponse,
-  ): Promise<{ token: string; csrfToken: string }> {
+  ): Promise<{ token: string; csrfToken: string } | { mfaRequired: true; mfaToken: string }> {
     const creds = credentials(body);
     const result = await this.throttle.guard(creds.email, () =>
       this.authenticateOfficer.execute(creds),
     );
+    if (result.status === "mfa_required") {
+      return { mfaRequired: true, mfaToken: result.challengeToken };
+    }
     const csrfToken = this.establishSession(res, result.token);
-    return { ...result, csrfToken };
+    return { token: result.token, csrfToken };
+  }
+
+  // Officer login step 2: redeem the challenge + a TOTP or recovery code for a
+  // session. Invalid/expired challenge or wrong code → 401.
+  @Public()
+  @Post("officer/mfa")
+  @HttpCode(200)
+  async officerMfa(
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: CookieResponse,
+  ): Promise<{ token: string; csrfToken: string }> {
+    const record = (body ?? {}) as Record<string, unknown>;
+    if (typeof record.mfaToken !== "string" || typeof record.code !== "string") {
+      throw new BadRequestException(`"mfaToken" and "code" are required strings`);
+    }
+    const { token } = await this.completeOfficerMfa.execute({
+      challengeToken: record.mfaToken,
+      code: record.code,
+    });
+    const csrfToken = this.establishSession(res, token);
+    return { token, csrfToken };
+  }
+
+  // --- officer MFA management (authenticated officer) ---
+
+  @RequireRole("officer")
+  @Get("officer/mfa/status")
+  officerMfaStatus(
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<{ status: "none" | "pending" | "active" }> {
+    return this.getMfaStatus.execute({ principalId: officerIdOf(principal) });
+  }
+
+  // Begin enrollment: returns the TOTP secret + otpauth URI to render as a QR.
+  @RequireRole("officer")
+  @Post("officer/mfa/enroll")
+  @HttpCode(200)
+  officerMfaEnroll(
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<{ secret: string; keyUri: string }> {
+    const officerId = officerIdOf(principal);
+    return this.startMfaEnrollment.execute({ principalId: officerId, accountName: officerId });
+  }
+
+  // Confirm enrollment with a live code; returns single-use recovery codes once.
+  @RequireRole("officer")
+  @Post("officer/mfa/confirm")
+  @HttpCode(200)
+  officerMfaConfirm(
+    @CurrentPrincipal() principal: Principal,
+    @Body() body: unknown,
+  ): Promise<{ recoveryCodes: string[] }> {
+    const record = (body ?? {}) as Record<string, unknown>;
+    if (typeof record.code !== "string") {
+      throw new BadRequestException(`"code" is required`);
+    }
+    return this.confirmMfaEnrollment.execute({
+      principalId: officerIdOf(principal),
+      code: record.code,
+    });
+  }
+
+  @RequireRole("officer")
+  @Post("officer/mfa/disable")
+  @HttpCode(204)
+  async officerMfaDisable(@CurrentPrincipal() principal: Principal): Promise<void> {
+    await this.disableMfa.execute({ principalId: officerIdOf(principal) });
   }
 
   // Lets a browser verify its cookie session on page load without exposing the

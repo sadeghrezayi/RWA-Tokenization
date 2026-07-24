@@ -26,6 +26,7 @@ Decisions the assistant must NOT make alone. Each has options + a recommendation
 | OD-20 | Fee model activation | PRD §13 fee options exist; which fees are real for pilot (platform fee? issuance fee? none)? | Business decision — needed before checkout fee-summary step (P2.4) copy is real |
 | OD-21 | Projected-yield methodology | Who computes/approves projected yield shown publicly; display rules | Business+legal — required before public offering pages show yield |
 | OD-22 | Email-verification enforcement | (a) informational only (verify anytime; nothing blocked); (b) gate KYC submission on a verified email; (c) gate login/investing on it | **(a) shipped in P1.3c-ii** (status shown, no behaviour gated). Choosing (b)/(c) is a product call — confirm before adding any block; jurisdictions may *require* verified contact before onboarding (policy item) |
+| OD-23 | MFA scope & enforcement (going forward) | Current: officers only, opt-in (1.3d). Options to decide with RBAC (1.4): (a) keep opt-in; (b) mandatory for officers/privileged roles; (c) also offer/enforce investor MFA | **Confirm at 1.4.** Recommendation: **(b) mandatory for privileged roles** once RBAC + the User/Membership model exist (so secrets live on User, not the env officer); investor MFA optional later. Enforcing MFA before RBAC would lock out the single env officer if a device is lost — hence opt-in for the pilot |
 
 ## Standing assumptions carried into Phase 0 docs (flag if wrong)
 A-1: Real estate is the first vertical; other asset types remain supported generically. · A-2: Rial integer minor-unit is the only settlement currency for pilot. · A-3: anvil stays the dev chain; Besu stand-up remains a pre-pilot gate (existing decision). · A-4: English remains default/demo language (standing policy). · A-5: The existing 616-test suite is the regression floor. · A-6: No production users/data exist today.
@@ -38,3 +39,4 @@ A-1: Real estate is the first vertical; other asset types remain supported gener
 | 2026-07-22 | OD-3 | **(a) confirmed** — pg-boss for background jobs |
 | 2026-07-22 | OD-4 | **Approved all** — Playwright + axe-core (dev), otplib, nodemailer; charts remain hand-rolled SVG |
 | 2026-07-22 | OD-19 | **(a) confirmed** — GitHub Actions CI |
+| 2026-07-24 | OD-23 (scope) | **Officers/staff only, opt-in** for P1.3d — user decision. Mandatory-for-privileged + investor MFA revisited with RBAC (1.4) |

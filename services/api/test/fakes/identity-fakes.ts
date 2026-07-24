@@ -5,6 +5,9 @@ import type {
   ClaimIssuer,
   IdGenerator,
   InvestorRepository,
+  MfaChallengeIssuer,
+  MfaEnrollment,
+  MfaStore,
   PasswordHasher,
   Principal,
   TokenIssuer,
@@ -77,5 +80,41 @@ export class RecordingTokenIssuer implements TokenIssuer {
     this.issued.push(principal);
     const id = principal.kind === "investor" ? principal.investorId : principal.officerId;
     return Promise.resolve(`token:${principal.kind}:${id}`);
+  }
+}
+
+export class InMemoryMfaStore implements MfaStore {
+  readonly map = new Map<string, MfaEnrollment>();
+
+  load(principalId: string): Promise<MfaEnrollment | undefined> {
+    const e = this.map.get(principalId);
+    return Promise.resolve(e ? { ...e, recoveryCodeHashes: [...e.recoveryCodeHashes] } : undefined);
+  }
+
+  save(principalId: string, enrollment: MfaEnrollment): Promise<void> {
+    this.map.set(principalId, {
+      ...enrollment,
+      recoveryCodeHashes: [...enrollment.recoveryCodeHashes],
+    });
+    return Promise.resolve();
+  }
+
+  delete(principalId: string): Promise<void> {
+    this.map.delete(principalId);
+    return Promise.resolve();
+  }
+}
+
+// Deterministic stand-in for the signed short-lived challenge JWT. A token is
+// simply `challenge:<principalId>`; anything else fails to verify.
+export class FakeMfaChallengeIssuer implements MfaChallengeIssuer {
+  issue(principalId: string): Promise<string> {
+    return Promise.resolve(`challenge:${principalId}`);
+  }
+
+  verify(token: string): Promise<string | undefined> {
+    return Promise.resolve(
+      token.startsWith("challenge:") ? token.slice("challenge:".length) : undefined,
+    );
   }
 }

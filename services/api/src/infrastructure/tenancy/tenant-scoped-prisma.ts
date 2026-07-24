@@ -34,6 +34,7 @@ const UNSCOPED_MODELS = new Set([
   "loginAttempt",
   "passwordResetToken",
   "emailVerificationToken",
+  "mfaEnrollment",
 ]);
 
 const WHERE_SCOPED = new Set([

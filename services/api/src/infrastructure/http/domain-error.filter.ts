@@ -4,9 +4,13 @@ import {
   AccountLockedError,
   EmailAlreadyRegisteredError,
   InvalidCredentialsError,
+  InvalidMfaChallengeError,
+  InvalidMfaCodeError,
   InvalidResetTokenError,
   InvalidVerificationTokenError,
   InvestorNotFoundError,
+  MfaAlreadyEnrolledError,
+  MfaNotEnrolledError,
   TooManyRequestsError,
   WeakPasswordError,
 } from "../../application/identity/errors.js";
@@ -113,6 +117,12 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof AccountLockedError) return 429;
   if (exception instanceof TooManyRequestsError) return 429;
   if (exception instanceof InvalidCredentialsError) return 401;
+  // MFA challenge failures are authentication failures (bad/expired factor).
+  if (exception instanceof InvalidMfaCodeError) return 401;
+  if (exception instanceof InvalidMfaChallengeError) return 401;
+  // Enrollment state conflicts (already on / nothing pending).
+  if (exception instanceof MfaAlreadyEnrolledError) return 409;
+  if (exception instanceof MfaNotEnrolledError) return 409;
   if (exception instanceof InvestorNotFoundError) return 404;
   if (exception instanceof AssetNotFoundError) return 404;
   if (exception instanceof EmailAlreadyRegisteredError) return 409;
