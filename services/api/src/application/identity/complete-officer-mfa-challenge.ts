@@ -1,16 +1,24 @@
 import { InvalidMfaChallengeError, InvalidMfaCodeError } from "./errors.js";
-import type { MfaChallengeIssuer, MfaStore, TokenIssuer, TotpService } from "./ports.js";
+import type {
+  MfaChallengeIssuer,
+  MfaStore,
+  StaffUserRepository,
+  TokenIssuer,
+  TotpService,
+} from "./ports.js";
 import { hashToken } from "./token-hash.js";
 
 // T1/T4 MFA — login step 2. Redeems a valid challenge (from the password step)
 // plus either a live TOTP code OR a single-use recovery code, and issues the
-// officer session. Recovery codes are consumed on use.
+// staff session — carrying the user's roles, so MFA login never widens or
+// narrows the permissions the password step would have granted (1.4c).
 export class CompleteOfficerMfaChallenge {
   constructor(
     private readonly challenge: MfaChallengeIssuer,
     private readonly store: MfaStore,
     private readonly totp: TotpService,
     private readonly tokens: TokenIssuer,
+    private readonly users: StaffUserRepository,
   ) {}
 
   async execute(input: { challengeToken: string; code: string }): Promise<{ token: string }> {
@@ -43,7 +51,8 @@ export class CompleteOfficerMfaChallenge {
     throw new InvalidMfaCodeError();
   }
 
-  private issueSession(officerId: string): Promise<string> {
-    return this.tokens.issue({ kind: "officer", officerId });
+  private async issueSession(officerId: string): Promise<string> {
+    const user = await this.users.findById(officerId);
+    return this.tokens.issue({ kind: "officer", officerId, roles: user?.roles ?? [] });
   }
 }

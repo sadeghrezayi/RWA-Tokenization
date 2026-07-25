@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { AuthenticateInvestor } from "../../application/identity/authenticate-investor.js";
-import { AuthenticateOfficer } from "../../application/identity/authenticate-officer.js";
+import { AuthenticateStaff } from "../../application/identity/authenticate-staff.js";
 import type { LoginThrottleService } from "../../application/identity/login-throttle-service.js";
 import type { Principal } from "../../application/identity/ports.js";
 import { RequestPasswordReset } from "../../application/identity/request-password-reset.js";
@@ -57,7 +57,7 @@ const officerIdOf = (principal: Principal): string => {
 export class AuthController {
   constructor(
     private readonly authenticateInvestor: AuthenticateInvestor,
-    private readonly authenticateOfficer: AuthenticateOfficer,
+    private readonly authenticateStaff: AuthenticateStaff,
     private readonly requestPasswordReset: RequestPasswordReset,
     private readonly resetPassword: ResetPassword,
     private readonly requestEmailVerification: RequestEmailVerification,
@@ -97,7 +97,7 @@ export class AuthController {
   ): Promise<{ token: string; csrfToken: string } | { mfaRequired: true; mfaToken: string }> {
     const creds = credentials(body);
     const result = await this.throttle.guard(creds.email, () =>
-      this.authenticateOfficer.execute(creds),
+      this.authenticateStaff.execute(creds),
     );
     if (result.status === "mfa_required") {
       return { mfaRequired: true, mfaToken: result.challengeToken };

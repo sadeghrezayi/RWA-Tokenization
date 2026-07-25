@@ -2,6 +2,7 @@ import type { EmailAddress } from "../../domain/identity/email-address.js";
 import type { Investor } from "../../domain/identity/investor.js";
 import type { KycState } from "../../domain/identity/kyc-status.js";
 import type { LoginThrottle } from "../../domain/identity/login-throttle.js";
+import type { StaffUser } from "../../domain/identity/staff-user.js";
 
 export interface InvestorRepository {
   findById(id: string): Promise<Investor | undefined>;
@@ -9,6 +10,14 @@ export interface InvestorRepository {
   findByKycStates(states: readonly KycState[]): Promise<Investor[]>;
   findAll(): Promise<Investor[]>;
   save(investor: Investor): Promise<void>;
+}
+
+// Staff/operator accounts (1.4c). Platform-level (evaluated pre-auth), so the
+// adapter uses the RAW Prisma client.
+export interface StaffUserRepository {
+  findByEmail(email: EmailAddress): Promise<StaffUser | undefined>;
+  findById(id: string): Promise<StaffUser | undefined>;
+  save(user: StaffUser): Promise<void>;
 }
 
 // FR-PT-3 admin directory reads: settlement balance and the investor's
@@ -41,8 +50,13 @@ export interface PasswordHasher {
   verify(plain: string, hash: string): Promise<boolean>;
 }
 
+// Staff principals carry the roles granted by their memberships (1.4c). `roles`
+// is optional so legacy tokens minted before 1.4c still verify — those fall back
+// to full operator permissions in the authorization layer. Kept as string[]
+// (not RoleName) to avoid an import cycle with authorization.ts.
 export type Principal =
-  { kind: "investor"; investorId: string } | { kind: "officer"; officerId: string };
+  | { kind: "investor"; investorId: string }
+  | { kind: "officer"; officerId: string; roles?: readonly string[] };
 
 export interface TokenIssuer {
   issue(principal: Principal): Promise<string>;

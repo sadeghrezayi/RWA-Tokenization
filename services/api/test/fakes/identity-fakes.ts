@@ -1,6 +1,7 @@
 import type { EmailAddress } from "../../src/domain/identity/email-address.js";
 import type { Investor } from "../../src/domain/identity/investor.js";
 import type { KycState } from "../../src/domain/identity/kyc-status.js";
+import type { StaffUser } from "../../src/domain/identity/staff-user.js";
 import type {
   ClaimIssuer,
   IdGenerator,
@@ -10,6 +11,7 @@ import type {
   MfaStore,
   PasswordHasher,
   Principal,
+  StaffUserRepository,
   TokenIssuer,
 } from "../../src/application/identity/ports.js";
 
@@ -36,6 +38,23 @@ export class InMemoryInvestorRepository implements InvestorRepository {
 
   save(investor: Investor): Promise<void> {
     this.byId.set(investor.id, investor);
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryStaffUserRepository implements StaffUserRepository {
+  private readonly byId = new Map<string, StaffUser>();
+
+  findByEmail(email: EmailAddress): Promise<StaffUser | undefined> {
+    return Promise.resolve([...this.byId.values()].find((u) => u.email.equals(email)));
+  }
+
+  findById(id: string): Promise<StaffUser | undefined> {
+    return Promise.resolve(this.byId.get(id));
+  }
+
+  save(user: StaffUser): Promise<void> {
+    this.byId.set(user.id, user);
     return Promise.resolve();
   }
 }

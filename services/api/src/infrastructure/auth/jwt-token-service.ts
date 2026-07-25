@@ -34,11 +34,18 @@ export class JwtTokenService implements TokenIssuer, TokenVerifier {
   }
 }
 
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((v) => typeof v === "string");
+
 const isPrincipal = (value: unknown): value is Principal => {
   if (typeof value !== "object" || value === null) return false;
   const p = value as Record<string, unknown>;
-  return (
-    (p.kind === "investor" && typeof p.investorId === "string") ||
-    (p.kind === "officer" && typeof p.officerId === "string")
-  );
+  if (p.kind === "investor") {
+    return typeof p.investorId === "string";
+  }
+  if (p.kind === "officer") {
+    // roles is optional (legacy tokens omit it); if present it must be string[].
+    return typeof p.officerId === "string" && (p.roles === undefined || isStringArray(p.roles));
+  }
+  return false;
 };

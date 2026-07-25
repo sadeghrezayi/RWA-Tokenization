@@ -87,6 +87,29 @@ model EmailVerificationToken {
   @@map("email_verification_tokens")
 }
 
+// Staff/operator accounts (1.4c). Platform-level (not tenant-scoped) — evaluated
+// pre-auth during login. Roles are granted via StaffMembership.
+model StaffUser {
+  id           String            @id
+  email        String            @unique
+  passwordHash String            @map("password_hash")
+  status       String            @default("active")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  memberships  StaffMembership[]
+
+  @@map("staff_users")
+}
+
+model StaffMembership {
+  userId String    @map("user_id")
+  user   StaffUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   String
+
+  @@id([userId, role])
+  @@map("staff_memberships")
+}
+
 // T1/T3 maker-checker: a sensitive action awaiting a second person's decision.
 // Tenant-owned. payload holds the action parameters (e.g. ledger.credit →
 // { investorId, amountRial }).

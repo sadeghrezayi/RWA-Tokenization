@@ -6,9 +6,13 @@ import {
 } from "../../../src/application/identity/errors.js";
 import { hashToken } from "../../../src/application/identity/token-hash.js";
 import type { TotpService } from "../../../src/application/identity/ports.js";
+import { EmailAddress } from "../../../src/domain/identity/email-address.js";
+import { PasswordHash } from "../../../src/domain/identity/password-hash.js";
+import { StaffUser } from "../../../src/domain/identity/staff-user.js";
 import {
   FakeMfaChallengeIssuer,
   InMemoryMfaStore,
+  InMemoryStaffUserRepository,
   RecordingTokenIssuer,
 } from "../../fakes/identity-fakes.js";
 
@@ -30,6 +34,12 @@ class FakeTotpService implements TotpService {
 const setup = async () => {
   const store = new InMemoryMfaStore();
   const tokens = new RecordingTokenIssuer();
+  const users = new InMemoryStaffUserRepository();
+  await users.save(
+    StaffUser.create(OFFICER, EmailAddress.of("officer@platform.local"), PasswordHash.of("h"), [
+      "approver",
+    ]),
+  );
   await store.save(OFFICER, {
     secret: "SECRET-XYZ",
     status: "active",
@@ -43,6 +53,7 @@ const setup = async () => {
       store,
       new FakeTotpService(),
       tokens,
+      users,
     ),
   };
 };
@@ -55,7 +66,8 @@ describe("CompleteOfficerMfaChallenge", () => {
       code: GOOD_CODE,
     });
     expect(result).toEqual({ token: "token:officer:officer-1" });
-    expect(s.tokens.issued).toEqual([{ kind: "officer", officerId: OFFICER }]);
+    // The MFA session carries the user's roles (1.4c) — not a blanket operator.
+    expect(s.tokens.issued).toEqual([{ kind: "officer", officerId: OFFICER, roles: ["approver"] }]);
   });
 
   it("accepts_a_single_use_recovery_code_and_consumes_it", async () => {

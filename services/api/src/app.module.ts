@@ -4,7 +4,7 @@ import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { ApproveKyc } from "./application/identity/approve-kyc.js";
 import { AuthenticateInvestor } from "./application/identity/authenticate-investor.js";
-import { AuthenticateOfficer } from "./application/identity/authenticate-officer.js";
+import { AuthenticateStaff } from "./application/identity/authenticate-staff.js";
 import { GetInvestor } from "./application/identity/get-investor.js";
 import { ListPendingKyc } from "./application/identity/list-pending-kyc.js";
 import { RegisterInvestor } from "./application/identity/register-investor.js";
@@ -41,9 +41,11 @@ import type {
   InvestorRepository,
   LedgerReader,
   PasswordHasher,
+  StaffUserRepository,
   TokenIssuer,
 } from "./application/identity/ports.js";
-import type { OfficerCredentials } from "./application/identity/authenticate-officer.js";
+import { PrismaStaffUserRepository } from "./infrastructure/persistence/prisma-staff-user-repository.js";
+import { StaffBootstrap } from "./infrastructure/auth/staff-bootstrap.js";
 import { ApproveAsset } from "./application/assets/approve-asset.js";
 import { AttachDossierDocument } from "./application/assets/attach-dossier-document.js";
 import { ConfirmChecklistItem } from "./application/assets/confirm-checklist-item.js";
@@ -225,7 +227,7 @@ export const CLAIM_ISSUER = "CLAIM_ISSUER";
 export const ID_GENERATOR = "ID_GENERATOR";
 export const PASSWORD_HASHER = "PASSWORD_HASHER";
 export const TOKEN_ISSUER = "TOKEN_ISSUER";
-export const OFFICER_CREDENTIALS = "OFFICER_CREDENTIALS";
+export const STAFF_USER_REPOSITORY = "STAFF_USER_REPOSITORY";
 export const ASSET_REPOSITORY = "ASSET_REPOSITORY";
 export const DOCUMENT_STORE = "DOCUMENT_STORE";
 export const ASSET_EVENT_LOG = "ASSET_EVENT_LOG";
@@ -330,22 +332,19 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     },
     { provide: TOKEN_ISSUER, useExisting: JwtTokenService },
     { provide: TOKEN_VERIFIER, useExisting: JwtTokenService },
+    // 1.4c: staff accounts live in staff_users (platform-level, raw Prisma).
+    // StaffBootstrap seeds the super-admin (the env officer maps to it) + a
+    // treasury user on startup so maker-checker has two real logins.
     {
-      // Walking skeleton: one env-configured compliance officer (FR-ID-4);
-      // per-officer accounts land together with the FR-RA-2 audit log.
-      provide: OFFICER_CREDENTIALS,
-      useFactory: async (hasher: PasswordHasher): Promise<OfficerCredentials> => {
-        const email = process.env.OFFICER_EMAIL ?? "officer@platform.local";
-        const configured = process.env.OFFICER_PASSWORD_HASH;
-        if (configured) {
-          return { email, passwordHash: configured };
-        }
-        new Logger("AppModule").warn(
-          'OFFICER_PASSWORD_HASH is not set — dev officer password is "officer-dev-pass"',
-        );
-        return { email, passwordHash: await hasher.hash("officer-dev-pass") };
-      },
-      inject: [PASSWORD_HASHER],
+      provide: STAFF_USER_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaStaffUserRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: StaffBootstrap,
+      useFactory: (users: StaffUserRepository, hasher: PasswordHasher) =>
+        new StaffBootstrap(users, hasher),
+      inject: [STAFF_USER_REPOSITORY, PASSWORD_HASHER],
     },
     {
       provide: RegisterInvestor,
@@ -360,15 +359,21 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       inject: [INVESTOR_REPOSITORY, PASSWORD_HASHER, TOKEN_ISSUER],
     },
     {
-      provide: AuthenticateOfficer,
+      provide: AuthenticateStaff,
       useFactory: (
+        users: StaffUserRepository,
         hasher: PasswordHasher,
         tokens: TokenIssuer,
-        officer: OfficerCredentials,
         mfa: MfaStore,
         challenge: MfaChallengeIssuer,
-      ) => new AuthenticateOfficer(hasher, tokens, officer, mfa, challenge),
-      inject: [PASSWORD_HASHER, TOKEN_ISSUER, OFFICER_CREDENTIALS, MFA_STORE, MFA_CHALLENGE_ISSUER],
+      ) => new AuthenticateStaff(users, hasher, tokens, mfa, challenge),
+      inject: [
+        STAFF_USER_REPOSITORY,
+        PASSWORD_HASHER,
+        TOKEN_ISSUER,
+        MFA_STORE,
+        MFA_CHALLENGE_ISSUER,
+      ],
     },
     // T1/T4 officer MFA. Platform-level store (raw Prisma). The challenge issuer
     // reuses the auth secret with a distinct purpose claim (see the service).
@@ -414,8 +419,9 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         store: MfaStore,
         totp: TotpService,
         tokens: TokenIssuer,
-      ) => new CompleteOfficerMfaChallenge(challenge, store, totp, tokens),
-      inject: [MFA_CHALLENGE_ISSUER, MFA_STORE, TOTP_SERVICE, TOKEN_ISSUER],
+        users: StaffUserRepository,
+      ) => new CompleteOfficerMfaChallenge(challenge, store, totp, tokens, users),
+      inject: [MFA_CHALLENGE_ISSUER, MFA_STORE, TOTP_SERVICE, TOKEN_ISSUER, STAFF_USER_REPOSITORY],
     },
     {
       provide: SubmitKyc,
