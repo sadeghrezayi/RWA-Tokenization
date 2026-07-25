@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { InsufficientFundsError } from "../../application/offerings/errors.js";
 import type { SettlementRail } from "../../application/offerings/ports.js";
 import type { DistributionLedger } from "../../application/distributions/ports.js";
@@ -12,7 +12,7 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
   // Operator-recorded bank deposit (the pilot's simulated bank rail).
   async credit(investorId: string, amountRial: bigint, actor: string): Promise<void> {
     this.assertPositive(amountRial);
-    await this.prisma.$transaction(async (tx) => {
+    await this.inTransaction(async (tx) => {
       await this.creditBalance(tx, investorId, amountRial);
       await tx.ledgerEntry.create({
         data: { investorId, kind: "credit", amountRial, actor },
@@ -22,7 +22,7 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
 
   async hold(investorId: string, amountRial: bigint): Promise<void> {
     this.assertPositive(amountRial);
-    await this.prisma.$transaction(async (tx) => {
+    await this.inTransaction(async (tx) => {
       const updated = await tx.ledgerAccount.updateMany({
         where: { investorId, balance: { gte: amountRial } },
         data: { balance: { decrement: amountRial }, held: { increment: amountRial } },
@@ -38,7 +38,7 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
 
   async release(investorId: string, amountRial: bigint): Promise<void> {
     this.assertPositive(amountRial);
-    await this.prisma.$transaction(async (tx) => {
+    await this.inTransaction(async (tx) => {
       const updated = await tx.ledgerAccount.updateMany({
         where: { investorId, held: { gte: amountRial } },
         data: { held: { decrement: amountRial }, balance: { increment: amountRial } },
@@ -54,7 +54,7 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
 
   async capture(investorId: string, amountRial: bigint): Promise<void> {
     this.assertPositive(amountRial);
-    await this.prisma.$transaction(async (tx) => {
+    await this.inTransaction(async (tx) => {
       const updated = await tx.ledgerAccount.updateMany({
         where: { investorId, held: { gte: amountRial } },
         data: { held: { decrement: amountRial } },
@@ -72,7 +72,7 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
   // distinct ledger-entry kind for the audit trail.
   async payout(investorId: string, amountRial: bigint): Promise<void> {
     this.assertPositive(amountRial);
-    await this.prisma.$transaction(async (tx) => {
+    await this.inTransaction(async (tx) => {
       await this.creditBalance(tx, investorId, amountRial);
       await tx.ledgerEntry.create({
         data: { investorId, kind: "distribution", amountRial, actor: "platform" },
@@ -84,7 +84,7 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
   // ledger-entry kind so the audit trail separates income from redemptions.
   async payoutRedemption(investorId: string, amountRial: bigint): Promise<void> {
     this.assertPositive(amountRial);
-    await this.prisma.$transaction(async (tx) => {
+    await this.inTransaction(async (tx) => {
       await this.creditBalance(tx, investorId, amountRial);
       await tx.ledgerEntry.create({
         data: { investorId, kind: "redemption", amountRial, actor: "platform" },
@@ -95,6 +95,23 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
   async balanceOf(investorId: string): Promise<{ balanceRial: bigint; heldRial: bigint }> {
     const account = await this.prisma.ledgerAccount.findFirst({ where: { investorId } });
     return { balanceRial: account?.balance ?? 0n, heldRial: account?.held ?? 0n };
+  }
+
+  // Runs a ledger movement in ONE transaction, but JOINS an ambient one when
+  // the injected client is already a transaction client (composed inside a
+  // larger unit of work — e.g. atomic maker-checker approve+credit, 1.6a). A
+  // tenant-scoped transaction client exposes no nested $transaction; that
+  // absence is the signal to join rather than open a new (impossible) one.
+  private async inTransaction(
+    work: (tx: Prisma.TransactionClient) => Promise<void>,
+  ): Promise<void> {
+    const maybeTx = (this.prisma as { $transaction?: unknown }).$transaction;
+    if (typeof maybeTx === "function") {
+      const run = maybeTx as (fn: (tx: Prisma.TransactionClient) => Promise<void>) => Promise<void>;
+      await run.call(this.prisma, work);
+      return;
+    }
+    await work(this.prisma);
   }
 
   // Tenant-safe balance credit (no upsert): try the guarded update first,

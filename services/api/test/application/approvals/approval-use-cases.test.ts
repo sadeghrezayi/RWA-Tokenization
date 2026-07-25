@@ -5,6 +5,7 @@ import { ListApprovals } from "../../../src/application/approvals/list-approvals
 import { ApprovalNotFoundError } from "../../../src/application/approvals/errors.js";
 import type {
   ApprovalActionExecutor,
+  ApprovalCommit,
   ApprovalRepository,
   LedgerCredit,
 } from "../../../src/application/approvals/ports.js";
@@ -51,6 +52,10 @@ const setup = () => {
   const rail = new RecordingRail();
   const executor = new RecordingExecutor();
   const clock = new FixedClock(NOW);
+  // Fake commit: runs the work inline with the same in-memory stores (no real tx).
+  const commit: ApprovalCommit = {
+    commit: (work) => work({ approvals, executor }),
+  };
   return {
     approvals,
     rail,
@@ -62,7 +67,7 @@ const setup = () => {
       clock,
       THRESHOLD,
     ),
-    decide: new DecideApproval(approvals, executor, clock),
+    decide: new DecideApproval(approvals, commit, clock),
     list: new ListApprovals(approvals),
   };
 };

@@ -83,13 +83,13 @@ import {
 } from "./application/approvals/credit-investor-ledger.js";
 import { DecideApproval } from "./application/approvals/decide-approval.js";
 import { ListApprovals } from "./application/approvals/list-approvals.js";
-import { ApprovalActionDispatcher } from "./application/approvals/ledger-credit-executor.js";
 import type {
-  ApprovalActionExecutor,
+  ApprovalCommit,
   ApprovalRepository,
   LedgerCredit,
 } from "./application/approvals/ports.js";
 import { PrismaApprovalRepository } from "./infrastructure/persistence/prisma-approval-repository.js";
+import { PrismaApprovalCommit } from "./infrastructure/persistence/prisma-approval-commit.js";
 import { ApprovalsController } from "./infrastructure/http/approvals.controller.js";
 import { DeclareDistribution } from "./application/distributions/declare-distribution.js";
 import { PayDistribution } from "./application/distributions/pay-distribution.js";
@@ -235,7 +235,7 @@ export const TOKEN_DEPLOYER = "TOKEN_DEPLOYER";
 export const OFFERING_REPOSITORY = "OFFERING_REPOSITORY";
 export const SETTLEMENT_RAIL = "SETTLEMENT_RAIL";
 export const APPROVAL_REPOSITORY = "APPROVAL_REPOSITORY";
-export const APPROVAL_EXECUTOR = "APPROVAL_EXECUTOR";
+export const APPROVAL_COMMIT = "APPROVAL_COMMIT";
 export const ASSET_TOKEN_ISSUER = "ASSET_TOKEN_ISSUER";
 export const CLOCK = "CLOCK";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
@@ -550,9 +550,10 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       inject: [SCOPED_PRISMA],
     },
     {
-      provide: APPROVAL_EXECUTOR,
-      useFactory: (rail: LedgerCredit) => new ApprovalActionDispatcher(rail),
-      inject: [PrismaSettlementRail],
+      // T8 atomicity: the approval decision + effect commit in one transaction.
+      provide: APPROVAL_COMMIT,
+      useFactory: (scoped: PrismaService) => new PrismaApprovalCommit(scoped),
+      inject: [SCOPED_PRISMA],
     },
     {
       provide: CreditInvestorLedger,
@@ -573,9 +574,9 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     },
     {
       provide: DecideApproval,
-      useFactory: (approvals: ApprovalRepository, executor: ApprovalActionExecutor, clock: Clock) =>
-        new DecideApproval(approvals, executor, clock),
-      inject: [APPROVAL_REPOSITORY, APPROVAL_EXECUTOR, CLOCK],
+      useFactory: (approvals: ApprovalRepository, commit: ApprovalCommit, clock: Clock) =>
+        new DecideApproval(approvals, commit, clock),
+      inject: [APPROVAL_REPOSITORY, APPROVAL_COMMIT, CLOCK],
     },
     {
       provide: ListApprovals,

@@ -13,6 +13,19 @@ export interface ApprovalActionExecutor {
   execute(approval: Approval): Promise<void>;
 }
 
+// T8 atomicity (1.6): commits an approval decision AND its effect in a single DB
+// transaction — the approved-status write and the ledger credit either both
+// commit or both roll back (no approved-but-uncredited window, no double-credit
+// on retry). The callback receives transaction-bound stores.
+export interface ApprovalCommit {
+  commit(
+    work: (stores: {
+      approvals: ApprovalRepository;
+      executor: ApprovalActionExecutor;
+    }) => Promise<void>,
+  ): Promise<void>;
+}
+
 // One authoritative credit path, used both for a direct below-threshold credit
 // and by the executor after an above-threshold credit is approved.
 export interface LedgerCredit {

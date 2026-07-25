@@ -1,28 +1,28 @@
 import type { Approval } from "../../domain/approvals/approval.js";
 import type { Clock } from "../offerings/ports.js";
 import { ApprovalNotFoundError } from "./errors.js";
-import type { ApprovalActionExecutor, ApprovalRepository } from "./ports.js";
+import type { ApprovalCommit, ApprovalRepository } from "./ports.js";
 
 // T1/T3 maker-checker decision. Approve enforces four-eyes (Approval.approve
-// throws SelfApprovalError if checker === maker) and then runs the action.
-//
-// Ordering (money-safety): the approved state is persisted BEFORE the action
-// runs, so a decided approval can never be approved (or executed) twice. If the
-// executor then fails, the approval is left "approved" but un-effected — visible
-// and reconcilable, never double-credited. Transactional atomicity + idempotent
-// execution is a Phase 1.6 (outbox/ChainTransaction) hardening item.
+// throws SelfApprovalError if checker === maker) and then commits the decision
+// and its effect ATOMICALLY (T8): the approved-status write and the ledger
+// credit share one DB transaction (1.6a), so they either both land or both roll
+// back — no approved-but-uncredited window, no double-credit on retry.
 export class DecideApproval {
   constructor(
     private readonly approvals: ApprovalRepository,
-    private readonly executor: ApprovalActionExecutor,
+    private readonly commit: ApprovalCommit,
     private readonly clock: Clock,
   ) {}
 
   async approve(input: { approvalId: string; checkerId: string }): Promise<void> {
     const approval = await this.load(input.approvalId);
+    // Four-eyes guard runs first (cheap, no I/O); the effect then commits atomically.
     const approved = approval.approve(input.checkerId, this.clock.now());
-    await this.approvals.save(approved);
-    await this.executor.execute(approved);
+    await this.commit.commit(async ({ approvals, executor }) => {
+      await approvals.save(approved);
+      await executor.execute(approved);
+    });
   }
 
   async reject(input: { approvalId: string; checkerId: string; reason: string }): Promise<void> {

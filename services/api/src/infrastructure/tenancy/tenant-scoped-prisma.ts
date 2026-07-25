@@ -112,6 +112,13 @@ const wrapClient = <T extends object>(client: T): T =>
         return value;
       }
       if (prop === "$transaction") {
+        // Interactive-transaction clients (the `tx` handed to a $transaction
+        // callback) expose no nested $transaction. Surface that absence instead
+        // of fabricating a wrapper, so callers can detect "already in a
+        // transaction" and join it rather than opening an (impossible) nested one.
+        if (typeof value !== "function") {
+          return value;
+        }
         const tx = value as (...a: unknown[]) => unknown;
         return (first: unknown, ...rest: unknown[]) => {
           if (typeof first === "function") {
