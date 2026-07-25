@@ -1,7 +1,16 @@
+import { StateMachine } from "../shared/state-machine.js";
 import { InvalidKycTransitionError, InvalidRejectionReasonError } from "./errors.js";
 
 // FR-ID-2: draft → submitted → in_review → approved / rejected / expired
 export type KycState = "draft" | "submitted" | "in_review" | "approved" | "rejected" | "expired";
+
+const KYC_MACHINE = new StateMachine<KycState>({
+  draft: ["submitted"],
+  submitted: ["in_review"],
+  in_review: ["approved", "rejected"],
+  approved: ["expired"],
+  // rejected / expired are terminal.
+});
 
 export class KycStatus {
   private constructor(
@@ -19,19 +28,19 @@ export class KycStatus {
   }
 
   submit(): KycStatus {
-    return this.transition("submit", "draft", "submitted");
+    return this.transition("submit", "submitted");
   }
 
   startReview(): KycStatus {
-    return this.transition("start review on", "submitted", "in_review");
+    return this.transition("start review on", "in_review");
   }
 
   approve(): KycStatus {
-    return this.transition("approve", "in_review", "approved");
+    return this.transition("approve", "approved");
   }
 
   reject(reason: string): KycStatus {
-    this.assertState("reject", "in_review");
+    this.assertTransition("reject", "rejected");
     const trimmed = reason.trim();
     if (trimmed === "") {
       throw new InvalidRejectionReasonError("a rejection must state a non-empty reason");
@@ -40,19 +49,19 @@ export class KycStatus {
   }
 
   expire(): KycStatus {
-    return this.transition("expire", "approved", "expired");
+    return this.transition("expire", "expired");
   }
 
-  private transition(action: string, requiredState: KycState, to: KycState): KycStatus {
-    this.assertState(action, requiredState);
+  private transition(action: string, to: KycState): KycStatus {
+    this.assertTransition(action, to);
     return new KycStatus(to);
   }
 
-  private assertState(action: string, requiredState: KycState): void {
-    if (this.state !== requiredState) {
+  private assertTransition(action: string, to: KycState): void {
+    KYC_MACHINE.assertCanTransition(this.state, to, () => {
       throw new InvalidKycTransitionError(
         `cannot ${action} a KYC application in state "${this.state}"`,
       );
-    }
+    });
   }
 }

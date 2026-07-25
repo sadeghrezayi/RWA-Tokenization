@@ -1,9 +1,15 @@
+import { StateMachine } from "../shared/state-machine.js";
 import { InvalidRedemptionError, InvalidRedemptionTransitionError } from "./errors.js";
 
 // FR-TR-2: redemption — a holder burns tokens against the underlying right and
 // is paid out at the attested value (P5: the payout traces to a signed
 // valuation). States: requested → fulfilled | rejected. Amounts are bigint.
 export type RedemptionState = "requested" | "fulfilled" | "rejected";
+
+const REDEMPTION_MACHINE = new StateMachine<RedemptionState>({
+  requested: ["fulfilled", "rejected"],
+  // fulfilled / rejected are terminal.
+});
 
 export interface RequestRedemptionFields {
   id: string;
@@ -88,7 +94,7 @@ export class Redemption {
   }
 
   fulfill(payoutRial: bigint, at: Date): Redemption {
-    this.assertRequested("fulfill");
+    this.assertTransition("fulfill", "fulfilled");
     if (payoutRial <= 0n) {
       throw new InvalidRedemptionError("a redemption payout must be positive");
     }
@@ -107,7 +113,7 @@ export class Redemption {
   }
 
   reject(reason: string, at: Date): Redemption {
-    this.assertRequested("reject");
+    this.assertTransition("reject", "rejected");
     const trimmed = reason.trim();
     if (trimmed === "") {
       throw new InvalidRedemptionError("a rejection must state a non-empty reason");
@@ -126,11 +132,11 @@ export class Redemption {
     );
   }
 
-  private assertRequested(action: string): void {
-    if (this.state !== "requested") {
+  private assertTransition(action: string, to: RedemptionState): void {
+    REDEMPTION_MACHINE.assertCanTransition(this.state, to, () => {
       throw new InvalidRedemptionTransitionError(
         `cannot ${action} a redemption in state "${this.state}"`,
       );
-    }
+    });
   }
 }
