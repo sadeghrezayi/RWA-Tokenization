@@ -2,6 +2,26 @@ export type KycState = "draft" | "submitted" | "in_review" | "approved" | "rejec
 
 export type MfaStatusDto = "none" | "pending" | "active";
 
+// Permission strings, mirrored from the API's authorization catalog (1.4d). Used
+// to hide UI a signed-in user isn't allowed to use; the server still enforces.
+export const PERMISSIONS = {
+  KYC_REVIEW: "kyc.review",
+  INVESTOR_READ: "investor.read",
+  ASSET_MANAGE: "asset.manage",
+  OFFERING_MANAGE: "offering.manage",
+  DISTRIBUTION_MANAGE: "distribution.manage",
+  REDEMPTION_MANAGE: "redemption.manage",
+  LEDGER_CREDIT: "ledger.credit",
+  ATTESTATION_PUBLISH: "attestation.publish",
+  REGISTRY_READ: "registry.read",
+  AUDIT_READ: "audit.read",
+  CRM_MANAGE: "crm.manage",
+  REPORTING_READ: "reporting.read",
+  APPROVAL_DECIDE: "approval.decide",
+  MFA_SELF: "mfa.self",
+  INVESTOR_PORTAL: "investor.portal",
+} as const;
+
 export type CreditResultDto =
   { status: "credited" } | { status: "pending_approval"; approvalId: string };
 
@@ -315,7 +335,7 @@ export interface ApiClient {
   // verify rejects (ApiError 400) on an invalid or expired token.
   requestEmailVerification(email: string): Promise<void>;
   verifyEmail(token: string): Promise<void>;
-  getSession(): Promise<{ kind: "investor" | "officer" }>;
+  getSession(): Promise<{ kind: "investor" | "officer"; permissions: string[] }>;
   logout(csrfToken: string): Promise<void>;
   me(token: string): Promise<InvestorViewDto>;
   submitKyc(token: string): Promise<void>;

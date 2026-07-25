@@ -22,6 +22,7 @@ import { ConfirmMfaEnrollment } from "../../application/identity/confirm-mfa-enr
 import { DisableMfa } from "../../application/identity/disable-mfa.js";
 import { GetMfaStatus } from "../../application/identity/get-mfa-status.js";
 import { CompleteOfficerMfaChallenge } from "../../application/identity/complete-officer-mfa-challenge.js";
+import { permissionsForPrincipal } from "../../application/identity/authorization.js";
 import { CurrentPrincipal, Public, RequirePermission } from "./auth.guard.js";
 import { PERMISSIONS } from "../../application/identity/authorization.js";
 import { AuthRateLimitGuard } from "./rate-limit.guard.js";
@@ -174,11 +175,15 @@ export class AuthController {
   }
 
   // Lets a browser verify its cookie session on page load without exposing the
-  // token to JS. Authenticated (cookie or bearer); returns the principal kind
-  // so a portal shell can confirm the right role is signed in.
+  // token to JS. Returns the principal kind (so a portal shell confirms the
+  // right role) plus the granted permissions, so the UI can hide actions the
+  // user isn't allowed to take (1.4d). The server still enforces every call.
   @Get("session")
-  session(@CurrentPrincipal() principal: Principal): { kind: Principal["kind"] } {
-    return { kind: principal.kind };
+  session(@CurrentPrincipal() principal: Principal): {
+    kind: Principal["kind"];
+    permissions: string[];
+  } {
+    return { kind: principal.kind, permissions: [...permissionsForPrincipal(principal)] };
   }
 
   @Post("logout")

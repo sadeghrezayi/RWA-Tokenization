@@ -3,22 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createApiClient } from "../../lib/api";
+import { PERMISSIONS, createApiClient } from "../../lib/api";
+import { visibleGroups } from "../../lib/nav-visibility";
+import type { NavGroupDef } from "../../lib/nav-visibility";
 import { readCsrfToken } from "../../lib/session";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
 import { OfficerLogin } from "../officer-login";
 import { AdminSessionProvider } from "./admin-session";
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: string;
-}
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
 
 // FR-PT-3 admin console shell: a persistent left sidebar (grouped nav) + a slim
 // top bar + a wide content area. Every section is its own route so the URL,
@@ -33,6 +25,7 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
   // threaded to pages for state-changing requests.
   const [status, setStatus] = useState<"loading" | "authed" | "anon">("loading");
   const [csrf, setCsrf] = useState<string>("");
+  const [permissions, setPermissions] = useState<readonly string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -42,6 +35,7 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
         if (!active) return;
         if (session.kind === "officer") {
           setCsrf(readCsrfToken() ?? "");
+          setPermissions(session.permissions);
           setStatus("authed");
         } else {
           setStatus("anon");
@@ -56,42 +50,102 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
   }, [api]);
 
   const base = `/${locale}/admin`;
-  const groups: NavGroup[] = [
+  // Role-aware nav (1.4d): each item declares the permission it needs; the shell
+  // hides items (and empty groups) the signed-in staff user can't use.
+  const allGroups: NavGroupDef[] = [
     {
       label: t.navGroupMain,
-      items: [{ href: `${base}/overview`, label: t.overviewTitle, icon: "◫" }],
+      items: [
+        {
+          href: `${base}/overview`,
+          label: t.overviewTitle,
+          icon: "◫",
+          permission: PERMISSIONS.REPORTING_READ,
+        },
+      ],
     },
     {
       label: t.navGroupInvestors,
       items: [
-        { href: `${base}/kyc`, label: t.pendingKycTitle, icon: "◑" },
-        { href: `${base}/investors`, label: t.investorsTitle, icon: "◎" },
+        {
+          href: `${base}/kyc`,
+          label: t.pendingKycTitle,
+          icon: "◑",
+          permission: PERMISSIONS.KYC_REVIEW,
+        },
+        {
+          href: `${base}/investors`,
+          label: t.investorsTitle,
+          icon: "◎",
+          permission: PERMISSIONS.INVESTOR_READ,
+        },
       ],
     },
     {
       label: t.navGroupAssets,
       items: [
-        { href: `${base}/assets`, label: t.assetsTitle, icon: "▤" },
-        { href: `${base}/offerings`, label: t.offeringsTitle, icon: "◈" },
-        { href: `${base}/distributions`, label: t.distributionsTitle, icon: "❖" },
-        { href: `${base}/redemptions`, label: t.redemptionsTitle, icon: "⟲" },
+        {
+          href: `${base}/assets`,
+          label: t.assetsTitle,
+          icon: "▤",
+          permission: PERMISSIONS.ASSET_MANAGE,
+        },
+        {
+          href: `${base}/offerings`,
+          label: t.offeringsTitle,
+          icon: "◈",
+          permission: PERMISSIONS.OFFERING_MANAGE,
+        },
+        {
+          href: `${base}/distributions`,
+          label: t.distributionsTitle,
+          icon: "❖",
+          permission: PERMISSIONS.DISTRIBUTION_MANAGE,
+        },
+        {
+          href: `${base}/redemptions`,
+          label: t.redemptionsTitle,
+          icon: "⟲",
+          permission: PERMISSIONS.REDEMPTION_MANAGE,
+        },
       ],
     },
     {
       label: t.navGroupReporting,
       items: [
-        { href: `${base}/registry`, label: t.registryTitle, icon: "▦" },
-        { href: `${base}/audit`, label: t.auditTitle, icon: "≡" },
+        {
+          href: `${base}/registry`,
+          label: t.registryTitle,
+          icon: "▦",
+          permission: PERMISSIONS.REGISTRY_READ,
+        },
+        {
+          href: `${base}/audit`,
+          label: t.auditTitle,
+          icon: "≡",
+          permission: PERMISSIONS.AUDIT_READ,
+        },
       ],
     },
     {
       label: t.navGroupAccount,
       items: [
-        { href: `${base}/approvals`, label: t.approvalsNav, icon: "☑" },
-        { href: `${base}/security`, label: t.securityNav, icon: "⛨" },
+        {
+          href: `${base}/approvals`,
+          label: t.approvalsNav,
+          icon: "☑",
+          permission: PERMISSIONS.APPROVAL_DECIDE,
+        },
+        {
+          href: `${base}/security`,
+          label: t.securityNav,
+          icon: "⛨",
+          permission: PERMISSIONS.MFA_SELF,
+        },
       ],
     },
   ];
+  const groups = visibleGroups(allGroups, permissions);
 
   if (status === "loading") {
     return null;

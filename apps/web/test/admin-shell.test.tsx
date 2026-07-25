@@ -25,10 +25,13 @@ vi.mock("../lib/api", async (orig) => {
 });
 
 import { AdminShell } from "../components/admin/admin-shell";
+import { PERMISSIONS } from "../lib/api";
 
 const SessionProbe = () => <div data-testid="probe">section content</div>;
 
-const asOfficer = () => getSession.mockResolvedValue({ kind: "officer" });
+// A super-admin session (all permissions) so every nav item renders.
+const asOfficer = () =>
+  getSession.mockResolvedValue({ kind: "officer", permissions: Object.values(PERMISSIONS) });
 const asAnon = () => getSession.mockRejectedValue(new Error("401"));
 
 describe("AdminShell", () => {

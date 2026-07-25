@@ -76,7 +76,7 @@ describe("Auth cookie + CSRF API (e2e, real Postgres)", () => {
     const login = await request(server).post("/auth/login").send({ email, password: "Passw0rd-9" });
     const jar = cookieHeader(cookiesFrom(login));
     const res = await request(server).get("/auth/session").set("Cookie", jar).expect(200);
-    expect(res.body).toEqual({ kind: "investor" });
+    expect(res.body).toEqual({ kind: "investor", permissions: ["investor.portal"] });
     // No session ⇒ 401 (the shell then shows the login screen).
     await request(server).get("/auth/session").expect(401);
   });

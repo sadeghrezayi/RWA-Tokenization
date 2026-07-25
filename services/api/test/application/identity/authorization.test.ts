@@ -69,4 +69,62 @@ describe("authorization", () => {
       }
     }
   });
+
+  // The authoritative role → permission matrix (1.4c/d). Each role's exact set is
+  // pinned so a change to a role's privileges is a deliberate, reviewed edit.
+  it("pins_the_exact_permission_set_of_each_role", () => {
+    const P = PERMISSIONS;
+    const allStaff = new Set([
+      P.KYC_REVIEW,
+      P.INVESTOR_READ,
+      P.ASSET_MANAGE,
+      P.OFFERING_MANAGE,
+      P.DISTRIBUTION_MANAGE,
+      P.REDEMPTION_MANAGE,
+      P.LEDGER_CREDIT,
+      P.ATTESTATION_PUBLISH,
+      P.REGISTRY_READ,
+      P.AUDIT_READ,
+      P.CRM_MANAGE,
+      P.REPORTING_READ,
+      P.APPROVAL_DECIDE,
+      P.MFA_SELF,
+    ]);
+    const matrix: Record<string, Set<string>> = {
+      super_admin: allStaff,
+      platform_operator: allStaff,
+      compliance_analyst: new Set([
+        P.KYC_REVIEW,
+        P.INVESTOR_READ,
+        P.CRM_MANAGE,
+        P.REGISTRY_READ,
+        P.REPORTING_READ,
+        P.AUDIT_READ,
+        P.MFA_SELF,
+      ]),
+      treasury: new Set([
+        P.LEDGER_CREDIT,
+        P.REDEMPTION_MANAGE,
+        P.DISTRIBUTION_MANAGE,
+        P.REPORTING_READ,
+        P.MFA_SELF,
+      ]),
+      approver: new Set([P.APPROVAL_DECIDE, P.REPORTING_READ, P.MFA_SELF]),
+      auditor: new Set([
+        P.INVESTOR_READ,
+        P.REGISTRY_READ,
+        P.AUDIT_READ,
+        P.REPORTING_READ,
+        P.MFA_SELF,
+      ]),
+      investor: new Set([P.INVESTOR_PORTAL]),
+    };
+    for (const [role, expected] of Object.entries(matrix)) {
+      expect(ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS]).toEqual(expected);
+    }
+    // Separation of duties: maker (treasury) and checker (approver) are disjoint
+    // on the money-approval axis.
+    expect(matrix.treasury?.has(P.APPROVAL_DECIDE)).toBe(false);
+    expect(matrix.approver?.has(P.LEDGER_CREDIT)).toBe(false);
+  });
 });
