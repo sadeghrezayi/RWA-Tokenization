@@ -3,6 +3,7 @@ import type { Investor } from "../../domain/identity/investor.js";
 import type { KycState } from "../../domain/identity/kyc-status.js";
 import type { LoginThrottle } from "../../domain/identity/login-throttle.js";
 import type { StaffUser } from "../../domain/identity/staff-user.js";
+import type { NewOutboxMessage } from "../outbox/ports.js";
 
 export interface InvestorRepository {
   findById(id: string): Promise<Investor | undefined>;
@@ -150,3 +151,11 @@ export type PasswordResetTokenRecord = SingleUseTokenRecord;
 export type PasswordResetTokenStore = SingleUseTokenStore;
 export type EmailVerificationTokenRecord = SingleUseTokenRecord;
 export type EmailVerificationTokenStore = SingleUseTokenStore;
+
+// 1.6b: persist a single-use token grant and enqueue its delivery email in ONE
+// transaction (transactional outbox). The grant is stored (digest only) iff its
+// email is durably queued, and vice-versa — no dead link, no phantom send. The
+// actual delivery happens later, at-least-once, when the drainer runs.
+export interface EmailGrantCommit {
+  commit(grant: SingleUseTokenRecord, message: NewOutboxMessage): Promise<void>;
+}

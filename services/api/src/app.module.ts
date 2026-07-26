@@ -179,12 +179,19 @@ import {
   LoginThrottleService,
 } from "./application/identity/login-throttle-service.js";
 import type {
+  EmailGrantCommit,
   EmailSender,
   EmailVerificationTokenStore,
   LoginAttemptStore,
   PasswordResetTokenStore,
   TokenGenerator,
 } from "./application/identity/ports.js";
+import { DrainOutbox } from "./application/outbox/drain-outbox.js";
+import type { OutboxStore } from "./application/outbox/ports.js";
+import { PrismaOutboxStore } from "./infrastructure/persistence/prisma-outbox-store.js";
+import { PrismaEmailGrantCommit } from "./infrastructure/persistence/prisma-email-grant-commit.js";
+import { emailOutboxHandlers } from "./infrastructure/outbox/email-outbox-handler.js";
+import { OutboxDrainWorker } from "./infrastructure/outbox/outbox-drain-worker.js";
 import { RequestPasswordReset } from "./application/identity/request-password-reset.js";
 import { ResetPassword } from "./application/identity/reset-password.js";
 import { RequestEmailVerification } from "./application/identity/request-email-verification.js";
@@ -256,6 +263,9 @@ export const PASSWORD_RESET_TOKEN_STORE = "PASSWORD_RESET_TOKEN_STORE";
 export const EMAIL_VERIFICATION_TOKEN_STORE = "EMAIL_VERIFICATION_TOKEN_STORE";
 export const TOKEN_GENERATOR = "TOKEN_GENERATOR";
 export const EMAIL_SENDER = "EMAIL_SENDER";
+export const OUTBOX_STORE = "OUTBOX_STORE";
+export const PASSWORD_RESET_EMAIL_COMMIT = "PASSWORD_RESET_EMAIL_COMMIT";
+export const EMAIL_VERIFICATION_EMAIL_COMMIT = "EMAIL_VERIFICATION_EMAIL_COMMIT";
 export const TOTP_SERVICE = "TOTP_SERVICE";
 export const MFA_STORE = "MFA_STORE";
 export const RECOVERY_CODE_GENERATOR = "RECOVERY_CODE_GENERATOR";
@@ -613,22 +623,49 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     },
     { provide: TOKEN_GENERATOR, useClass: CryptoTokenGenerator },
     { provide: EMAIL_SENDER, useFactory: () => new DevEmailSender() },
+    // 1.6b durable-delivery spine. The outbox store uses the RAW client
+    // (platform-level, UNSCOPED_MODELS); the drainer dispatches queued emails via
+    // the EMAIL_SENDER handlers; the worker ticks it on an interval (opt-in via
+    // OUTBOX_DRAIN_INTERVAL_MS).
+    {
+      provide: OUTBOX_STORE,
+      useFactory: (prisma: PrismaService) => new PrismaOutboxStore(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: DrainOutbox,
+      useFactory: (store: OutboxStore, email: EmailSender, clock: Clock) =>
+        new DrainOutbox(store, emailOutboxHandlers(email), clock),
+      inject: [OUTBOX_STORE, EMAIL_SENDER, CLOCK],
+    },
+    {
+      provide: OutboxDrainWorker,
+      useFactory: (drainer: DrainOutbox) => new OutboxDrainWorker(drainer),
+      inject: [DrainOutbox],
+    },
+    // Atomic producers: each persists its token grant AND enqueues the email in
+    // one transaction, bound to the correct grant table.
+    {
+      provide: PASSWORD_RESET_EMAIL_COMMIT,
+      useFactory: (prisma: PrismaService) =>
+        new PrismaEmailGrantCommit(prisma, (tx) => new PrismaPasswordResetTokenStore(tx)),
+      inject: [PrismaService],
+    },
+    {
+      provide: EMAIL_VERIFICATION_EMAIL_COMMIT,
+      useFactory: (prisma: PrismaService) =>
+        new PrismaEmailGrantCommit(prisma, (tx) => new PrismaEmailVerificationTokenStore(tx)),
+      inject: [PrismaService],
+    },
     {
       provide: RequestPasswordReset,
       useFactory: (
         repo: InvestorRepository,
-        tokens: PasswordResetTokenStore,
-        email: EmailSender,
+        commit: EmailGrantCommit,
         generator: TokenGenerator,
         clock: Clock,
-      ) => new RequestPasswordReset(repo, tokens, email, generator, clock),
-      inject: [
-        INVESTOR_REPOSITORY,
-        PASSWORD_RESET_TOKEN_STORE,
-        EMAIL_SENDER,
-        TOKEN_GENERATOR,
-        CLOCK,
-      ],
+      ) => new RequestPasswordReset(repo, commit, generator, clock),
+      inject: [INVESTOR_REPOSITORY, PASSWORD_RESET_EMAIL_COMMIT, TOKEN_GENERATOR, CLOCK],
     },
     {
       provide: ResetPassword,
@@ -651,18 +688,11 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       provide: RequestEmailVerification,
       useFactory: (
         repo: InvestorRepository,
-        tokens: EmailVerificationTokenStore,
-        email: EmailSender,
+        commit: EmailGrantCommit,
         generator: TokenGenerator,
         clock: Clock,
-      ) => new RequestEmailVerification(repo, tokens, email, generator, clock),
-      inject: [
-        INVESTOR_REPOSITORY,
-        EMAIL_VERIFICATION_TOKEN_STORE,
-        EMAIL_SENDER,
-        TOKEN_GENERATOR,
-        CLOCK,
-      ],
+      ) => new RequestEmailVerification(repo, commit, generator, clock),
+      inject: [INVESTOR_REPOSITORY, EMAIL_VERIFICATION_EMAIL_COMMIT, TOKEN_GENERATOR, CLOCK],
     },
     {
       provide: VerifyEmail,

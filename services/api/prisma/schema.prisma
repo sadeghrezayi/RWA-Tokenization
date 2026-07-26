@@ -508,3 +508,25 @@ model CrmFollowUp {
   @@index([tenantId])
   @@map("crm_follow_ups")
 }
+
+// ---------------------------------------------------------------------------
+// Transactional outbox (1.6b): durable at-least-once side effects (today, the
+// auth emails). A producer writes a row in the SAME transaction as its state
+// change; a drainer delivers it with retry/backoff and dead-letters after the
+// attempt budget. Platform-level (no tenant_id) — the background drainer runs
+// without a TenantContext; a message payload carries any context a handler
+// needs. In UNSCOPED_MODELS.
+model OutboxMessage {
+  id          String   @id
+  type        String
+  payload     Json
+  status      String   @default("pending")
+  attempts    Int      @default(0)
+  availableAt DateTime @default(now()) @map("available_at")
+  lastError   String?  @map("last_error")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([status, availableAt])
+  @@map("outbox_messages")
+}

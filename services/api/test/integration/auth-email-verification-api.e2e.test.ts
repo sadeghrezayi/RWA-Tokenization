@@ -5,6 +5,7 @@ import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { AppModule, EMAIL_SENDER } from "../../src/app.module.js";
 import type { EmailSender } from "../../src/application/identity/ports.js";
+import { DrainOutbox } from "../../src/application/outbox/drain-outbox.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 
 // Captures both mail kinds so the test can drive the out-of-band flow and assert
@@ -34,6 +35,8 @@ describe("Auth email-verification API (e2e, real Postgres)", () => {
   const email = `verify-${randomUUID()}@example.com`;
   const PW = "Passw0rd-verify-1";
   const mailer = new CapturingEmailSender();
+  // 1.6b: registration enqueues the verification email; the drainer delivers it.
+  let drainer: DrainOutbox;
   let bearer: string;
 
   const login = async (): Promise<string> => {
@@ -49,7 +52,12 @@ describe("Auth email-verification API (e2e, real Postgres)", () => {
     app = moduleRef.createNestApplication();
     await app.init();
     server = app.getHttpServer() as Parameters<typeof request>[0];
+    drainer = app.get(DrainOutbox);
+    // Clean slate: other suites leave undrained verification messages in the
+    // shared outbox; clearing here keeps this file's drains/counts deterministic.
+    await app.get(PrismaService).outboxMessage.deleteMany({});
     await request(server).post("/investors").send({ email, password: PW }).expect(201);
+    await drainer.drain(); // deliver the verification email queued at registration
     bearer = await login();
   }, 30_000);
 
@@ -60,6 +68,7 @@ describe("Auth email-verification API (e2e, real Postgres)", () => {
       await prisma.emailVerificationToken.deleteMany({ where: { investorId: investor.id } });
     }
     await prisma.loginAttempt.deleteMany({ where: { key: email.toLowerCase() } });
+    await prisma.outboxMessage.deleteMany({});
     await app.close();
   });
 

@@ -5,6 +5,7 @@ import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { AppModule, EMAIL_SENDER } from "../../src/app.module.js";
 import type { EmailSender } from "../../src/application/identity/ports.js";
+import { DrainOutbox } from "../../src/application/outbox/drain-outbox.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 
 // Captures the raw reset token the platform would have emailed, so the test can
@@ -28,6 +29,9 @@ class CapturingEmailSender implements EmailSender {
 describe("Auth password-reset API (e2e, real Postgres)", () => {
   let app: INestApplication;
   let server: Parameters<typeof request>[0];
+  // 1.6b: the email is now enqueued to the outbox and delivered by the drainer,
+  // so the test drains explicitly to make the (overridden) sender capture it.
+  let drainer: DrainOutbox;
   const email = `reset-${randomUUID()}@example.com`;
   const OLD = "Passw0rd-old-1";
   const NEW = "Passw0rd-new-2";
@@ -41,6 +45,10 @@ describe("Auth password-reset API (e2e, real Postgres)", () => {
     app = moduleRef.createNestApplication();
     await app.init();
     server = app.getHttpServer() as Parameters<typeof request>[0];
+    drainer = app.get(DrainOutbox);
+    // Clean slate: other suites leave undrained verification messages in the
+    // shared outbox; clearing here keeps this file's drains deterministic.
+    await app.get(PrismaService).outboxMessage.deleteMany({});
     await request(server).post("/investors").send({ email, password: OLD }).expect(201);
   }, 30_000);
 
@@ -51,6 +59,7 @@ describe("Auth password-reset API (e2e, real Postgres)", () => {
       await prisma.passwordResetToken.deleteMany({ where: { investorId: investor.id } });
     }
     await prisma.loginAttempt.deleteMany({ where: { key: email.toLowerCase() } });
+    await prisma.outboxMessage.deleteMany({});
     await app.close();
   });
 
@@ -61,6 +70,7 @@ describe("Auth password-reset API (e2e, real Postgres)", () => {
       .expect(202)
       .expect({ status: "accepted" });
 
+    await drainer.drain(); // deliver the queued reset email
     const token = mailer.tokenFor(email);
     expect(token).toBeTypeOf("string");
 
@@ -101,6 +111,7 @@ describe("Auth password-reset API (e2e, real Postgres)", () => {
   it("enforces_the_password_policy_on_reset", async () => {
     // A fresh valid token, then a too-short password.
     await request(server).post("/auth/password-reset/request").send({ email }).expect(202);
+    await drainer.drain(); // deliver the queued reset email
     const token = mailer.tokenFor(email);
     await request(server)
       .post("/auth/password-reset")

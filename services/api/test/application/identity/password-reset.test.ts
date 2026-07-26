@@ -7,11 +7,14 @@ import {
   WeakPasswordError,
 } from "../../../src/application/identity/errors.js";
 import type {
-  EmailSender,
+  EmailGrantCommit,
   PasswordResetTokenRecord,
   PasswordResetTokenStore,
+  SingleUseTokenRecord,
   TokenGenerator,
 } from "../../../src/application/identity/ports.js";
+import type { NewOutboxMessage } from "../../../src/application/outbox/ports.js";
+import { EMAIL_OUTBOX_TYPES } from "../../../src/application/identity/email-outbox.js";
 import { EmailAddress } from "../../../src/domain/identity/email-address.js";
 import { Investor } from "../../../src/domain/identity/investor.js";
 import { KycStatus } from "../../../src/domain/identity/kyc-status.js";
@@ -55,15 +58,15 @@ class InMemoryResetTokenStore implements PasswordResetTokenStore {
   }
 }
 
-class RecordingEmailSender implements EmailSender {
-  readonly sent: { to: string; kind: string; token: string }[] = [];
-  sendPasswordReset(to: string, token: string): Promise<void> {
-    this.sent.push({ to, kind: "password_reset", token });
-    return Promise.resolve();
-  }
-  sendEmailVerification(to: string, token: string): Promise<void> {
-    this.sent.push({ to, kind: "email_verification", token });
-    return Promise.resolve();
+// Stands in for the transactional-outbox commit: persists the grant into the
+// (shared) token store and records the enqueued outbox message, so the reset
+// half can still find the token and we can assert what would be delivered.
+class FakeEmailGrantCommit implements EmailGrantCommit {
+  readonly enqueued: NewOutboxMessage[] = [];
+  constructor(private readonly store: PasswordResetTokenStore) {}
+  async commit(grant: SingleUseTokenRecord, message: NewOutboxMessage): Promise<void> {
+    await this.store.save(grant);
+    this.enqueued.push(message);
   }
 }
 
@@ -89,16 +92,16 @@ const setup = async () => {
   const investors = new InMemoryInvestorRepository();
   await investors.save(investor());
   const store = new InMemoryResetTokenStore();
-  const email = new RecordingEmailSender();
+  const commit = new FakeEmailGrantCommit(store);
   const hasher = new RecordingHasher();
   const clock = new FixedClock(NOW);
   return {
     investors,
     store,
-    email,
+    commit,
     hasher,
     clock,
-    request: new RequestPasswordReset(investors, store, email, new FakeTokenGenerator(), clock),
+    request: new RequestPasswordReset(investors, commit, new FakeTokenGenerator(), clock),
     reset: new ResetPassword(investors, store, hasher, clock),
   };
 };
@@ -113,8 +116,11 @@ describe("RequestPasswordReset", () => {
     expect(s.store.rows[0]?.tokenHash).toBe(hashResetToken("raw-token-abc"));
     expect(s.store.rows[0]?.tokenHash).not.toBe("raw-token-abc"); // never plaintext
     expect(s.store.rows[0]?.expiresAt.getTime()).toBeGreaterThan(NOW.getTime());
-    expect(s.email.sent).toEqual([
-      { to: "sara@demo.com", kind: "password_reset", token: "raw-token-abc" },
+    expect(s.commit.enqueued).toEqual([
+      {
+        type: EMAIL_OUTBOX_TYPES.passwordReset,
+        payload: { to: "sara@demo.com", token: "raw-token-abc" },
+      },
     ]);
   });
 
@@ -122,7 +128,7 @@ describe("RequestPasswordReset", () => {
     const s = await setup();
     await s.request.execute({ email: "ghost@demo.com" });
     expect(s.store.rows).toHaveLength(0);
-    expect(s.email.sent).toHaveLength(0);
+    expect(s.commit.enqueued).toHaveLength(0);
   });
 });
 

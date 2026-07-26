@@ -4,11 +4,13 @@ import { VerifyEmail } from "../../../src/application/identity/verify-email.js";
 import { InvalidVerificationTokenError } from "../../../src/application/identity/errors.js";
 import { hashToken } from "../../../src/application/identity/token-hash.js";
 import type {
-  EmailSender,
+  EmailGrantCommit,
   SingleUseTokenRecord,
   SingleUseTokenStore,
   TokenGenerator,
 } from "../../../src/application/identity/ports.js";
+import type { NewOutboxMessage } from "../../../src/application/outbox/ports.js";
+import { EMAIL_OUTBOX_TYPES } from "../../../src/application/identity/email-outbox.js";
 import { EmailAddress } from "../../../src/domain/identity/email-address.js";
 import { Investor } from "../../../src/domain/identity/investor.js";
 import { KycStatus } from "../../../src/domain/identity/kyc-status.js";
@@ -52,15 +54,14 @@ class InMemoryTokenStore implements SingleUseTokenStore {
   }
 }
 
-class RecordingEmailSender implements EmailSender {
-  readonly sent: { to: string; kind: string; token: string }[] = [];
-  sendPasswordReset(to: string, token: string): Promise<void> {
-    this.sent.push({ to, kind: "password_reset", token });
-    return Promise.resolve();
-  }
-  sendEmailVerification(to: string, token: string): Promise<void> {
-    this.sent.push({ to, kind: "email_verification", token });
-    return Promise.resolve();
+// Stands in for the transactional-outbox commit: persists the grant into the
+// (shared) token store and records the enqueued outbox message.
+class FakeEmailGrantCommit implements EmailGrantCommit {
+  readonly enqueued: NewOutboxMessage[] = [];
+  constructor(private readonly store: SingleUseTokenStore) {}
+  async commit(grant: SingleUseTokenRecord, message: NewOutboxMessage): Promise<void> {
+    await this.store.save(grant);
+    this.enqueued.push(message);
   }
 }
 
@@ -77,14 +78,14 @@ const setup = async (seed = unverified()) => {
   const investors = new InMemoryInvestorRepository();
   await investors.save(seed);
   const store = new InMemoryTokenStore();
-  const email = new RecordingEmailSender();
+  const commit = new FakeEmailGrantCommit(store);
   const clock = new FixedClock(NOW);
   return {
     investors,
     store,
-    email,
+    commit,
     clock,
-    request: new RequestEmailVerification(investors, store, email, new FakeTokenGenerator(), clock),
+    request: new RequestEmailVerification(investors, commit, new FakeTokenGenerator(), clock),
     verify: new VerifyEmail(investors, store, clock),
   };
 };
@@ -98,8 +99,11 @@ describe("RequestEmailVerification", () => {
     expect(s.store.rows[0]?.tokenHash).toBe(hashToken("verify-token-abc"));
     expect(s.store.rows[0]?.tokenHash).not.toBe("verify-token-abc");
     expect(s.store.rows[0]?.expiresAt.getTime()).toBeGreaterThan(NOW.getTime());
-    expect(s.email.sent).toEqual([
-      { to: "sara@demo.com", kind: "email_verification", token: "verify-token-abc" },
+    expect(s.commit.enqueued).toEqual([
+      {
+        type: EMAIL_OUTBOX_TYPES.emailVerification,
+        payload: { to: "sara@demo.com", token: "verify-token-abc" },
+      },
     ]);
   });
 
@@ -107,14 +111,14 @@ describe("RequestEmailVerification", () => {
     const s = await setup();
     await s.request.execute({ email: "ghost@demo.com" });
     expect(s.store.rows).toHaveLength(0);
-    expect(s.email.sent).toHaveLength(0);
+    expect(s.commit.enqueued).toHaveLength(0);
   });
 
   it("does_not_re_send_when_the_email_is_already_verified", async () => {
     const s = await setup(unverified().verifyEmail());
     await s.request.execute({ email: "sara@demo.com" });
     expect(s.store.rows).toHaveLength(0);
-    expect(s.email.sent).toHaveLength(0);
+    expect(s.commit.enqueued).toHaveLength(0);
   });
 });
 

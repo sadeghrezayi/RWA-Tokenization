@@ -37,6 +37,7 @@ const UNSCOPED_MODELS = new Set([
   "mfaEnrollment",
   "staffUser",
   "staffMembership",
+  "outboxMessage",
 ]);
 
 const WHERE_SCOPED = new Set([

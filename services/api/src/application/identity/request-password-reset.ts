@@ -1,11 +1,7 @@
 import { EmailAddress } from "../../domain/identity/email-address.js";
 import type { Clock } from "../offerings/ports.js";
-import type {
-  EmailSender,
-  InvestorRepository,
-  PasswordResetTokenStore,
-  TokenGenerator,
-} from "./ports.js";
+import { EMAIL_OUTBOX_TYPES } from "./email-outbox.js";
+import type { EmailGrantCommit, InvestorRepository, TokenGenerator } from "./ports.js";
 import { hashResetToken } from "./reset-token.js";
 
 // A reset link is valid for one hour. Short enough to bound exposure, long
@@ -14,12 +10,13 @@ export const RESET_TOKEN_TTL_SECONDS = 3600;
 
 // FR-ID / T4: self-service password reset — request half. Deliberately does NOT
 // reveal whether the email is registered (no account enumeration): a malformed
-// or unknown address returns the same empty result as a real one.
+// or unknown address returns the same empty result as a real one. The token
+// grant and its delivery email are committed ATOMICALLY (1.6b transactional
+// outbox); the email is delivered durably (at-least-once) by the drainer.
 export class RequestPasswordReset {
   constructor(
     private readonly investors: InvestorRepository,
-    private readonly tokens: PasswordResetTokenStore,
-    private readonly email: EmailSender,
+    private readonly commit: EmailGrantCommit,
     private readonly generator: TokenGenerator,
     private readonly clock: Clock,
   ) {}
@@ -39,11 +36,13 @@ export class RequestPasswordReset {
 
     const raw = this.generator.generate();
     const now = this.clock.now();
-    await this.tokens.save({
-      tokenHash: hashResetToken(raw),
-      investorId: investor.id,
-      expiresAt: new Date(now.getTime() + RESET_TOKEN_TTL_SECONDS * 1000),
-    });
-    await this.email.sendPasswordReset(investor.email.value, raw);
+    await this.commit.commit(
+      {
+        tokenHash: hashResetToken(raw),
+        investorId: investor.id,
+        expiresAt: new Date(now.getTime() + RESET_TOKEN_TTL_SECONDS * 1000),
+      },
+      { type: EMAIL_OUTBOX_TYPES.passwordReset, payload: { to: investor.email.value, token: raw } },
+    );
   }
 }
