@@ -86,6 +86,8 @@ import {
   SelfApprovalError,
 } from "../../domain/approvals/errors.js";
 import { ApprovalNotFoundError } from "../../application/approvals/errors.js";
+import { NotificationNotFoundError } from "../../application/notifications/errors.js";
+import { InvalidNotificationError } from "../../domain/notifications/errors.js";
 
 interface MinimalResponse {
   status(code: number): { json(body: unknown): void };
@@ -184,5 +186,8 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof SelfApprovalError) return 409;
   if (exception instanceof InvalidApprovalTransitionError) return 409;
   if (exception instanceof ApprovalNotFoundError) return 404;
+  // Notifications (1.7): unknown / not-mine → 404; invalid construction → 400.
+  if (exception instanceof NotificationNotFoundError) return 404;
+  if (exception instanceof InvalidNotificationError) return 400;
   return 500;
 };

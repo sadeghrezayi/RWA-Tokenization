@@ -41,6 +41,7 @@ model Tenant {
   crmNotes              CrmNote[]
   crmFollowUps          CrmFollowUp[]
   approvals             Approval[]
+  notifications         Notification[]
 
   @@map("tenants")
 }
@@ -529,4 +530,23 @@ model OutboxMessage {
 
   @@index([status, availableAt])
   @@map("outbox_messages")
+}
+
+// In-app notifications (1.7). Tenant-owned; addressed to one recipient (staff or
+// investor). createdAt is set by the domain (not a DB default) so ordering is
+// deterministic in tests. Read state is a nullable timestamp.
+model Notification {
+  id            String    @id
+  tenantId      String    @default("default") @map("tenant_id")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  recipientKind String    @map("recipient_kind")
+  recipientId   String    @map("recipient_id")
+  type          String
+  title         String
+  body          String
+  readAt        DateTime? @map("read_at")
+  createdAt     DateTime  @map("created_at")
+
+  @@index([tenantId, recipientKind, recipientId, createdAt])
+  @@map("notifications")
 }

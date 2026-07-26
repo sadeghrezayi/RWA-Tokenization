@@ -91,6 +91,13 @@ import type {
 import { PrismaApprovalRepository } from "./infrastructure/persistence/prisma-approval-repository.js";
 import { PrismaApprovalCommit } from "./infrastructure/persistence/prisma-approval-commit.js";
 import { ApprovalsController } from "./infrastructure/http/approvals.controller.js";
+import { ListNotifications } from "./application/notifications/list-notifications.js";
+import { GetUnreadCount } from "./application/notifications/get-unread-count.js";
+import { MarkNotificationRead } from "./application/notifications/mark-notification-read.js";
+import { NotificationService } from "./application/notifications/notification-service.js";
+import type { NotificationRepository } from "./application/notifications/ports.js";
+import { PrismaNotificationRepository } from "./infrastructure/persistence/prisma-notification-repository.js";
+import { NotificationsController } from "./infrastructure/http/notifications.controller.js";
 import { DeclareDistribution } from "./application/distributions/declare-distribution.js";
 import { PayDistribution } from "./application/distributions/pay-distribution.js";
 import {
@@ -244,6 +251,8 @@ export const SETTLEMENT_RAIL = "SETTLEMENT_RAIL";
 export const APPROVAL_REPOSITORY = "APPROVAL_REPOSITORY";
 export const APPROVAL_COMMIT = "APPROVAL_COMMIT";
 export const ASSET_TOKEN_ISSUER = "ASSET_TOKEN_ISSUER";
+export const NOTIFICATION_REPOSITORY = "NOTIFICATION_REPOSITORY";
+export const NOTIFIER = "NOTIFIER";
 export const CLOCK = "CLOCK";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
 export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
@@ -296,6 +305,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     RedemptionsController,
     CrmController,
     ApprovalsController,
+    NotificationsController,
   ],
   providers: [
     PrismaService,
@@ -592,6 +602,36 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       provide: ListApprovals,
       useFactory: (approvals: ApprovalRepository) => new ListApprovals(approvals),
       inject: [APPROVAL_REPOSITORY],
+    },
+    // Notifications (1.7). Tenant-scoped repository; the read/mark use-cases back
+    // the self-scoped API; NotificationService (the Notifier) is what event
+    // emitters will depend on in 1.7c.
+    {
+      provide: NOTIFICATION_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaNotificationRepository(prisma),
+      inject: [SCOPED_PRISMA],
+    },
+    {
+      provide: NOTIFIER,
+      useFactory: (repo: NotificationRepository, ids: IdGenerator, clock: Clock) =>
+        new NotificationService(repo, ids, clock),
+      inject: [NOTIFICATION_REPOSITORY, ID_GENERATOR, CLOCK],
+    },
+    {
+      provide: ListNotifications,
+      useFactory: (repo: NotificationRepository) => new ListNotifications(repo),
+      inject: [NOTIFICATION_REPOSITORY],
+    },
+    {
+      provide: GetUnreadCount,
+      useFactory: (repo: NotificationRepository) => new GetUnreadCount(repo),
+      inject: [NOTIFICATION_REPOSITORY],
+    },
+    {
+      provide: MarkNotificationRead,
+      useFactory: (repo: NotificationRepository, clock: Clock) =>
+        new MarkNotificationRead(repo, clock),
+      inject: [NOTIFICATION_REPOSITORY, CLOCK],
     },
     {
       provide: OFFERING_REPOSITORY,
