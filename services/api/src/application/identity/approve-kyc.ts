@@ -1,10 +1,11 @@
 import { loadInvestor } from "./load-investor.js";
-import type { ClaimIssuer, InvestorRepository } from "./ports.js";
+import type { ClaimIssuer, InvestorRepository, KycDecisionNotifier } from "./ports.js";
 
 export class ApproveKyc {
   constructor(
     private readonly investors: InvestorRepository,
     private readonly claims: ClaimIssuer,
+    private readonly notifier: KycDecisionNotifier,
   ) {}
 
   async execute(input: { investorId: string }): Promise<void> {
@@ -14,5 +15,11 @@ export class ApproveKyc {
     // must not revert an approval; claim issuance is retryable (FR-ID-3).
     await this.investors.save(approved);
     await this.claims.issueKycApprovedClaim(approved.id);
+    // 1.7c-ii: tell the investor the outcome (in-app + email).
+    await this.notifier.kycDecided({
+      investorId: approved.id,
+      email: approved.email.value,
+      decision: "approved",
+    });
   }
 }

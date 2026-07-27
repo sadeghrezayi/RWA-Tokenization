@@ -24,6 +24,7 @@ import {
   RecordingDistributionLedger,
   StubHolderSnapshotProvider,
 } from "../../fakes/distribution-fakes.js";
+import { RecordingDistributionPaidNotifier } from "../../fakes/notification-fakes.js";
 
 const ACTOR = "officer-1";
 
@@ -60,12 +61,14 @@ const setup = async () => {
       ),
     );
   }
+  const paidNotifier = new RecordingDistributionPaidNotifier();
   return {
     distributions,
     assets,
     snapshots,
     ledger,
     events,
+    paidNotifier,
     declare: new DeclareDistribution(
       distributions,
       assets,
@@ -73,7 +76,7 @@ const setup = async () => {
       new SequentialIdGenerator(),
       events,
     ),
-    pay: new PayDistribution(distributions, ledger, events),
+    pay: new PayDistribution(distributions, ledger, events, assets, paidNotifier),
     get: new GetDistribution(distributions, assets, investors),
     list: new ListDistributions(distributions, assets),
   };
@@ -156,6 +159,12 @@ describe("PayDistribution (FR-YD-1 payout, FR-YD-2 credit-and-hold)", () => {
     ]);
     expect((await s.get.execute({ distributionId })).state).toBe("paid");
     expect(s.events.events.map((e) => e.event)).toContain("distribution_paid");
+    // 1.7c-ii: each paid holder is told what they received.
+    expect(s.paidNotifier.notices).toHaveLength(1);
+    expect(s.paidNotifier.notices[0]?.payouts).toEqual([
+      { investorId: "a", amountRial: 67_000n },
+      { investorId: "b", amountRial: 33_000n },
+    ]);
   });
 
   it("rejects_paying_a_distribution_twice", async () => {

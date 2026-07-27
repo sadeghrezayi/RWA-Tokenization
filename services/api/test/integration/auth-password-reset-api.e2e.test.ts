@@ -19,6 +19,9 @@ class CapturingEmailSender implements EmailSender {
   sendEmailVerification(): Promise<void> {
     return Promise.resolve(); // not exercised by the reset suite
   }
+  sendNotification(): Promise<void> {
+    return Promise.resolve(); // not exercised by the reset suite
+  }
   tokenFor(to: string): string | undefined {
     return [...this.sent].reverse().find((e) => e.to === to.toLowerCase())?.token;
   }

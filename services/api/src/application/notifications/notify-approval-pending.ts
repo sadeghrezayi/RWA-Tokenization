@@ -22,7 +22,7 @@ export class NotifyApprovalPending implements ApprovalParkedNotifier {
           user.id !== approval.makerId &&
           permissionsForRoles(user.roles).has(PERMISSIONS.APPROVAL_DECIDE),
       )
-      .map((user) => ({ kind: "staff" as const, id: user.id }));
+      .map((user) => ({ kind: "staff" as const, id: user.id, email: user.email.value }));
     if (checkers.length === 0) {
       return;
     }
@@ -30,6 +30,9 @@ export class NotifyApprovalPending implements ApprovalParkedNotifier {
       type: "approval.pending",
       title: "Approval needed",
       body: this.summary(approval),
+      // Money is blocked until someone decides — a checker who is not logged in
+      // still needs to find out (1.7c-ii).
+      important: true,
     });
   }
 

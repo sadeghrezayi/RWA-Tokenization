@@ -5,6 +5,7 @@ import { RejectKyc } from "../../../src/application/identity/reject-kyc.js";
 import { SubmitKyc } from "../../../src/application/identity/submit-kyc.js";
 import { StartKycReview } from "../../../src/application/identity/start-kyc-review.js";
 import { InvestorNotFoundError } from "../../../src/application/identity/errors.js";
+import { RecordingKycDecisionNotifier } from "../../fakes/notification-fakes.js";
 import {
   FakePasswordHasher,
   InMemoryInvestorRepository,
@@ -44,7 +45,10 @@ describe("GetInvestor", () => {
     const { investors, investorId, getInvestor } = await setup();
     await new SubmitKyc(investors).execute({ investorId });
     await new StartKycReview(investors).execute({ investorId });
-    await new RejectKyc(investors).execute({ investorId, reason: "document mismatch" });
+    await new RejectKyc(investors, new RecordingKycDecisionNotifier()).execute({
+      investorId,
+      reason: "document mismatch",
+    });
 
     const view = await getInvestor.execute({ investorId });
 

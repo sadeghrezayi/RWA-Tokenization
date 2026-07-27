@@ -20,6 +20,9 @@ class CapturingEmailSender implements EmailSender {
     this.sent.push({ to, kind: "email_verification", token });
     return Promise.resolve();
   }
+  sendNotification(): Promise<void> {
+    return Promise.resolve(); // not exercised by the verification suite
+  }
   verificationTokensFor(to: string): string[] {
     return this.sent
       .filter((e) => e.kind === "email_verification" && e.to === to.toLowerCase())

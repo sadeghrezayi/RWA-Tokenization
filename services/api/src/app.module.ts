@@ -39,6 +39,7 @@ import type {
   IdGenerator,
   InvestorChainDirectory,
   InvestorRepository,
+  KycDecisionNotifier,
   LedgerReader,
   PasswordHasher,
   StaffUserRepository,
@@ -96,7 +97,10 @@ import { ListNotifications } from "./application/notifications/list-notification
 import { GetUnreadCount } from "./application/notifications/get-unread-count.js";
 import { MarkNotificationRead } from "./application/notifications/mark-notification-read.js";
 import { NotificationService } from "./application/notifications/notification-service.js";
+import { EmailingNotifier } from "./application/notifications/emailing-notifier.js";
 import { NotifyApprovalPending } from "./application/notifications/notify-approval-pending.js";
+import { NotifyKycDecision } from "./application/notifications/notify-kyc-decision.js";
+import { NotifyDistributionPaid } from "./application/notifications/notify-distribution-paid.js";
 import type { NotificationRepository, Notifier } from "./application/notifications/ports.js";
 import { PrismaNotificationRepository } from "./infrastructure/persistence/prisma-notification-repository.js";
 import { NotificationsController } from "./infrastructure/http/notifications.controller.js";
@@ -108,6 +112,7 @@ import {
 } from "./application/distributions/get-distribution.js";
 import type {
   DistributionLedger,
+  DistributionPaidNotifier,
   DistributionRepository,
   HolderSnapshotProvider,
 } from "./application/distributions/ports.js";
@@ -256,6 +261,8 @@ export const ASSET_TOKEN_ISSUER = "ASSET_TOKEN_ISSUER";
 export const NOTIFICATION_REPOSITORY = "NOTIFICATION_REPOSITORY";
 export const NOTIFIER = "NOTIFIER";
 export const APPROVAL_PARKED_NOTIFIER = "APPROVAL_PARKED_NOTIFIER";
+export const KYC_DECISION_NOTIFIER = "KYC_DECISION_NOTIFIER";
+export const DISTRIBUTION_PAID_NOTIFIER = "DISTRIBUTION_PAID_NOTIFIER";
 export const CLOCK = "CLOCK";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
 export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
@@ -458,13 +465,15 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     },
     {
       provide: ApproveKyc,
-      useFactory: (repo: InvestorRepository, claims: ClaimIssuer) => new ApproveKyc(repo, claims),
-      inject: [INVESTOR_REPOSITORY, CLAIM_ISSUER],
+      useFactory: (repo: InvestorRepository, claims: ClaimIssuer, notifier: KycDecisionNotifier) =>
+        new ApproveKyc(repo, claims, notifier),
+      inject: [INVESTOR_REPOSITORY, CLAIM_ISSUER, KYC_DECISION_NOTIFIER],
     },
     {
       provide: RejectKyc,
-      useFactory: (repo: InvestorRepository) => new RejectKyc(repo),
-      inject: [INVESTOR_REPOSITORY],
+      useFactory: (repo: InvestorRepository, notifier: KycDecisionNotifier) =>
+        new RejectKyc(repo, notifier),
+      inject: [INVESTOR_REPOSITORY, KYC_DECISION_NOTIFIER],
     },
     {
       provide: GetInvestor,
@@ -622,10 +631,16 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       inject: [SCOPED_PRISMA],
     },
     {
+      // In-app persistence, decorated so IMPORTANT notifications are also
+      // emailed durably through the outbox (1.7c-ii).
       provide: NOTIFIER,
-      useFactory: (repo: NotificationRepository, ids: IdGenerator, clock: Clock) =>
-        new NotificationService(repo, ids, clock),
-      inject: [NOTIFICATION_REPOSITORY, ID_GENERATOR, CLOCK],
+      useFactory: (
+        repo: NotificationRepository,
+        ids: IdGenerator,
+        clock: Clock,
+        outbox: OutboxStore,
+      ) => new EmailingNotifier(new NotificationService(repo, ids, clock), outbox),
+      inject: [NOTIFICATION_REPOSITORY, ID_GENERATOR, CLOCK, OUTBOX_STORE],
     },
     {
       // 1.7c: alerts the eligible checkers when an approval is parked.
@@ -633,6 +648,18 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       useFactory: (staff: StaffUserRepository, notifier: Notifier) =>
         new NotifyApprovalPending(staff, notifier),
       inject: [STAFF_USER_REPOSITORY, NOTIFIER],
+    },
+    {
+      // 1.7c-ii: tells the investor how their KYC review was decided.
+      provide: KYC_DECISION_NOTIFIER,
+      useFactory: (notifier: Notifier) => new NotifyKycDecision(notifier),
+      inject: [NOTIFIER],
+    },
+    {
+      // 1.7c-ii: tells each holder what a paid distribution credited them.
+      provide: DISTRIBUTION_PAID_NOTIFIER,
+      useFactory: (notifier: Notifier) => new NotifyDistributionPaid(notifier),
+      inject: [NOTIFIER],
     },
     {
       provide: ListNotifications,
@@ -884,8 +911,16 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         distributions: DistributionRepository,
         ledger: DistributionLedger,
         events: AssetEventLog,
-      ) => new PayDistribution(distributions, ledger, events),
-      inject: [DISTRIBUTION_REPOSITORY, DISTRIBUTION_LEDGER, ASSET_EVENT_LOG],
+        assets: AssetRepository,
+        notifier: DistributionPaidNotifier,
+      ) => new PayDistribution(distributions, ledger, events, assets, notifier),
+      inject: [
+        DISTRIBUTION_REPOSITORY,
+        DISTRIBUTION_LEDGER,
+        ASSET_EVENT_LOG,
+        ASSET_REPOSITORY,
+        DISTRIBUTION_PAID_NOTIFIER,
+      ],
     },
     {
       provide: GetDistribution,

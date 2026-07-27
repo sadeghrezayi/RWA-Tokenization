@@ -125,6 +125,22 @@ export interface TokenGenerator {
 export interface EmailSender {
   sendPasswordReset(to: string, token: string): Promise<void>;
   sendEmailVerification(to: string, token: string): Promise<void>;
+  // 1.7c-ii: an important in-app notification, mirrored to email.
+  sendNotification(to: string, title: string, body: string): Promise<void>;
+}
+
+// 1.7c-ii: raised when a KYC review is decided, so the investor learns the
+// outcome instead of having to poll the portal. Implemented by the notifications
+// module; the identity module owns the port (dependencies point inward).
+export interface KycDecisionNotice {
+  investorId: string;
+  email: string;
+  decision: "approved" | "rejected";
+  reason?: string;
+}
+
+export interface KycDecisionNotifier {
+  kycDecided(notice: KycDecisionNotice): Promise<void>;
 }
 
 // A single-use out-of-band grant (password-reset, email-verification): only the

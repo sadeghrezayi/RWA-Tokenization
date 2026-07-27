@@ -12,10 +12,12 @@ import {
   RecordingClaimIssuer,
   SequentialIdGenerator,
 } from "../../fakes/identity-fakes.js";
+import { RecordingKycDecisionNotifier } from "../../fakes/notification-fakes.js";
 
 const setup = async () => {
   const investors = new InMemoryInvestorRepository();
   const claims = new RecordingClaimIssuer();
+  const kycNotifier = new RecordingKycDecisionNotifier();
   const register = new RegisterInvestor(
     investors,
     new SequentialIdGenerator(),
@@ -28,11 +30,12 @@ const setup = async () => {
   return {
     investors,
     claims,
+    kycNotifier,
     investorId,
     submit: new SubmitKyc(investors),
     startReview: new StartKycReview(investors),
-    approve: new ApproveKyc(investors, claims),
-    reject: new RejectKyc(investors),
+    approve: new ApproveKyc(investors, claims, kycNotifier),
+    reject: new RejectKyc(investors, kycNotifier),
   };
 };
 
@@ -74,12 +77,25 @@ describe("ApproveKyc", () => {
   });
 
   it("does_not_issue_a_claim_when_the_transition_is_invalid", async () => {
-    const { investors, claims, investorId, approve } = await setup();
+    const { investors, claims, kycNotifier, investorId, approve } = await setup();
 
     await expect(approve.execute({ investorId })).rejects.toThrow(InvalidKycTransitionError);
 
     expect(claims.issuedFor).toEqual([]);
     expect(await kycStateOf(investors, investorId)).toBe("draft");
+    expect(kycNotifier.notices).toHaveLength(0); // nothing decided → nobody told
+  });
+
+  it("tells_the_investor_their_kyc_was_approved", async () => {
+    const { kycNotifier, investorId, submit, startReview, approve } = await setup();
+    await submit.execute({ investorId });
+    await startReview.execute({ investorId });
+
+    await approve.execute({ investorId });
+
+    expect(kycNotifier.notices).toEqual([
+      { investorId, email: "investor@example.com", decision: "approved" },
+    ]);
   });
 
   it("keeps_the_persisted_approval_when_claim_issuance_fails", async () => {
@@ -112,5 +128,22 @@ describe("RejectKyc", () => {
     const stored = await investors.findById(investorId);
     expect(stored?.kycStatus.state).toBe("rejected");
     expect(stored?.kycStatus.rejectionReason).toBe("liveness check failed");
+  });
+
+  it("tells_the_investor_their_kyc_was_rejected_and_why", async () => {
+    const { kycNotifier, investorId, submit, startReview, reject } = await setup();
+    await submit.execute({ investorId });
+    await startReview.execute({ investorId });
+
+    await reject.execute({ investorId, reason: "liveness check failed" });
+
+    expect(kycNotifier.notices).toEqual([
+      {
+        investorId,
+        email: "investor@example.com",
+        decision: "rejected",
+        reason: "liveness check failed",
+      },
+    ]);
   });
 });

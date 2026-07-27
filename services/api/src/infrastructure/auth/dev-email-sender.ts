@@ -24,4 +24,9 @@ export class DevEmailSender implements EmailSender {
     this.log.warn(`[DEV EMAIL — NOT DELIVERED] email verification for ${to}: ${link}`);
     return Promise.resolve();
   }
+
+  sendNotification(to: string, title: string, body: string): Promise<void> {
+    this.log.warn(`[DEV EMAIL — NOT DELIVERED] notification for ${to}: ${title} — ${body}`);
+    return Promise.resolve();
+  }
 }

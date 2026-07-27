@@ -17,3 +17,15 @@ export interface HolderSnapshotProvider {
 export interface DistributionLedger {
   payout(investorId: string, amountRial: bigint): Promise<void>;
 }
+
+// 1.7c-ii: raised once a distribution is paid, so each holder is told what they
+// received. Implemented by the notifications module; this module owns the port.
+export interface DistributionPaidNotice {
+  distributionId: string;
+  assetName: string;
+  payouts: readonly { investorId: string; amountRial: bigint }[];
+}
+
+export interface DistributionPaidNotifier {
+  distributionPaid(notice: DistributionPaidNotice): Promise<void>;
+}
