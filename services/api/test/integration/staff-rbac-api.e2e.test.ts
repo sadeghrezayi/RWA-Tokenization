@@ -128,7 +128,10 @@ describe("Staff RBAC + real two-officer maker-checker (e2e, real Postgres)", () 
       (n) => n.type === "approval.pending",
     );
     expect(pending.length).toBeGreaterThanOrEqual(1);
-    expect(pending[0]?.body).toContain("2000");
+    // Human labels: grouped amount + the investor's email, never a raw id.
+    expect(pending[0]?.body).toContain("2,000");
+    expect(pending[0]?.body).toContain(investorEmail.toLowerCase());
+    expect(pending[0]?.body).not.toContain(investorId);
 
     // Treasury is the maker → never asked to review its own request (four-eyes).
     const treasuryNotifs = await request(server)

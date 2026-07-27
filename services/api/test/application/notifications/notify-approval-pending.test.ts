@@ -5,7 +5,13 @@ import type {
   NotificationSpec,
   Notifier,
 } from "../../../src/application/notifications/ports.js";
-import type { StaffUserRepository } from "../../../src/application/identity/ports.js";
+import type {
+  InvestorRepository,
+  StaffUserRepository,
+} from "../../../src/application/identity/ports.js";
+import { InMemoryInvestorRepository } from "../../fakes/identity-fakes.js";
+import { Investor } from "../../../src/domain/identity/investor.js";
+import { KycStatus } from "../../../src/domain/identity/kyc-status.js";
 import { Approval } from "../../../src/domain/approvals/approval.js";
 import { StaffUser } from "../../../src/domain/identity/staff-user.js";
 import { EmailAddress } from "../../../src/domain/identity/email-address.js";
@@ -57,6 +63,20 @@ const parkedApproval = (makerId: string): Approval =>
     new Date("2026-07-27T10:00:00Z"),
   );
 
+// The notified investor, so the summary can name a human, not a UUID.
+const investors = async (): Promise<InvestorRepository> => {
+  const repo = new InMemoryInvestorRepository();
+  await repo.save(
+    Investor.restore(
+      "inv-9",
+      EmailAddress.of("sara@demo.com"),
+      PasswordHash.of("hashed:pw"),
+      KycStatus.restore("approved"),
+    ),
+  );
+  return repo;
+};
+
 describe("NotifyApprovalPending", () => {
   it("notifies the eligible checkers, excluding the maker", async () => {
     // super_admin + approver hold approval.decide; treasury (the maker) does not
@@ -69,7 +89,9 @@ describe("NotifyApprovalPending", () => {
     ]);
     const notifier = new RecordingNotifier();
 
-    await new NotifyApprovalPending(repo, notifier).approvalParked(parkedApproval("officer-2"));
+    await new NotifyApprovalPending(repo, await investors(), notifier).approvalParked(
+      parkedApproval("officer-2"),
+    );
 
     expect(notifier.calls).toHaveLength(1);
     expect(notifier.calls[0]?.recipients.map((r) => r.id).sort()).toEqual([
@@ -78,8 +100,11 @@ describe("NotifyApprovalPending", () => {
     ]);
     expect(notifier.calls[0]?.recipients.every((r) => r.kind === "staff")).toBe(true);
     expect(notifier.calls[0]?.spec.type).toBe("approval.pending");
-    expect(notifier.calls[0]?.spec.body).toContain("50000000000");
-    expect(notifier.calls[0]?.spec.body).toContain("inv-9");
+    // Human labels, not raw identifiers: the investor is named by email and the
+    // amount is grouped for reading.
+    expect(notifier.calls[0]?.spec.body).toContain("50,000,000,000");
+    expect(notifier.calls[0]?.spec.body).toContain("sara@demo.com");
+    expect(notifier.calls[0]?.spec.body).not.toContain("inv-9");
   });
 
   it("excludes a checker who is also the maker (four-eyes on notice, too)", async () => {
@@ -90,7 +115,9 @@ describe("NotifyApprovalPending", () => {
     const notifier = new RecordingNotifier();
 
     // officer-1 is a checker AND the maker -> only officer-3 is notified.
-    await new NotifyApprovalPending(repo, notifier).approvalParked(parkedApproval("officer-1"));
+    await new NotifyApprovalPending(repo, await investors(), notifier).approvalParked(
+      parkedApproval("officer-1"),
+    );
 
     expect(notifier.calls[0]?.recipients.map((r) => r.id)).toEqual(["officer-3"]);
   });
@@ -102,7 +129,9 @@ describe("NotifyApprovalPending", () => {
     ]);
     const notifier = new RecordingNotifier();
 
-    await new NotifyApprovalPending(repo, notifier).approvalParked(parkedApproval("officer-2"));
+    await new NotifyApprovalPending(repo, await investors(), notifier).approvalParked(
+      parkedApproval("officer-2"),
+    );
 
     expect(notifier.calls[0]?.recipients.map((r) => r.id)).toEqual(["officer-3"]);
   });
@@ -111,8 +140,26 @@ describe("NotifyApprovalPending", () => {
     const repo = new StubStaff([staff("officer-4", ["compliance_analyst"])]);
     const notifier = new RecordingNotifier();
 
-    await new NotifyApprovalPending(repo, notifier).approvalParked(parkedApproval("officer-2"));
+    await new NotifyApprovalPending(repo, await investors(), notifier).approvalParked(
+      parkedApproval("officer-2"),
+    );
 
     expect(notifier.calls).toHaveLength(0);
+  });
+
+  it("falls back to the id when the investor cannot be resolved", async () => {
+    const repo = new StubStaff([staff("officer-1", ["super_admin"])]);
+    const notifier = new RecordingNotifier();
+
+    // An empty directory: the alert must still go out (money is waiting), just
+    // without a friendlier label.
+    await new NotifyApprovalPending(
+      repo,
+      new InMemoryInvestorRepository(),
+      notifier,
+    ).approvalParked(parkedApproval("officer-2"));
+
+    expect(notifier.calls).toHaveLength(1);
+    expect(notifier.calls[0]?.spec.body).toContain("inv-9");
   });
 });

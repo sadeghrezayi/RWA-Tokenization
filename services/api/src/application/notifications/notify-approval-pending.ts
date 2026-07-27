@@ -1,7 +1,7 @@
 import type { Approval } from "../../domain/approvals/approval.js";
 import type { ApprovalParkedNotifier } from "../approvals/ports.js";
 import { PERMISSIONS, permissionsForRoles } from "../identity/authorization.js";
-import type { StaffUserRepository } from "../identity/ports.js";
+import type { InvestorRepository, StaffUserRepository } from "../identity/ports.js";
 import type { Notifier } from "./ports.js";
 
 // 1.7c: on a parked approval, alerts the eligible checkers — active staff whose
@@ -10,6 +10,7 @@ import type { Notifier } from "./ports.js";
 export class NotifyApprovalPending implements ApprovalParkedNotifier {
   constructor(
     private readonly staff: StaffUserRepository,
+    private readonly investors: InvestorRepository,
     private readonly notifier: Notifier,
   ) {}
 
@@ -29,19 +30,28 @@ export class NotifyApprovalPending implements ApprovalParkedNotifier {
     await this.notifier.notifyMany(checkers, {
       type: "approval.pending",
       title: "Approval needed",
-      body: this.summary(approval),
+      body: await this.summary(approval),
       // Money is blocked until someone decides — a checker who is not logged in
       // still needs to find out (1.7c-ii).
       important: true,
     });
   }
 
-  private summary(approval: Approval): string {
+  // Human labels, not raw identifiers (P2): name the investor by email and group
+  // the amount's digits, so a checker can judge the request at a glance. If the
+  // investor cannot be resolved the alert still goes out — money is waiting —
+  // just with the id as the fallback label.
+  private async summary(approval: Approval): Promise<string> {
     const { investorId, amountRial } = approval.payload;
-    const detail =
-      investorId !== undefined && amountRial !== undefined
-        ? `: ${amountRial} Rial to ${investorId}`
-        : "";
-    return `A ${approval.action} action awaits your approval${detail}.`;
+    if (investorId === undefined || amountRial === undefined) {
+      return `A ${approval.action} action awaits your approval.`;
+    }
+    const investor = await this.investors.findById(investorId);
+    const who = investor?.email.value ?? investorId;
+    return `A ${approval.action} action awaits your approval: ${groupDigits(amountRial)} Rial to ${who}.`;
   }
 }
+
+// 50000000000 -> "50,000,000,000". Kept local and string-based: the amount is a
+// minor-unit integer that must not round-trip through a float.
+const groupDigits = (amount: string): string => amount.replace(/\B(?=(\d{3})+(?!\d))/g, ",");

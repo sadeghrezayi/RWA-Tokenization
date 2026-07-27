@@ -645,9 +645,9 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     {
       // 1.7c: alerts the eligible checkers when an approval is parked.
       provide: APPROVAL_PARKED_NOTIFIER,
-      useFactory: (staff: StaffUserRepository, notifier: Notifier) =>
-        new NotifyApprovalPending(staff, notifier),
-      inject: [STAFF_USER_REPOSITORY, NOTIFIER],
+      useFactory: (staff: StaffUserRepository, investors: InvestorRepository, notifier: Notifier) =>
+        new NotifyApprovalPending(staff, investors, notifier),
+      inject: [STAFF_USER_REPOSITORY, INVESTOR_REPOSITORY, NOTIFIER],
     },
     {
       // 1.7c-ii: tells the investor how their KYC review was decided.
