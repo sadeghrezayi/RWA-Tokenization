@@ -107,4 +107,29 @@ describe("FollowUp (reminders)", () => {
     expect(f.isOverdue(new Date("2026-07-24T00:00:00Z"))).toBe(false);
     expect(f.complete(LATER).isOverdue(new Date("2026-07-26T00:00:00Z"))).toBe(false);
   });
+
+  // 1.7d: the due-reminder scanner runs repeatedly, so a follow-up must be
+  // announced exactly ONCE — being overdue is not enough, it must be un-announced.
+  it("needs_a_due_notice_only_once", () => {
+    const overdue = new Date("2026-07-26T00:00:00Z");
+    const f = followUp();
+    expect(f.needsDueNotice(overdue)).toBe(true);
+    expect(f.needsDueNotice(new Date("2026-07-24T00:00:00Z"))).toBe(false); // not due yet
+
+    const announced = f.markDueNotified(overdue);
+    expect(announced.dueNotifiedAt).toEqual(overdue);
+    expect(announced.needsDueNotice(overdue)).toBe(false); // never twice
+    expect(f.needsDueNotice(overdue)).toBe(true); // immutable
+  });
+
+  it("keeps_the_first_notice_time_when_marked_again", () => {
+    const first = new Date("2026-07-26T00:00:00Z");
+    const announced = followUp().markDueNotified(first);
+    expect(announced.markDueNotified(new Date("2026-07-27T00:00:00Z"))).toBe(announced);
+  });
+
+  it("does_not_need_a_notice_once_completed", () => {
+    const overdue = new Date("2026-07-26T00:00:00Z");
+    expect(followUp().complete(LATER).needsDueNotice(overdue)).toBe(false);
+  });
 });

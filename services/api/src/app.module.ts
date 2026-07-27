@@ -101,6 +101,10 @@ import { EmailingNotifier } from "./application/notifications/emailing-notifier.
 import { NotifyApprovalPending } from "./application/notifications/notify-approval-pending.js";
 import { NotifyKycDecision } from "./application/notifications/notify-kyc-decision.js";
 import { NotifyDistributionPaid } from "./application/notifications/notify-distribution-paid.js";
+import { NotifyDueFollowUps } from "./application/notifications/notify-due-follow-ups.js";
+import type { JobScheduler } from "./application/jobs/ports.js";
+import { PgBossJobScheduler } from "./infrastructure/jobs/pg-boss-job-scheduler.js";
+import { ScheduledJobsBootstrap } from "./infrastructure/jobs/scheduled-jobs.bootstrap.js";
 import type { NotificationRepository, Notifier } from "./application/notifications/ports.js";
 import { PrismaNotificationRepository } from "./infrastructure/persistence/prisma-notification-repository.js";
 import { NotificationsController } from "./infrastructure/http/notifications.controller.js";
@@ -263,6 +267,7 @@ export const NOTIFIER = "NOTIFIER";
 export const APPROVAL_PARKED_NOTIFIER = "APPROVAL_PARKED_NOTIFIER";
 export const KYC_DECISION_NOTIFIER = "KYC_DECISION_NOTIFIER";
 export const DISTRIBUTION_PAID_NOTIFIER = "DISTRIBUTION_PAID_NOTIFIER";
+export const JOB_SCHEDULER = "JOB_SCHEDULER";
 export const CLOCK = "CLOCK";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
 export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
@@ -660,6 +665,29 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       provide: DISTRIBUTION_PAID_NOTIFIER,
       useFactory: (notifier: Notifier) => new NotifyDistributionPaid(notifier),
       inject: [NOTIFIER],
+    },
+    // 1.7d: recurring jobs on pg-boss (OD-3/OD-4) — Postgres-backed, so no new
+    // datastore, and cluster-safe cron unlike an in-process timer.
+    {
+      provide: NotifyDueFollowUps,
+      useFactory: (
+        followUps: FollowUpRepository,
+        staff: StaffUserRepository,
+        notifier: Notifier,
+        clock: Clock,
+      ) => new NotifyDueFollowUps(followUps, staff, notifier, clock),
+      inject: [FOLLOW_UP_REPOSITORY, STAFF_USER_REPOSITORY, NOTIFIER, CLOCK],
+    },
+    {
+      provide: JOB_SCHEDULER,
+      useFactory: () =>
+        new PgBossJobScheduler(process.env.DATABASE_URL ?? "postgresql://localhost:5432/postgres"),
+    },
+    {
+      provide: ScheduledJobsBootstrap,
+      useFactory: (scheduler: JobScheduler, dueFollowUps: NotifyDueFollowUps) =>
+        new ScheduledJobsBootstrap(scheduler, dueFollowUps),
+      inject: [JOB_SCHEDULER, NotifyDueFollowUps],
     },
     {
       provide: ListNotifications,

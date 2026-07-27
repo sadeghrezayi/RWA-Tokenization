@@ -97,6 +97,7 @@ export class PrismaFollowUpRepository implements FollowUpRepository {
       dueAt: followUp.dueAt,
       state: followUp.state,
       doneAt: followUp.doneAt ?? null,
+      dueNotifiedAt: followUp.dueNotifiedAt ?? null,
       createdAt: followUp.createdAt,
     };
     // Tenant-safe pattern (no upsert): try update first, create when absent.
@@ -119,4 +120,5 @@ const toFollowUp = (row: FollowUpRow): FollowUp =>
     createdAt: row.createdAt,
     state: row.state as FollowUpState,
     doneAt: row.doneAt ?? undefined,
+    dueNotifiedAt: row.dueNotifiedAt ?? undefined,
   });

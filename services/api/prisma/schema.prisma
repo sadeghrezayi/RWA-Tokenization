@@ -504,6 +504,9 @@ model CrmFollowUp {
   dueAt      DateTime  @map("due_at")
   state      String
   doneAt     DateTime? @map("done_at")
+  // 1.7d: when the overdue reminder was announced (null = not yet), so the
+  // scheduled scan never repeats a reminder.
+  dueNotifiedAt DateTime? @map("due_notified_at")
   createdAt  DateTime  @map("created_at")
 
   @@index([tenantId])

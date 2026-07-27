@@ -21,6 +21,8 @@ export class FollowUp {
     public readonly createdAt: Date,
     public readonly state: FollowUpState,
     public readonly doneAt: Date | undefined,
+    // 1.7d: when the overdue reminder was announced. Undefined = not yet told.
+    public readonly dueNotifiedAt?: Date,
   ) {}
 
   static create(fields: CreateFollowUpFields): FollowUp {
@@ -47,6 +49,7 @@ export class FollowUp {
     createdAt: Date;
     state: FollowUpState;
     doneAt: Date | undefined;
+    dueNotifiedAt?: Date | undefined;
   }): FollowUp {
     return new FollowUp(
       fields.id,
@@ -56,6 +59,7 @@ export class FollowUp {
       fields.createdAt,
       fields.state,
       fields.doneAt,
+      fields.dueNotifiedAt,
     );
   }
 
@@ -71,10 +75,35 @@ export class FollowUp {
       this.createdAt,
       "done",
       at,
+      this.dueNotifiedAt,
     );
   }
 
   isOverdue(now: Date): boolean {
     return this.state === "open" && this.dueAt.getTime() < now.getTime();
+  }
+
+  // 1.7d: the reminder scanner runs on a schedule, so "overdue" alone would
+  // re-announce the same follow-up on every pass. A notice is owed only while it
+  // is overdue AND has never been announced.
+  needsDueNotice(now: Date): boolean {
+    return this.isOverdue(now) && this.dueNotifiedAt === undefined;
+  }
+
+  // Idempotent: re-marking keeps the first announcement time.
+  markDueNotified(at: Date): FollowUp {
+    if (this.dueNotifiedAt !== undefined) {
+      return this;
+    }
+    return new FollowUp(
+      this.id,
+      this.investorId,
+      this.text,
+      this.dueAt,
+      this.createdAt,
+      this.state,
+      this.doneAt,
+      at,
+    );
   }
 }
