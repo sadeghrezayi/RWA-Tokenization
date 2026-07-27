@@ -73,6 +73,11 @@ export interface Dictionary {
   mfaEnabledNotice: string;
   mfaDisabledNotice: string;
   approvalsNav: string;
+  notificationsTitle: string;
+  notificationsEmpty: string;
+  notificationsMarkRead: string;
+  notificationsMarkAllRead: string;
+  notificationsUnreadLabel: string;
   approvalsTitle: string;
   approvalsSubtitle: string;
   noApprovals: string;
@@ -370,6 +375,11 @@ export const dictionaries: Record<Locale, Dictionary> = {
     mfaEnabledNotice: "Two-factor authentication is on for this account.",
     mfaDisabledNotice: "Two-factor authentication has been turned off.",
     approvalsNav: "Approvals",
+    notificationsTitle: "Notifications",
+    notificationsEmpty: "No notifications yet.",
+    notificationsMarkRead: "Mark read",
+    notificationsMarkAllRead: "Mark all read",
+    notificationsUnreadLabel: "unread",
     approvalsTitle: "Pending approvals",
     approvalsSubtitle:
       "Two-person review for sensitive actions. You can't approve your own request.",

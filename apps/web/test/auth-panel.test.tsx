@@ -74,6 +74,12 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   createFollowUp: vi.fn(),
   completeFollowUp: vi.fn(),
   openFollowUps: vi.fn(),
+  // Notifications (1.7e) resolve to empty/zero by default: every shell mounts
+  // the bell, so unrelated suites must not blow up on an unstubbed call.
+  listNotifications: vi.fn().mockResolvedValue([]),
+  unreadNotificationCount: vi.fn().mockResolvedValue(0),
+  markNotificationRead: vi.fn().mockResolvedValue(undefined),
+  markAllNotificationsRead: vi.fn().mockResolvedValue(undefined),
   ...overrides,
 });
 

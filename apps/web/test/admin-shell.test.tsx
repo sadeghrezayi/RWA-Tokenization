@@ -19,9 +19,22 @@ vi.mock("next/link", () => ({
 const getSession = vi.fn();
 const officerLogin = vi.fn();
 const logout = vi.fn().mockResolvedValue(undefined);
+// The top bar mounts the notification bell (1.7e), so the shell's client needs
+// the notification reads too — quiet by default here.
+const listNotifications = vi.fn().mockResolvedValue([]);
+const unreadNotificationCount = vi.fn().mockResolvedValue(0);
 vi.mock("../lib/api", async (orig) => {
   const actual = await orig<typeof import("../lib/api")>();
-  return { ...actual, createApiClient: () => ({ getSession, officerLogin, logout }) };
+  return {
+    ...actual,
+    createApiClient: () => ({
+      getSession,
+      officerLogin,
+      logout,
+      listNotifications,
+      unreadNotificationCount,
+    }),
+  };
 });
 
 import { AdminShell } from "../components/admin/admin-shell";
@@ -53,6 +66,28 @@ describe("AdminShell", () => {
     expect(await screen.findByText("Compliance Review")).toBeInTheDocument();
     expect(screen.queryByTestId("probe")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  });
+
+  // Regression (found in 1.7e live verification): logging in only flipped the
+  // status, never loading the session's permissions — so a freshly signed-in
+  // officer saw an EMPTY sidebar until they manually reloaded the page.
+  it("loads_the_permissions_after_a_fresh_login_so_the_nav_is_not_empty", async () => {
+    getSession.mockRejectedValueOnce(new Error("401")); // no session on mount
+    render(
+      <AdminShell locale="en">
+        <SessionProbe />
+      </AdminShell>,
+    );
+    await screen.findByText("Compliance Review");
+
+    // The login succeeds and the session now resolves with permissions.
+    officerLogin.mockResolvedValue({ csrfToken: "csrf" });
+    asOfficer();
+    await userEvent.type(screen.getByLabelText("Email"), "officer@example.com");
+    await userEvent.type(screen.getByLabelText("Password"), "officer-pass");
+    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    expect(await screen.findByRole("link", { name: /Overview/ })).toBeInTheDocument();
   });
 
   it("shows_the_login_when_a_non_officer_session_is_present", async () => {

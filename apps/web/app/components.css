@@ -863,3 +863,125 @@ textarea.field__input {
   resize: vertical;
   min-height: 3rem;
 }
+
+/* Notification center (1.7e): bell + unread badge in the shell top bar, with a
+   popover feed. Hand-rolled with design tokens — no new dependencies. */
+.notifications {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.notifications__bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.notifications__bell:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.notifications__badge {
+  position: absolute;
+  top: -4px;
+  inset-inline-end: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+.notifications__panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  inset-inline-end: 0;
+  z-index: 40;
+  width: min(360px, calc(100vw - 2 * var(--space-4)));
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.notifications__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.notifications__title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.notifications__empty {
+  margin: 0;
+  padding: var(--space-6) var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+.notifications__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.notification {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.notification:last-child {
+  border-bottom: none;
+}
+.notification--unread {
+  background: var(--surface-2);
+}
+.notification__text {
+  min-width: 0;
+}
+.notification__title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.notification--unread .notification__title::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-end: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--brand);
+  vertical-align: middle;
+}
+.notification__body {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+.notification__time {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--text-muted);
+  font-size: 11px;
+}

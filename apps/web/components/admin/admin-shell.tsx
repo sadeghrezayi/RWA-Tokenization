@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PERMISSIONS, createApiClient } from "../../lib/api";
@@ -10,6 +10,7 @@ import { readCsrfToken } from "../../lib/session";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
 import { OfficerLogin } from "../officer-login";
+import { NotificationBell } from "../notification-bell";
 import { AdminSessionProvider } from "./admin-session";
 
 // FR-PT-3 admin console shell: a persistent left sidebar (grouped nav) + a slim
@@ -27,27 +28,27 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
   const [csrf, setCsrf] = useState<string>("");
   const [permissions, setPermissions] = useState<readonly string[]>([]);
 
-  useEffect(() => {
-    let active = true;
-    api
-      .getSession()
-      .then((session) => {
-        if (!active) return;
-        if (session.kind === "officer") {
-          setCsrf(readCsrfToken() ?? "");
-          setPermissions(session.permissions);
-          setStatus("authed");
-        } else {
-          setStatus("anon");
-        }
-      })
-      .catch(() => {
-        if (active) setStatus("anon");
-      });
-    return () => {
-      active = false;
-    };
+  // Loading the session is shared by the initial mount AND a fresh login: the
+  // permissions drive the nav, so logging in must re-read them — flipping the
+  // status alone left a signed-in officer with an empty sidebar until reload.
+  const loadSession = useCallback(async () => {
+    try {
+      const session = await api.getSession();
+      if (session.kind !== "officer") {
+        setStatus("anon");
+        return;
+      }
+      setCsrf(readCsrfToken() ?? "");
+      setPermissions(session.permissions);
+      setStatus("authed");
+    } catch {
+      setStatus("anon");
+    }
   }, [api]);
+
+  useEffect(() => {
+    void loadSession();
+  }, [loadSession]);
 
   const base = `/${locale}/admin`;
   // Role-aware nav (1.4d): each item declares the permission it needs; the shell
@@ -165,8 +166,7 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
             locale={locale}
             api={api}
             onAuthed={() => {
-              setCsrf(readCsrfToken() ?? "");
-              setStatus("authed");
+              void loadSession();
             }}
           />
         </div>
@@ -237,6 +237,7 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
         <div className="shell__main">
           <header className="shell__topbar">
             <span className="shell__pill">Pilot · self-hosted</span>
+            <NotificationBell locale={locale} api={api} token={csrf} />
           </header>
           <div className="shell__content">{children}</div>
         </div>

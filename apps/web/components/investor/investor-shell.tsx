@@ -8,6 +8,7 @@ import { readCsrfToken } from "../../lib/session";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
 import { AuthPanel } from "../auth-panel";
+import { NotificationBell } from "../notification-bell";
 import { InvestorSessionProvider } from "./investor-session";
 
 // FR-PT-1 investor portal shell: the same sidebar chrome as the admin console,
@@ -138,6 +139,7 @@ export const InvestorShell = ({
         <div className="shell__main">
           <header className="shell__topbar">
             <span className="shell__pill">Pilot · self-hosted</span>
+            <NotificationBell locale={locale} api={api} token={csrf} />
           </header>
           <div className="shell__content">{children}</div>
         </div>

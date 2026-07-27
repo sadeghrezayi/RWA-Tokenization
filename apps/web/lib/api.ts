@@ -39,6 +39,17 @@ export interface ApprovalViewDto {
   decidedAt?: string;
 }
 
+// 1.7: an in-app notification addressed to the signed-in user. The API derives
+// the recipient from the session, so these endpoints need no id argument.
+export interface NotificationDto {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
+}
+
 // Officer login is two-step when MFA is active: a correct password yields either
 // a session (token) or an "mfaRequired" challenge to complete with a code.
 export type OfficerLoginResult =
@@ -375,6 +386,11 @@ export interface ApiClient {
   listApprovals(officerToken: string): Promise<ApprovalViewDto[]>;
   approveApproval(officerToken: string, approvalId: string): Promise<void>;
   rejectApproval(officerToken: string, approvalId: string, reason: string): Promise<void>;
+  // Notifications (1.7): self-scoped — the recipient comes from the session.
+  listNotifications(token: string): Promise<NotificationDto[]>;
+  unreadNotificationCount(token: string): Promise<number>;
+  markNotificationRead(token: string, notificationId: string): Promise<void>;
+  markAllNotificationsRead(token: string): Promise<void>;
   listOfferings(token: string): Promise<OfferingViewDto[]>;
   getOffering(token: string, offeringId: string): Promise<OfferingViewDto>;
   createOffering(officerToken: string, body: CreateOfferingBody): Promise<{ offeringId: string }>;
@@ -673,6 +689,17 @@ export const createApiClient = (
         token: officerToken,
         body: { reason },
       });
+    },
+    listNotifications: (token) => json(call("/notifications", { token })),
+    unreadNotificationCount: async (token) => {
+      const res = await json<{ count: number }>(call("/notifications/unread-count", { token }));
+      return res.count;
+    },
+    markNotificationRead: async (token, notificationId) => {
+      await call(`/notifications/${notificationId}/read`, { method: "POST", token });
+    },
+    markAllNotificationsRead: async (token) => {
+      await call("/notifications/read-all", { method: "POST", token });
     },
     listOfferings: (token) => json(call("/offerings", { token })),
     getOffering: (token, offeringId) => json(call(`/offerings/${offeringId}`, { token })),
