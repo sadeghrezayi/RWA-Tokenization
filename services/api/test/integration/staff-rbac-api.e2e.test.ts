@@ -54,6 +54,9 @@ describe("Staff RBAC + real two-officer maker-checker (e2e, real Postgres)", () 
   }, 30_000);
 
   afterAll(async () => {
+    await prisma.notification.deleteMany({
+      where: { recipientId: { in: ["officer-1", "officer-2"] } },
+    });
     await prisma.approval.deleteMany({ where: { makerId: { in: ["officer-1", "officer-2"] } } });
     await prisma.loginAttempt.deleteMany({
       where: {
@@ -107,5 +110,33 @@ describe("Staff RBAC + real two-officer maker-checker (e2e, real Postgres)", () 
       .set(auth(adminToken))
       .expect(204);
     expect(await balance()).toBe("5000");
+  });
+
+  it("alerts the eligible checker when treasury parks an approval, not the maker (1.7c)", async () => {
+    await request(server)
+      .post(`/ledger/${investorId}/credit`)
+      .set(auth(treasuryToken))
+      .send({ amountRial: "2000" })
+      .expect(202);
+
+    // The super-admin (a checker, and NOT the maker) is alerted in-app.
+    const adminNotifs = await request(server)
+      .get("/notifications")
+      .set(auth(adminToken))
+      .expect(200);
+    const pending = (adminNotifs.body as { type: string; body: string }[]).filter(
+      (n) => n.type === "approval.pending",
+    );
+    expect(pending.length).toBeGreaterThanOrEqual(1);
+    expect(pending[0]?.body).toContain("2000");
+
+    // Treasury is the maker → never asked to review its own request (four-eyes).
+    const treasuryNotifs = await request(server)
+      .get("/notifications")
+      .set(auth(treasuryToken))
+      .expect(200);
+    expect(
+      (treasuryNotifs.body as { type: string }[]).filter((n) => n.type === "approval.pending"),
+    ).toHaveLength(0);
   });
 });

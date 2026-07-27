@@ -53,6 +53,10 @@ export class InMemoryStaffUserRepository implements StaffUserRepository {
     return Promise.resolve(this.byId.get(id));
   }
 
+  findAll(): Promise<StaffUser[]> {
+    return Promise.resolve([...this.byId.values()]);
+  }
+
   save(user: StaffUser): Promise<void> {
     this.byId.set(user.id, user);
     return Promise.resolve();

@@ -85,6 +85,7 @@ import { DecideApproval } from "./application/approvals/decide-approval.js";
 import { ListApprovals } from "./application/approvals/list-approvals.js";
 import type {
   ApprovalCommit,
+  ApprovalParkedNotifier,
   ApprovalRepository,
   LedgerCredit,
 } from "./application/approvals/ports.js";
@@ -95,7 +96,8 @@ import { ListNotifications } from "./application/notifications/list-notification
 import { GetUnreadCount } from "./application/notifications/get-unread-count.js";
 import { MarkNotificationRead } from "./application/notifications/mark-notification-read.js";
 import { NotificationService } from "./application/notifications/notification-service.js";
-import type { NotificationRepository } from "./application/notifications/ports.js";
+import { NotifyApprovalPending } from "./application/notifications/notify-approval-pending.js";
+import type { NotificationRepository, Notifier } from "./application/notifications/ports.js";
 import { PrismaNotificationRepository } from "./infrastructure/persistence/prisma-notification-repository.js";
 import { NotificationsController } from "./infrastructure/http/notifications.controller.js";
 import { DeclareDistribution } from "./application/distributions/declare-distribution.js";
@@ -253,6 +255,7 @@ export const APPROVAL_COMMIT = "APPROVAL_COMMIT";
 export const ASSET_TOKEN_ISSUER = "ASSET_TOKEN_ISSUER";
 export const NOTIFICATION_REPOSITORY = "NOTIFICATION_REPOSITORY";
 export const NOTIFIER = "NOTIFIER";
+export const APPROVAL_PARKED_NOTIFIER = "APPROVAL_PARKED_NOTIFIER";
 export const CLOCK = "CLOCK";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
 export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
@@ -582,15 +585,22 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         approvals: ApprovalRepository,
         ids: IdGenerator,
         clock: Clock,
+        parkedNotifier: ApprovalParkedNotifier,
       ) => {
         const configured = process.env.LEDGER_CREDIT_APPROVAL_THRESHOLD_RIAL;
         const threshold =
           configured !== undefined && configured.trim() !== ""
             ? BigInt(configured)
             : DEFAULT_LEDGER_CREDIT_APPROVAL_THRESHOLD_RIAL;
-        return new CreditInvestorLedger(rail, approvals, ids, clock, threshold);
+        return new CreditInvestorLedger(rail, approvals, ids, clock, threshold, parkedNotifier);
       },
-      inject: [PrismaSettlementRail, APPROVAL_REPOSITORY, ID_GENERATOR, CLOCK],
+      inject: [
+        PrismaSettlementRail,
+        APPROVAL_REPOSITORY,
+        ID_GENERATOR,
+        CLOCK,
+        APPROVAL_PARKED_NOTIFIER,
+      ],
     },
     {
       provide: DecideApproval,
@@ -616,6 +626,13 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       useFactory: (repo: NotificationRepository, ids: IdGenerator, clock: Clock) =>
         new NotificationService(repo, ids, clock),
       inject: [NOTIFICATION_REPOSITORY, ID_GENERATOR, CLOCK],
+    },
+    {
+      // 1.7c: alerts the eligible checkers when an approval is parked.
+      provide: APPROVAL_PARKED_NOTIFIER,
+      useFactory: (staff: StaffUserRepository, notifier: Notifier) =>
+        new NotifyApprovalPending(staff, notifier),
+      inject: [STAFF_USER_REPOSITORY, NOTIFIER],
     },
     {
       provide: ListNotifications,

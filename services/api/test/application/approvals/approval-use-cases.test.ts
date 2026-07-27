@@ -6,6 +6,7 @@ import { ApprovalNotFoundError } from "../../../src/application/approvals/errors
 import type {
   ApprovalActionExecutor,
   ApprovalCommit,
+  ApprovalParkedNotifier,
   ApprovalRepository,
   LedgerCredit,
 } from "../../../src/application/approvals/ports.js";
@@ -47,10 +48,19 @@ class RecordingExecutor implements ApprovalActionExecutor {
   }
 }
 
+class RecordingParkedNotifier implements ApprovalParkedNotifier {
+  readonly parked: Approval[] = [];
+  approvalParked(approval: Approval): Promise<void> {
+    this.parked.push(approval);
+    return Promise.resolve();
+  }
+}
+
 const setup = () => {
   const approvals = new InMemoryApprovals();
   const rail = new RecordingRail();
   const executor = new RecordingExecutor();
+  const parkedNotifier = new RecordingParkedNotifier();
   const clock = new FixedClock(NOW);
   // Fake commit: runs the work inline with the same in-memory stores (no real tx).
   const commit: ApprovalCommit = {
@@ -60,12 +70,14 @@ const setup = () => {
     approvals,
     rail,
     executor,
+    parkedNotifier,
     credit: new CreditInvestorLedger(
       rail,
       approvals,
       new SequentialIdGenerator(),
       clock,
       THRESHOLD,
+      parkedNotifier,
     ),
     decide: new DecideApproval(approvals, commit, clock),
     list: new ListApprovals(approvals),
@@ -85,6 +97,7 @@ describe("CreditInvestorLedger (threshold)", () => {
       { investorId: "inv-1", amountRial: 999n, actorId: "officer-a" },
     ]);
     expect(await s.approvals.findByStatus("pending")).toHaveLength(0);
+    expect(s.parkedNotifier.parked).toHaveLength(0); // nothing parked → no alert
   });
 
   it("parks_a_pending_approval_at_or_above_the_threshold", async () => {
@@ -100,6 +113,8 @@ describe("CreditInvestorLedger (threshold)", () => {
     expect(pending).toHaveLength(1);
     expect(pending[0]?.payload).toEqual({ investorId: "inv-1", amountRial: "5000" });
     expect(pending[0]?.makerId).toBe("officer-a");
+    // The parked approval alerts the checkers (1.7c).
+    expect(s.parkedNotifier.parked.map((a) => a.id)).toEqual([pending[0]?.id]);
   });
 });
 

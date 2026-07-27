@@ -31,3 +31,10 @@ export interface ApprovalCommit {
 export interface LedgerCredit {
   credit(investorId: string, amountRial: bigint, actorId: string): Promise<void>;
 }
+
+// 1.7c: raised when a sensitive action is parked for maker-checker. The
+// notifications module implements this to alert the eligible checkers so a
+// pending approval is not silently waiting in a queue no one is watching.
+export interface ApprovalParkedNotifier {
+  approvalParked(approval: Approval): Promise<void>;
+}

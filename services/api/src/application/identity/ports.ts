@@ -18,6 +18,9 @@ export interface InvestorRepository {
 export interface StaffUserRepository {
   findByEmail(email: EmailAddress): Promise<StaffUser | undefined>;
   findById(id: string): Promise<StaffUser | undefined>;
+  // All staff accounts — used to resolve a notification audience by permission
+  // (e.g. the checkers eligible to decide a parked approval).
+  findAll(): Promise<StaffUser[]>;
   save(user: StaffUser): Promise<void>;
 }
 

@@ -34,6 +34,11 @@ export class PrismaStaffUserRepository implements StaffUserRepository {
     return row ? toDomain(row) : undefined;
   }
 
+  async findAll(): Promise<StaffUser[]> {
+    const rows = await this.prisma.staffUser.findMany({ include: { memberships: true } });
+    return rows.map((row) => toDomain(row));
+  }
+
   async save(user: StaffUser): Promise<void> {
     const data = {
       email: user.email.value,
