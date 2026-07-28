@@ -12,7 +12,11 @@ import type {
 } from "../../../src/application/approvals/ports.js";
 import { SelfApprovalError } from "../../../src/domain/approvals/errors.js";
 import type { Approval, ApprovalStatus } from "../../../src/domain/approvals/approval.js";
-import { SequentialIdGenerator } from "../../fakes/identity-fakes.js";
+import { InMemoryInvestorRepository, SequentialIdGenerator } from "../../fakes/identity-fakes.js";
+import { Investor } from "../../../src/domain/identity/investor.js";
+import { EmailAddress } from "../../../src/domain/identity/email-address.js";
+import { PasswordHash } from "../../../src/domain/identity/password-hash.js";
+import { KycStatus } from "../../../src/domain/identity/kyc-status.js";
 import { FixedClock } from "../../fakes/offering-fakes.js";
 
 const THRESHOLD = 1000n;
@@ -58,6 +62,7 @@ class RecordingParkedNotifier implements ApprovalParkedNotifier {
 
 const setup = () => {
   const approvals = new InMemoryApprovals();
+  const investors = new InMemoryInvestorRepository();
   const rail = new RecordingRail();
   const executor = new RecordingExecutor();
   const parkedNotifier = new RecordingParkedNotifier();
@@ -68,6 +73,7 @@ const setup = () => {
   };
   return {
     approvals,
+    investors,
     rail,
     executor,
     parkedNotifier,
@@ -80,7 +86,7 @@ const setup = () => {
       parkedNotifier,
     ),
     decide: new DecideApproval(approvals, commit, clock),
-    list: new ListApprovals(approvals),
+    list: new ListApprovals(approvals, investors),
   };
 };
 
@@ -172,11 +178,22 @@ describe("DecideApproval (four-eyes)", () => {
 describe("ListApprovals", () => {
   it("lists_only_pending_with_a_human_summary", async () => {
     const s = setup();
+    await s.investors.save(
+      Investor.restore(
+        "inv-1",
+        EmailAddress.of("sara@demo.com"),
+        PasswordHash.of("hashed:pw"),
+        KycStatus.restore("approved"),
+      ),
+    );
     await s.credit.execute({ investorId: "inv-1", amountRial: 5000n, makerId: "officer-a" });
     const views = await s.list.pending();
     expect(views).toHaveLength(1);
     expect(views[0]?.status).toBe("pending");
-    expect(views[0]?.summary).toContain("5000");
-    expect(views[0]?.summary).toContain("inv-1");
+    // Human labels (P2): grouped amount, and the investor named by email rather
+    // than by a raw id — the queue is read by a person deciding about money.
+    expect(views[0]?.summary).toContain("5,000");
+    expect(views[0]?.summary).toContain("sara@demo.com");
+    expect(views[0]?.summary).not.toContain("inv-1");
   });
 });

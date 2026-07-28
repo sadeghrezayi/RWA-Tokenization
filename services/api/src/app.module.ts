@@ -625,8 +625,9 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     },
     {
       provide: ListApprovals,
-      useFactory: (approvals: ApprovalRepository) => new ListApprovals(approvals),
-      inject: [APPROVAL_REPOSITORY],
+      useFactory: (approvals: ApprovalRepository, investors: InvestorRepository) =>
+        new ListApprovals(approvals, investors),
+      inject: [APPROVAL_REPOSITORY, INVESTOR_REPOSITORY],
     },
     // Notifications (1.7). Tenant-scoped repository; the read/mark use-cases back
     // the self-scoped API; NotificationService (the Notifier) is what event

@@ -30,7 +30,11 @@ const queue = (overrides: Partial<WorkQueueDto> = {}): WorkQueueDto => ({
       key: "redemptions",
       total: 1,
       items: [
-        { id: "red-1", label: "Redemption of 100 tokens", waitingSince: "2026-07-26T12:00:00.000Z" },
+        {
+          id: "red-1",
+          label: "Redemption of 100 tokens",
+          waitingSince: "2026-07-26T12:00:00.000Z",
+        },
       ],
     },
   ],
@@ -55,12 +59,14 @@ describe("OpsPanel", () => {
 
     const kyc = await screen.findByTestId("queue-card-kyc");
     expect(within(kyc).getByRole("link")).toHaveAttribute("href", "/en/admin/kyc");
-    expect(
-      within(screen.getByTestId("queue-card-approvals")).getByRole("link"),
-    ).toHaveAttribute("href", "/en/admin/approvals");
-    expect(
-      within(screen.getByTestId("queue-card-redemptions")).getByRole("link"),
-    ).toHaveAttribute("href", "/en/admin/redemptions");
+    expect(within(screen.getByTestId("queue-card-approvals")).getByRole("link")).toHaveAttribute(
+      "href",
+      "/en/admin/approvals",
+    );
+    expect(within(screen.getByTestId("queue-card-redemptions")).getByRole("link")).toHaveAttribute(
+      "href",
+      "/en/admin/redemptions",
+    );
   });
 
   it("lists the waiting items so an operator can triage without clicking through", async () => {

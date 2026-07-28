@@ -130,3 +130,14 @@ export const EmptyState = ({ icon, children }: { icon?: string; children: ReactN
     <p>{children}</p>
   </div>
 );
+
+// 1.8: a loading placeholder. Shows the SHAPE of what is coming so a slow load
+// reads as "loading" rather than as an empty dashboard — an empty ops queue and
+// an unloaded one mean very different things to an operator.
+export const Skeleton = ({ lines = 3, testId }: { lines?: number; testId?: string }) => (
+  <div className="skeleton" data-testid={testId} aria-busy="true" aria-live="polite">
+    {Array.from({ length: lines }, (_, i) => (
+      <span key={i} className="skeleton__line" />
+    ))}
+  </div>
+);

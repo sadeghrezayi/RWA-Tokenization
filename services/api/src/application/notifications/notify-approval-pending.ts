@@ -2,6 +2,7 @@ import type { Approval } from "../../domain/approvals/approval.js";
 import type { ApprovalParkedNotifier } from "../approvals/ports.js";
 import { PERMISSIONS, permissionsForRoles } from "../identity/authorization.js";
 import type { InvestorRepository, StaffUserRepository } from "../identity/ports.js";
+import { groupDigits } from "../shared/format.js";
 import type { Notifier } from "./ports.js";
 
 // 1.7c: on a parked approval, alerts the eligible checkers — active staff whose
@@ -51,7 +52,3 @@ export class NotifyApprovalPending implements ApprovalParkedNotifier {
     return `A ${approval.action} action awaits your approval: ${groupDigits(amountRial)} Rial to ${who}.`;
   }
 }
-
-// 50000000000 -> "50,000,000,000". Kept local and string-based: the amount is a
-// minor-unit integer that must not round-trip through a float.
-const groupDigits = (amount: string): string => amount.replace(/\B(?=(\d{3})+(?!\d))/g, ",");

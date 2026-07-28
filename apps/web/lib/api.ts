@@ -39,6 +39,26 @@ export interface ApprovalViewDto {
   decidedAt?: string;
 }
 
+// 1.8: the ops triage view — what is waiting on a human right now.
+export type WorkQueueKeyDto = "kyc" | "approvals" | "redemptions";
+
+export interface WorkQueueItemDto {
+  id: string;
+  label: string;
+  waitingSince?: string;
+}
+
+export interface WorkQueueSectionDto {
+  key: WorkQueueKeyDto;
+  total: number;
+  items: WorkQueueItemDto[];
+}
+
+export interface WorkQueueDto {
+  sections: WorkQueueSectionDto[];
+  totalOutstanding: number;
+}
+
 // 1.7: an in-app notification addressed to the signed-in user. The API derives
 // the recipient from the session, so these endpoints need no id argument.
 export interface NotificationDto {
@@ -386,6 +406,7 @@ export interface ApiClient {
   listApprovals(officerToken: string): Promise<ApprovalViewDto[]>;
   approveApproval(officerToken: string, approvalId: string): Promise<void>;
   rejectApproval(officerToken: string, approvalId: string, reason: string): Promise<void>;
+  getWorkQueue(officerToken: string): Promise<WorkQueueDto>;
   // Notifications (1.7): self-scoped — the recipient comes from the session.
   listNotifications(token: string): Promise<NotificationDto[]>;
   unreadNotificationCount(token: string): Promise<number>;
@@ -690,6 +711,7 @@ export const createApiClient = (
         body: { reason },
       });
     },
+    getWorkQueue: (officerToken) => json(call("/reporting/work-queue", { token: officerToken })),
     listNotifications: (token) => json(call("/notifications", { token })),
     unreadNotificationCount: async (token) => {
       const res = await json<{ count: number }>(call("/notifications/unread-count", { token }));

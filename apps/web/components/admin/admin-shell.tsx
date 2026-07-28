@@ -58,6 +58,12 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
       label: t.navGroupMain,
       items: [
         {
+          href: `${base}/ops`,
+          label: t.opsTitle,
+          icon: "◉",
+          permission: PERMISSIONS.REPORTING_READ,
+        },
+        {
           href: `${base}/overview`,
           label: t.overviewTitle,
           icon: "◫",
@@ -180,7 +186,7 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
     <AdminSessionProvider value={{ api, token: csrf, locale }}>
       <div className="shell">
         <aside className="sidebar">
-          <Link href={`${base}/overview`} className="brand sidebar__brand">
+          <Link href={`${base}/ops`} className="brand sidebar__brand">
             <span className="brand__logo" aria-hidden="true">
               ◈
             </span>

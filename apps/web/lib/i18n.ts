@@ -73,6 +73,15 @@ export interface Dictionary {
   mfaEnabledNotice: string;
   mfaDisabledNotice: string;
   approvalsNav: string;
+  opsTitle: string;
+  opsSubtitle: string;
+  opsAllClear: string;
+  opsLoadFailed: string;
+  opsQueueKyc: string;
+  opsQueueApprovals: string;
+  opsQueueRedemptions: string;
+  opsWaitingSince: string;
+  opsOpenQueue: string;
   notificationsTitle: string;
   notificationsEmpty: string;
   notificationsMarkRead: string;
@@ -375,6 +384,15 @@ export const dictionaries: Record<Locale, Dictionary> = {
     mfaEnabledNotice: "Two-factor authentication is on for this account.",
     mfaDisabledNotice: "Two-factor authentication has been turned off.",
     approvalsNav: "Approvals",
+    opsTitle: "Work queue",
+    opsSubtitle: "Everything waiting on a decision, longest wait first.",
+    opsAllClear: "Nothing is waiting on you right now.",
+    opsLoadFailed: "The work queue could not be loaded.",
+    opsQueueKyc: "KYC reviews",
+    opsQueueApprovals: "Approvals",
+    opsQueueRedemptions: "Redemptions",
+    opsWaitingSince: "waiting since",
+    opsOpenQueue: "Open",
     notificationsTitle: "Notifications",
     notificationsEmpty: "No notifications yet.",
     notificationsMarkRead: "Mark read",

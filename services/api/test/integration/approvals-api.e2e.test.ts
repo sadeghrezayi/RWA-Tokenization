@@ -95,7 +95,14 @@ describe("Approvals API (e2e, real Postgres)", () => {
   it("shows_the_pending_approval_in_the_queue", async () => {
     const res = await request(server).get("/approvals").set(auth(officer1)).expect(200);
     const pending = res.body as { status: string; summary: string }[];
-    expect(pending.some((a) => a.status === "pending" && a.summary.includes("1000"))).toBe(true);
+    // Human labels (P2): the amount is grouped and the investor is named by
+    // email — a person deciding about money should not be shown a raw UUID.
+    const mine = pending.find(
+      (a) => a.status === "pending" && a.summary.includes(investorEmail.toLowerCase()),
+    );
+    expect(mine).toBeDefined();
+    expect(mine?.summary).toContain("1,000");
+    expect(mine?.summary).not.toContain(investorId);
   });
 
   it("forbids_the_maker_from_approving_their_own_request_and_applies_on_second_approval", async () => {
