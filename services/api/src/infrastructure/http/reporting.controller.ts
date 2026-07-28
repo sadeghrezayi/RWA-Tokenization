@@ -3,6 +3,8 @@ import { GetAssetOverview } from "../../application/reporting/asset-overview.js"
 import type { PortfolioOverview } from "../../application/reporting/asset-overview.js";
 import { GetSystemHealth } from "../../application/reporting/system-health.js";
 import type { SystemHealthView } from "../../application/reporting/system-health.js";
+import { GetWorkQueue } from "../../application/ops/get-work-queue.js";
+import type { WorkQueueView } from "../../application/ops/get-work-queue.js";
 import { GetAuditTrail } from "../../application/reporting/audit-trail.js";
 import type { AuditEventView } from "../../application/reporting/audit-trail.js";
 import { GetHolderRegistry } from "../../application/registry/get-holder-registry.js";
@@ -33,7 +35,14 @@ export class ReportingController {
     private readonly registryCsv: ExportHolderRegistryCsv,
     private readonly historyCsv: ExportTransferHistoryCsv,
     private readonly auditTrail: GetAuditTrail,
+    private readonly workQueue: GetWorkQueue,
   ) {}
+
+  // 1.8: everything currently waiting on a human decision, oldest first.
+  @Get("work-queue")
+  queue(): Promise<WorkQueueView> {
+    return this.workQueue.execute();
+  }
 
   @Get("assets")
   overview(): Promise<PortfolioOverview> {

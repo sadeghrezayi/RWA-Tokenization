@@ -102,6 +102,7 @@ import { NotifyApprovalPending } from "./application/notifications/notify-approv
 import { NotifyKycDecision } from "./application/notifications/notify-kyc-decision.js";
 import { NotifyDistributionPaid } from "./application/notifications/notify-distribution-paid.js";
 import { NotifyDueFollowUps } from "./application/notifications/notify-due-follow-ups.js";
+import { GetWorkQueue } from "./application/ops/get-work-queue.js";
 import type { JobScheduler } from "./application/jobs/ports.js";
 import { PgBossJobScheduler } from "./infrastructure/jobs/pg-boss-job-scheduler.js";
 import { ScheduledJobsBootstrap } from "./infrastructure/jobs/scheduled-jobs.bootstrap.js";
@@ -1249,6 +1250,17 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         investors: InvestorRepository,
       ) => new GetAuditTrail(events, assets, investors),
       inject: [ASSET_EVENT_READER, ASSET_REPOSITORY, INVESTOR_REPOSITORY],
+    },
+    {
+      // 1.8 ops triage: composes the existing per-domain read models so
+      // "pending" keeps one definition per domain.
+      provide: GetWorkQueue,
+      useFactory: (
+        pendingKyc: ListPendingKyc,
+        approvals: ListApprovals,
+        redemptions: ListRedemptions,
+      ) => new GetWorkQueue(pendingKyc, approvals, redemptions),
+      inject: [ListPendingKyc, ListApprovals, ListRedemptions],
     },
     { provide: LEDGER_READER, useExisting: PrismaSettlementRail },
     {
