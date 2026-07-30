@@ -103,6 +103,9 @@ import { NotifyKycDecision } from "./application/notifications/notify-kyc-decisi
 import { NotifyDistributionPaid } from "./application/notifications/notify-distribution-paid.js";
 import { NotifyDueFollowUps } from "./application/notifications/notify-due-follow-ups.js";
 import { GetWorkQueue } from "./application/ops/get-work-queue.js";
+import { GetPublicCatalog } from "./application/public/get-public-catalog.js";
+import { PublishOffering } from "./application/offerings/publish-offering.js";
+import { PublicController } from "./infrastructure/http/public.controller.js";
 import type { JobScheduler } from "./application/jobs/ports.js";
 import { PgBossJobScheduler } from "./infrastructure/jobs/pg-boss-job-scheduler.js";
 import { ScheduledJobsBootstrap } from "./infrastructure/jobs/scheduled-jobs.bootstrap.js";
@@ -322,6 +325,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     CrmController,
     ApprovalsController,
     NotificationsController,
+    PublicController,
   ],
   providers: [
     PrismaService,
@@ -1251,6 +1255,20 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         investors: InvestorRepository,
       ) => new GetAuditTrail(events, assets, investors),
       inject: [ASSET_EVENT_READER, ASSET_REPOSITORY, INVESTOR_REPOSITORY],
+    },
+    {
+      // 2.1a: the anonymous-visitor catalog. Only published+open offerings, and
+      // only factual terms (no projected yield — OD-21).
+      provide: GetPublicCatalog,
+      useFactory: (offerings: OfferingRepository, assets: AssetRepository) =>
+        new GetPublicCatalog(offerings, assets),
+      inject: [OFFERING_REPOSITORY, ASSET_REPOSITORY],
+    },
+    {
+      provide: PublishOffering,
+      useFactory: (offerings: OfferingRepository, clock: Clock) =>
+        new PublishOffering(offerings, clock),
+      inject: [OFFERING_REPOSITORY, CLOCK],
     },
     {
       // 1.8 ops triage: composes the existing per-domain read models so

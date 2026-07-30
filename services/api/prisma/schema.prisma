@@ -358,6 +358,10 @@ model Offering {
   opensAt        DateTime               @map("opens_at")
   closesAt       DateTime               @map("closes_at")
   state          OfferingState
+  // 2.1a (OD-5): when this offering was deliberately published to the public
+  // catalog. NULL = never published. Distinct from `state` — an offering can be
+  // open to invited investors without being advertised publicly.
+  publishedAt    DateTime?              @map("published_at")
   subscriptions  OfferingSubscription[]
   allocations    OfferingAllocation[]
   createdAt      DateTime               @default(now()) @map("created_at")

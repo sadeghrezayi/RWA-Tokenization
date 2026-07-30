@@ -215,3 +215,61 @@ describe("Persistence seam", () => {
     expect(restored.allocations).toEqual(closed.allocations);
   });
 });
+
+// 2.1a (OD-5 "public catalog, gated subscription"): a public listing must show
+// only DELIBERATELY published offerings. Being open is not the same as being
+// public — an offering can be live for invited investors without ever appearing
+// in a public catalog, so publication is its own decision.
+describe("Publication (public catalog visibility)", () => {
+  const PUBLISHED_AT = new Date("2026-07-02T00:00:00Z");
+
+  it("is_not_public_until_published", () => {
+    const offering = open();
+    expect(offering.isPubliclyListed()).toBe(false);
+    expect(offering.publishedAt).toBeUndefined();
+  });
+
+  it("publishes_an_open_offering_and_records_when", () => {
+    const published = open().publish(PUBLISHED_AT);
+    expect(published.isPubliclyListed()).toBe(true);
+    expect(published.publishedAt).toEqual(PUBLISHED_AT);
+    expect(open().isPubliclyListed()).toBe(false); // immutable
+  });
+
+  it("refuses_to_publish_a_draft", () => {
+    // A draft is still being configured; publishing it would advertise terms
+    // that can still change underneath a reader.
+    expect(() => draft().publish(PUBLISHED_AT)).toThrow(InvalidOfferingTransitionError);
+  });
+
+  it("keeps_the_first_publication_time_when_published_again", () => {
+    const first = open().publish(PUBLISHED_AT);
+    expect(first.publish(new Date("2026-07-03T00:00:00Z"))).toBe(first);
+  });
+
+  it("unpublishes_so_a_listing_can_be_withdrawn", () => {
+    const withdrawn = open().publish(PUBLISHED_AT).unpublish();
+    expect(withdrawn.isPubliclyListed()).toBe(false);
+    expect(withdrawn.publishedAt).toBeUndefined();
+  });
+
+  it("stops_being_publicly_listed_once_it_closes", () => {
+    // A closed offering must not keep soliciting: closing withdraws the listing
+    // even though it was published.
+    const closed = open().publish(PUBLISHED_AT).close(AFTER);
+    expect(closed.isPubliclyListed()).toBe(false);
+  });
+
+  it("survives_a_persistence_round_trip", () => {
+    const published = open().publish(PUBLISHED_AT);
+    const restored = Offering.restore({
+      ...BASE,
+      state: published.state,
+      subscriptions: published.subscriptions,
+      allocations: published.allocations,
+      publishedAt: published.publishedAt,
+    });
+    expect(restored.isPubliclyListed()).toBe(true);
+    expect(restored.publishedAt).toEqual(PUBLISHED_AT);
+  });
+});

@@ -3,6 +3,7 @@ import { CloseOffering } from "../../application/offerings/close-offering.js";
 import { CreateOffering } from "../../application/offerings/create-offering.js";
 import { GetOffering, ListOfferings } from "../../application/offerings/get-offering.js";
 import type { OfferingView } from "../../application/offerings/get-offering.js";
+import { PublishOffering } from "../../application/offerings/publish-offering.js";
 import { OpenOffering } from "../../application/offerings/open-offering.js";
 import { SubscribeToOffering } from "../../application/offerings/subscribe-to-offering.js";
 import type { Principal } from "../../application/identity/ports.js";
@@ -50,7 +51,24 @@ export class OfferingsController {
     private readonly closeOffering: CloseOffering,
     private readonly getOffering: GetOffering,
     private readonly listOfferings: ListOfferings,
+    private readonly publishOffering: PublishOffering,
   ) {}
+
+  // 2.1a (OD-5): publishing exposes an offering to anonymous visitors, so it is
+  // an explicit, permissioned act — deliberately separate from opening.
+  @Post(":id/publish")
+  @HttpCode(204)
+  @RequirePermission(PERMISSIONS.OFFERING_MANAGE)
+  publish(@Param("id") id: string): Promise<void> {
+    return this.publishOffering.publish({ offeringId: id });
+  }
+
+  @Post(":id/unpublish")
+  @HttpCode(204)
+  @RequirePermission(PERMISSIONS.OFFERING_MANAGE)
+  unpublish(@Param("id") id: string): Promise<void> {
+    return this.publishOffering.unpublish({ offeringId: id });
+  }
 
   @Post()
   @RequirePermission(PERMISSIONS.OFFERING_MANAGE)

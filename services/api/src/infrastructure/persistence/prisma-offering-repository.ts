@@ -37,6 +37,7 @@ export class PrismaOfferingRepository implements OfferingRepository {
       opensAt: offering.opensAt,
       closesAt: offering.closesAt,
       state: offering.state,
+      publishedAt: offering.publishedAt ?? null,
     };
     // Tenant-safe pattern (no upsert): probe, then create or updateMany.
     const exists = await this.prisma.offering.findFirst({ where: { id: offering.id } });
@@ -85,6 +86,7 @@ const toDomain = (row: FullRow): Offering =>
     opensAt: row.opensAt,
     closesAt: row.closesAt,
     state: row.state,
+    publishedAt: row.publishedAt ?? undefined,
     subscriptions: row.subscriptions.map((s) => ({
       investorId: s.investorId,
       tokens: s.tokens,

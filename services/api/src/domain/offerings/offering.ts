@@ -50,6 +50,10 @@ export class Offering {
     public readonly state: OfferingState,
     public readonly subscriptions: readonly Subscription[],
     public readonly allocations: readonly Allocation[] | undefined,
+    // 2.1a: when this offering was deliberately published to the public
+    // catalog. Undefined = never published. Distinct from `state` on purpose —
+    // an offering can be open to invited investors without being advertised.
+    public readonly publishedAt?: Date,
   ) {}
 
   static create(fields: OfferingFields): Offering {
@@ -96,6 +100,7 @@ export class Offering {
       state: OfferingState;
       subscriptions: readonly Subscription[];
       allocations: readonly Allocation[] | undefined;
+      publishedAt?: Date | undefined;
     },
   ): Offering {
     return new Offering(
@@ -112,6 +117,7 @@ export class Offering {
       fields.state,
       [...fields.subscriptions],
       fields.allocations ? [...fields.allocations] : undefined,
+      fields.publishedAt,
     );
   }
 
@@ -241,6 +247,8 @@ export class Offering {
     state?: OfferingState;
     subscriptions?: readonly Subscription[];
     allocations?: readonly Allocation[];
+    // `null` clears the publication explicitly; omitted keeps it.
+    publishedAt?: Date | null;
   }): Offering {
     return new Offering(
       this.id,
@@ -256,6 +264,30 @@ export class Offering {
       changes.state ?? this.state,
       changes.subscriptions ?? this.subscriptions,
       changes.allocations ?? this.allocations,
+      changes.publishedAt === null ? undefined : (changes.publishedAt ?? this.publishedAt),
     );
+  }
+
+  // 2.1a public catalog (OD-5). Listed = published AND still open: a closed
+  // offering must stop soliciting, so closing withdraws the listing without the
+  // operator having to remember to unpublish it.
+  isPubliclyListed(): boolean {
+    return this.publishedAt !== undefined && this.state === "open";
+  }
+
+  // Idempotent: re-publishing keeps the original publication time, which is the
+  // date a reader was first able to see these terms.
+  publish(now: Date): Offering {
+    this.assertState("publish", "open");
+    if (this.publishedAt !== undefined) {
+      return this;
+    }
+    return this.with({ publishedAt: now });
+  }
+
+  // Withdraw a listing (e.g. terms need revising). Subscriptions already taken
+  // are untouched — this only affects public visibility.
+  unpublish(): Offering {
+    return this.with({ publishedAt: null });
   }
 }
