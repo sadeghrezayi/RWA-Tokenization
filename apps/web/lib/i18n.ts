@@ -73,6 +73,27 @@ export interface Dictionary {
   mfaEnabledNotice: string;
   mfaDisabledNotice: string;
   approvalsNav: string;
+  publicHomeTitle: string;
+  publicHomeLead: string;
+  publicBrowseTitle: string;
+  publicBrowseCta: string;
+  publicSignIn: string;
+  publicCatalogEmpty: string;
+  publicCatalogFailed: string;
+  publicPerToken: string;
+  publicClosesOn: string;
+  publicTermsTitle: string;
+  publicPricePerToken: string;
+  publicSupply: string;
+  publicMinPerInvestor: string;
+  publicMaxPerInvestor: string;
+  publicWindow: string;
+  publicRiskNotice: string;
+  publicHowToInvest: string;
+  publicInvestGate: string;
+  publicSignInToInvest: string;
+  publicOfferingMissing: string;
+  publicBackToBrowse: string;
   opsTitle: string;
   opsSubtitle: string;
   opsAllClear: string;
@@ -384,6 +405,29 @@ export const dictionaries: Record<Locale, Dictionary> = {
     mfaEnabledNotice: "Two-factor authentication is on for this account.",
     mfaDisabledNotice: "Two-factor authentication has been turned off.",
     approvalsNav: "Approvals",
+    publicHomeTitle: "Invest in real-world assets",
+    publicHomeLead:
+      "Ownership of real assets, represented as transferable tokens on a permissioned chain. Browse what is currently open.",
+    publicBrowseTitle: "Open offerings",
+    publicBrowseCta: "Browse offerings",
+    publicSignIn: "Sign in",
+    publicCatalogEmpty: "No offerings are open right now.",
+    publicCatalogFailed: "Offerings could not be loaded. Please try again shortly.",
+    publicPerToken: "per token",
+    publicClosesOn: "closes",
+    publicTermsTitle: "Offering terms",
+    publicPricePerToken: "Price per token",
+    publicSupply: "Total supply",
+    publicMinPerInvestor: "Minimum per investor",
+    publicMaxPerInvestor: "Maximum per investor",
+    publicWindow: "Subscription window",
+    publicRiskNotice:
+      "Capital is at risk. The value of an asset-backed token can fall as well as rise, and tokens may be difficult to sell. Figures shown are the offering's terms and past attested valuations — they are not a forecast. Seek independent advice before investing.",
+    publicHowToInvest: "How to invest",
+    publicInvestGate: "Subscribing requires an account and completed identity verification.",
+    publicSignInToInvest: "Sign in to invest",
+    publicOfferingMissing: "This offering is not available.",
+    publicBackToBrowse: "Back to offerings",
     opsTitle: "Work queue",
     opsSubtitle: "Everything waiting on a decision, longest wait first.",
     opsAllClear: "Nothing is waiting on you right now.",

@@ -39,6 +39,21 @@ export interface ApprovalViewDto {
   decidedAt?: string;
 }
 
+// 2.1: what an ANONYMOUS visitor may see about an offering. Factual terms only
+// — per OD-21 there is deliberately no projected yield or expected return here.
+export interface PublicOfferingDto {
+  id: string;
+  assetId: string;
+  assetName: string;
+  supply: string;
+  priceRial: string;
+  minPerInvestor: string;
+  maxPerInvestor: string;
+  opensAt: string;
+  closesAt: string;
+  publishedAt: string;
+}
+
 // 1.8: the ops triage view — what is waiting on a human right now.
 export type WorkQueueKeyDto = "kyc" | "approvals" | "redemptions";
 
@@ -406,6 +421,10 @@ export interface ApiClient {
   listApprovals(officerToken: string): Promise<ApprovalViewDto[]>;
   approveApproval(officerToken: string, approvalId: string): Promise<void>;
   rejectApproval(officerToken: string, approvalId: string, reason: string): Promise<void>;
+  // 2.1 public marketplace (OD-5): reachable with NO session, so these take no
+  // token — the server exposes only deliberately-published offerings.
+  publicOfferings(): Promise<PublicOfferingDto[]>;
+  publicOffering(id: string): Promise<PublicOfferingDto>;
   getWorkQueue(officerToken: string): Promise<WorkQueueDto>;
   // Notifications (1.7): self-scoped — the recipient comes from the session.
   listNotifications(token: string): Promise<NotificationDto[]>;
@@ -711,6 +730,8 @@ export const createApiClient = (
         body: { reason },
       });
     },
+    publicOfferings: () => json(call("/public/offerings")),
+    publicOffering: (id) => json(call(`/public/offerings/${id}`)),
     getWorkQueue: (officerToken) => json(call("/reporting/work-queue", { token: officerToken })),
     listNotifications: (token) => json(call("/notifications", { token })),
     unreadNotificationCount: async (token) => {
