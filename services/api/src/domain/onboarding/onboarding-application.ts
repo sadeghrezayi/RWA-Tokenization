@@ -130,6 +130,23 @@ export class OnboardingApplication {
     return this.with({ completed: new Set([...this.completed, step]) });
   }
 
+  // The mirror of completeStep: a step whose supporting evidence was removed
+  // must stop counting as done, or the applicant could submit a step that
+  // points at nothing. Idempotent, for the same reason completeStep is.
+  reopenStep(step: OnboardingStep): OnboardingApplication {
+    if (this.status === "submitted") {
+      throw new InvalidOnboardingTransitionError(
+        "an application under review cannot be edited; ask the reviewer for changes first",
+      );
+    }
+    if (!this.completed.has(step)) {
+      return this;
+    }
+    const reopened = new Set(this.completed);
+    reopened.delete(step);
+    return this.with({ completed: reopened });
+  }
+
   submit(now: Date): OnboardingApplication {
     if (this.status === "submitted") {
       throw new InvalidOnboardingTransitionError("this application is already under review");

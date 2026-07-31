@@ -57,6 +57,24 @@ describe("OnboardingApplication — progress", () => {
   it("is ready only when every step is done", () => {
     expect(completeAll(started()).isReadyToSubmit()).toBe(true);
   });
+
+  it("reopens a step whose supporting evidence went away", () => {
+    // Deleting the last uploaded document must not leave a step ticked off
+    // with nothing behind it.
+    const app = started().completeStep("identity_evidence").reopenStep("identity_evidence");
+
+    expect(app.completedSteps()).toEqual([]);
+    expect(app.outstandingSteps()).toContain("identity_evidence");
+  });
+
+  it("is idempotent when reopening a step that was never completed", () => {
+    expect(started().reopenStep("profile").completedSteps()).toEqual([]);
+  });
+
+  it("refuses to reopen a step while the application is with the reviewer", () => {
+    const submitted = completeAll(started()).submit(NOW);
+    expect(() => submitted.reopenStep("profile")).toThrow(InvalidOnboardingTransitionError);
+  });
 });
 
 describe("OnboardingApplication — submission", () => {
