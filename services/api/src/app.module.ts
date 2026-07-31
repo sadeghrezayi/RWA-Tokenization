@@ -105,6 +105,8 @@ import { NotifyDueFollowUps } from "./application/notifications/notify-due-follo
 import { GetWorkQueue } from "./application/ops/get-work-queue.js";
 import { GetPublicCatalog } from "./application/public/get-public-catalog.js";
 import { PublishOffering } from "./application/offerings/publish-offering.js";
+import type { PublicPageRevalidator } from "./application/offerings/ports.js";
+import { WebPublicPageRevalidator } from "./infrastructure/http/web-public-page-revalidator.js";
 import { PublicController } from "./infrastructure/http/public.controller.js";
 import type { JobScheduler } from "./application/jobs/ports.js";
 import { PgBossJobScheduler } from "./infrastructure/jobs/pg-boss-job-scheduler.js";
@@ -269,6 +271,7 @@ export const ASSET_TOKEN_ISSUER = "ASSET_TOKEN_ISSUER";
 export const NOTIFICATION_REPOSITORY = "NOTIFICATION_REPOSITORY";
 export const NOTIFIER = "NOTIFIER";
 export const APPROVAL_PARKED_NOTIFIER = "APPROVAL_PARKED_NOTIFIER";
+export const PUBLIC_PAGE_REVALIDATOR = "PUBLIC_PAGE_REVALIDATOR";
 export const KYC_DECISION_NOTIFIER = "KYC_DECISION_NOTIFIER";
 export const DISTRIBUTION_PAID_NOTIFIER = "DISTRIBUTION_PAID_NOTIFIER";
 export const JOB_SCHEDULER = "JOB_SCHEDULER";
@@ -1265,10 +1268,24 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       inject: [OFFERING_REPOSITORY, ASSET_REPOSITORY],
     },
     {
+      // Best-effort purge of the public marketplace cache so a WITHDRAWN
+      // offering stops being advertised at once, not at the end of the ISR
+      // window. ISR remains the fallback if the purge fails.
+      provide: PUBLIC_PAGE_REVALIDATOR,
+      useFactory: () =>
+        new WebPublicPageRevalidator(
+          process.env.WEB_ORIGIN ?? "http://localhost:3000",
+          process.env.REVALIDATE_SECRET,
+        ),
+    },
+    {
       provide: PublishOffering,
-      useFactory: (offerings: OfferingRepository, clock: Clock) =>
-        new PublishOffering(offerings, clock),
-      inject: [OFFERING_REPOSITORY, CLOCK],
+      useFactory: (
+        offerings: OfferingRepository,
+        clock: Clock,
+        revalidator: PublicPageRevalidator,
+      ) => new PublishOffering(offerings, clock, revalidator),
+      inject: [OFFERING_REPOSITORY, CLOCK, PUBLIC_PAGE_REVALIDATOR],
     },
     {
       // 1.8 ops triage: composes the existing per-domain read models so

@@ -1,39 +1,26 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { ApiClient, PublicOfferingDto } from "../../lib/api";
+import type { PublicOfferingDto } from "../../lib/api";
 import { formatDate, formatRial } from "../../lib/format";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
-import { Card, EmptyState, Skeleton } from "../ui/primitives";
+import { Card, EmptyState } from "../ui/primitives";
 
-// 2.1b (OD-5): the anonymous browse page. Every offering shown here was
-// deliberately published by an operator — the API is the gate, this just renders
-// what it returns.
-export const PublicCatalog = ({ locale, api }: { locale: Locale; api: ApiClient }) => {
+// 2.2: pure presentational — the server page fetches, so a crawler receives real
+// HTML rather than an empty shell it has to execute JS to fill.
+//
+// `undefined` means the catalog could not be read. That renders an error, NOT
+// an empty state: telling a visitor the market is empty when we simply failed
+// to load it would be a lie about the business.
+export const PublicCatalog = ({
+  locale,
+  offerings,
+}: {
+  locale: Locale;
+  offerings: PublicOfferingDto[] | undefined;
+}) => {
   const t = dictionaries[locale];
-  const [offerings, setOfferings] = useState<PublicOfferingDto[] | undefined>(undefined);
-  const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    api
-      .publicOfferings()
-      .then((list) => {
-        if (active) setOfferings(list);
-      })
-      .catch(() => {
-        // "Nothing on offer" would be a lie when the catalog simply failed to
-        // load — a visitor must not be told the market is empty.
-        if (active) setFailed(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [api]);
-
-  if (failed) {
+  if (!offerings) {
     return (
       <Card>
         <p role="alert" className="form-error">
@@ -41,9 +28,6 @@ export const PublicCatalog = ({ locale, api }: { locale: Locale; api: ApiClient 
         </p>
       </Card>
     );
-  }
-  if (!offerings) {
-    return <Skeleton lines={3} testId="catalog-skeleton" />;
   }
   if (offerings.length === 0) {
     return (

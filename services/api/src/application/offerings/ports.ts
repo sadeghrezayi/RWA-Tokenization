@@ -25,3 +25,14 @@ export interface AssetTokenIssuer {
 export interface Clock {
   now(): Date;
 }
+
+// 2.2: asks the public web app to drop its cached marketplace pages.
+//
+// Publishing and (especially) WITHDRAWING an offering must take effect for
+// anonymous visitors at once — a cached page that keeps advertising a withdrawn
+// offering is still soliciting. Best-effort by design: the web app's ISR window
+// is the fallback if this call fails, so a purge failure must never block or
+// undo the publication decision itself.
+export interface PublicPageRevalidator {
+  offeringChanged(offeringId: string): Promise<void>;
+}
