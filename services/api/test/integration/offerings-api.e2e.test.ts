@@ -11,6 +11,7 @@ import {
   TOKEN_DEPLOYER,
 } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
+import { seedSubmittedKyc } from "./support/kyc.js";
 import { REQUIRED_DOSSIER_KINDS } from "../../src/domain/assets/legal-dossier.js";
 import { CHECKLIST_ITEMS } from "../../src/domain/assets/onboarding-checklist.js";
 import { FakeDocumentStore, RecordingTokenDeployer } from "../fakes/asset-fakes.js";
@@ -91,7 +92,7 @@ describe("Offerings API (e2e, real Postgres + ledger, fake chain)", () => {
       investorTokens.set(name, body.token);
       investorIds.set(name, body.investorId);
       const http = request(server);
-      await http.post("/investors/me/kyc/submit").set(auth(body.token)).expect(204);
+      await seedSubmittedKyc(prisma, body.investorId);
       await http
         .post(`/investors/${body.investorId}/kyc/start-review`)
         .set(auth(officerToken))

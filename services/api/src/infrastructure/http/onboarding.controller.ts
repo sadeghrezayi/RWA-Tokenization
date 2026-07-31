@@ -22,6 +22,10 @@ import { DownloadEvidence } from "../../application/onboarding/download-evidence
 import { GetOnboardingProgress } from "../../application/onboarding/get-onboarding-progress.js";
 import { RemoveEvidence } from "../../application/onboarding/remove-evidence.js";
 import { RequestOnboardingChanges } from "../../application/onboarding/request-onboarding-changes.js";
+import { SaveStepAnswers } from "../../application/onboarding/save-step-answers.js";
+import { GetStepAnswers } from "../../application/onboarding/get-step-answers.js";
+import { ONBOARDING_FORM } from "../../application/onboarding/onboarding-form.js";
+import type { OnboardingForm } from "../../application/onboarding/onboarding-form.js";
 import { StartOnboarding } from "../../application/onboarding/start-onboarding.js";
 import { SubmitOnboarding } from "../../application/onboarding/submit-onboarding.js";
 import {
@@ -29,7 +33,7 @@ import {
   UploadEvidence,
 } from "../../application/onboarding/upload-evidence.js";
 import type { OnboardingProgressView } from "../../application/onboarding/onboarding-view.js";
-import type { EvidenceDescriptor } from "../../application/onboarding/ports.js";
+import type { EvidenceDescriptor, StepAnswers } from "../../application/onboarding/ports.js";
 import { CurrentPrincipal, RequirePermission } from "./auth.guard.js";
 
 // The multer file shape, stated locally: @types/multer is not installed and a
@@ -53,6 +57,28 @@ interface EvidenceResponse {
   contentType: string;
   contentBase64: string;
 }
+
+// What a reviewer sees: the answers plus the field definitions that produced
+// them, so labels never have to be duplicated in the admin client.
+interface AnswersResponse {
+  form: OnboardingForm;
+  answers: Partial<Record<OnboardingStep, StepAnswers>>;
+}
+
+const requireAnswers = (body: unknown): StepAnswers => {
+  const raw = (body as { answers?: unknown } | null | undefined)?.answers;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new BadRequestException('"answers" must be an object of field values');
+  }
+  const answers: StepAnswers = {};
+  for (const [name, value] of Object.entries(raw)) {
+    if (typeof value !== "string") {
+      throw new BadRequestException(`the answer to "${name}" must be text`);
+    }
+    answers[name] = value;
+  }
+  return answers;
+};
 
 const investorIdOf = (principal: Principal): string => {
   // The guard enforces the role; this narrows the union for the type system.
@@ -96,7 +122,18 @@ export class OnboardingController {
     private readonly submitOnboarding: SubmitOnboarding,
     private readonly downloadEvidence: DownloadEvidence,
     private readonly requestChanges: RequestOnboardingChanges,
+    private readonly saveAnswers: SaveStepAnswers,
+    private readonly getAnswers: GetStepAnswers,
   ) {}
+
+  // The field set is server-owned configuration (PROVISIONAL — see
+  // onboarding-form.ts). The wizard renders whatever this returns, so changing
+  // what an applicant must provide needs no client release.
+  @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
+  @Get("form")
+  form(): OnboardingForm {
+    return ONBOARDING_FORM;
+  }
 
   // --- the applicant's own wizard ---
 
@@ -170,6 +207,29 @@ export class OnboardingController {
   }
 
   @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
+  @Post("me/steps/:step/answers")
+  answer(
+    @CurrentPrincipal() principal: Principal,
+    @Param("step") step: string,
+    @Body() body: unknown,
+  ): Promise<OnboardingProgressView> {
+    return this.saveAnswers.execute({
+      investorId: investorIdOf(principal),
+      step: requireStep(step),
+      answers: requireAnswers(body),
+    });
+  }
+
+  @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
+  @Get("me/answers")
+  async myAnswers(@CurrentPrincipal() principal: Principal): Promise<AnswersResponse> {
+    return {
+      form: ONBOARDING_FORM,
+      answers: await this.getAnswers.all({ investorId: investorIdOf(principal) }),
+    };
+  }
+
+  @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
   @Post("me/submit")
   submit(@CurrentPrincipal() principal: Principal): Promise<OnboardingProgressView> {
     return this.submitOnboarding.execute({ investorId: investorIdOf(principal) });
@@ -181,6 +241,12 @@ export class OnboardingController {
   @Get("evidence/:reference")
   review(@Param("reference") reference: string): Promise<EvidenceResponse> {
     return this.toEvidenceResponse(reference);
+  }
+
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
+  @Get(":investorId/answers")
+  async applicantAnswers(@Param("investorId") investorId: string): Promise<AnswersResponse> {
+    return { form: ONBOARDING_FORM, answers: await this.getAnswers.all({ investorId }) };
   }
 
   @RequirePermission(PERMISSIONS.KYC_REVIEW)

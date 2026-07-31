@@ -36,28 +36,23 @@ describe("KycStatusCard", () => {
     expect(screen.getByText(/doc mismatch/)).toBeInTheDocument();
   });
 
-  it("submits_kyc_from_draft_and_refreshes", async () => {
-    const me = vi
-      .fn()
-      .mockResolvedValueOnce(investor({ kycState: "draft" }))
-      .mockResolvedValueOnce(investor({ kycState: "submitted" }));
-    const submitKyc = vi.fn().mockResolvedValue(undefined);
-    render(<KycStatusCard locale="en" api={stubApi({ me, submitKyc })} token="tok-1" />);
+  it("sends_a_draft_applicant_into_the_wizard_rather_than_submitting_here", async () => {
+    // 2.3e: there is no evidence-free submit any more. The only route to a
+    // reviewer is the wizard, which collects the documents first.
+    const me = vi.fn().mockResolvedValue(investor({ kycState: "draft" }));
+    render(<KycStatusCard locale="en" api={stubApi({ me })} token="tok-1" />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Submit KYC documents" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Submitted")).toBeInTheDocument();
-    });
-    expect(submitKyc).toHaveBeenCalledWith("tok-1");
+    const link = await screen.findByRole("link", { name: "Open verification" });
+    expect(link.getAttribute("href")).toBe("/en/onboarding");
+    expect(screen.queryByRole("button", { name: /submit/i })).toBeNull();
   });
 
-  it("hides_the_submit_button_outside_draft", async () => {
+  it("hides_the_wizard_link_outside_draft", async () => {
     const me = vi.fn().mockResolvedValue(investor({ kycState: "in_review" }));
     render(<KycStatusCard locale="en" api={stubApi({ me })} token="tok-1" />);
 
     expect(await screen.findByText("In review")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Submit KYC documents" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open verification" })).not.toBeInTheDocument();
   });
 
   it("shows_verified_and_no_resend_when_the_email_is_verified", async () => {

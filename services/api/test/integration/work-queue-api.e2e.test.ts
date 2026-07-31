@@ -7,6 +7,7 @@ import request from "supertest";
 import { AppModule } from "../../src/app.module.js";
 import type { WorkQueueView } from "../../src/application/ops/get-work-queue.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
+import { seedSubmittedKyc } from "./support/kyc.js";
 
 const OFFICER = { email: "ops-officer@example.com", password: "0fficer-ops-1" };
 const auth = (t: string) => ({ authorization: `Bearer ${t}` });
@@ -76,7 +77,7 @@ describe("Work queue API (e2e, real Postgres)", () => {
   it("picks up a KYC submission as outstanding work", async () => {
     const before = section(await queue(), "kyc")?.total ?? 0;
 
-    await request(server).post("/investors/me/kyc/submit").set(auth(investorToken)).expect(204);
+    await seedSubmittedKyc(prisma, investorId);
 
     const after = await queue();
     expect(section(after, "kyc")?.total).toBe(before + 1);

@@ -8,6 +8,7 @@ import { AppModule, EMAIL_SENDER } from "../../src/app.module.js";
 import type { EmailSender } from "../../src/application/identity/ports.js";
 import { DrainOutbox } from "../../src/application/outbox/drain-outbox.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
+import { seedSubmittedKyc } from "./support/kyc.js";
 
 const OFFICER = { email: "notif-officer@example.com", password: "0fficer-notif-1" };
 const auth = (t: string) => ({ authorization: `Bearer ${t}` });
@@ -84,7 +85,7 @@ describe("Notification triggers: KYC decision (e2e, real Postgres)", () => {
   });
 
   it("notifies the investor in-app and by email when their KYC is approved", async () => {
-    await request(server).post("/investors/me/kyc/submit").set(auth(investorToken)).expect(204);
+    await seedSubmittedKyc(prisma, investorId);
     await request(server)
       .post(`/investors/${investorId}/kyc/start-review`)
       .set(auth(officerToken))

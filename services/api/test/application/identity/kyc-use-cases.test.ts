@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { RegisterInvestor } from "../../../src/application/identity/register-investor.js";
-import { SubmitKyc } from "../../../src/application/identity/submit-kyc.js";
 import { StartKycReview } from "../../../src/application/identity/start-kyc-review.js";
 import { ApproveKyc } from "../../../src/application/identity/approve-kyc.js";
 import { RejectKyc } from "../../../src/application/identity/reject-kyc.js";
@@ -32,7 +31,6 @@ const setup = async () => {
     claims,
     kycNotifier,
     investorId,
-    submit: new SubmitKyc(investors),
     startReview: new StartKycReview(investors),
     approve: new ApproveKyc(investors, claims, kycNotifier),
     reject: new RejectKyc(investors, kycNotifier),
@@ -42,23 +40,19 @@ const setup = async () => {
 const kycStateOf = async (investors: InMemoryInvestorRepository, id: string) =>
   (await investors.findById(id))?.kycStatus.state;
 
-describe("SubmitKyc", () => {
-  it("moves_kyc_to_submitted_and_persists", async () => {
-    const { investors, investorId, submit } = await setup();
-    await submit.execute({ investorId });
-    expect(await kycStateOf(investors, investorId)).toBe("submitted");
-  });
-
-  it("throws_for_an_unknown_investor", async () => {
-    const { submit } = await setup();
-    await expect(submit.execute({ investorId: "missing" })).rejects.toThrow(InvestorNotFoundError);
-  });
-});
+// 2.3e: submitting is the onboarding wizard's job now (it requires collected
+// evidence). These officer-side use-cases only need an investor already in the
+// queue, so the transition is made directly on the aggregate.
+const submitted = async (investors: InMemoryInvestorRepository, id: string): Promise<void> => {
+  const investor = await investors.findById(id);
+  if (!investor) throw new Error("expected an investor");
+  await investors.save(investor.submitKyc());
+};
 
 describe("StartKycReview", () => {
   it("moves_kyc_to_in_review_and_persists", async () => {
-    const { investors, investorId, submit, startReview } = await setup();
-    await submit.execute({ investorId });
+    const { investors, investorId, startReview } = await setup();
+    await submitted(investors, investorId);
     await startReview.execute({ investorId });
     expect(await kycStateOf(investors, investorId)).toBe("in_review");
   });
@@ -66,8 +60,8 @@ describe("StartKycReview", () => {
 
 describe("ApproveKyc", () => {
   it("persists_approval_and_issues_the_onchain_claim", async () => {
-    const { investors, claims, investorId, submit, startReview, approve } = await setup();
-    await submit.execute({ investorId });
+    const { investors, claims, investorId, startReview, approve } = await setup();
+    await submitted(investors, investorId);
     await startReview.execute({ investorId });
 
     await approve.execute({ investorId });
@@ -87,8 +81,8 @@ describe("ApproveKyc", () => {
   });
 
   it("tells_the_investor_their_kyc_was_approved", async () => {
-    const { kycNotifier, investorId, submit, startReview, approve } = await setup();
-    await submit.execute({ investorId });
+    const { investors, kycNotifier, investorId, startReview, approve } = await setup();
+    await submitted(investors, investorId);
     await startReview.execute({ investorId });
 
     await approve.execute({ investorId });
@@ -101,8 +95,8 @@ describe("ApproveKyc", () => {
   it("keeps_the_persisted_approval_when_claim_issuance_fails", async () => {
     // Decided ordering: persist approval first, then issue the claim, so a chain
     // outage never silently reverts a compliance decision; issuance is retried.
-    const { investors, claims, investorId, submit, startReview, approve } = await setup();
-    await submit.execute({ investorId });
+    const { investors, claims, investorId, startReview, approve } = await setup();
+    await submitted(investors, investorId);
     await startReview.execute({ investorId });
     claims.failWith = new Error("devnet unreachable");
 
@@ -119,8 +113,8 @@ describe("ApproveKyc", () => {
 
 describe("RejectKyc", () => {
   it("persists_rejection_with_its_reason", async () => {
-    const { investors, investorId, submit, startReview, reject } = await setup();
-    await submit.execute({ investorId });
+    const { investors, investorId, startReview, reject } = await setup();
+    await submitted(investors, investorId);
     await startReview.execute({ investorId });
 
     await reject.execute({ investorId, reason: "liveness check failed" });
@@ -131,8 +125,8 @@ describe("RejectKyc", () => {
   });
 
   it("tells_the_investor_their_kyc_was_rejected_and_why", async () => {
-    const { kycNotifier, investorId, submit, startReview, reject } = await setup();
-    await submit.execute({ investorId });
+    const { investors, kycNotifier, investorId, startReview, reject } = await setup();
+    await submitted(investors, investorId);
     await startReview.execute({ investorId });
 
     await reject.execute({ investorId, reason: "liveness check failed" });

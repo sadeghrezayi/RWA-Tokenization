@@ -7,7 +7,7 @@ import { AppModule } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 
 // 1.3b: httpOnly session cookie + double-submit CSRF (T4/T21). Officer login is
-// used because it needs no seeded investor; submitKyc is a convenient
+// used because it needs no seeded investor; starting onboarding is a convenient
 // authenticated state-changing route to exercise CSRF (investor role).
 describe("Auth cookie + CSRF API (e2e, real Postgres)", () => {
   let app: INestApplication;
@@ -84,25 +84,25 @@ describe("Auth cookie + CSRF API (e2e, real Postgres)", () => {
   it("rejects_a_cookie_authenticated_POST_without_the_csrf_header", async () => {
     const login = await request(server).post("/auth/login").send({ email, password: "Passw0rd-9" });
     const jar = cookieHeader(cookiesFrom(login));
-    await request(server).post("/investors/me/kyc/submit").set("Cookie", jar).expect(403);
+    await request(server).post("/onboarding/start").set("Cookie", jar).expect(403);
   });
 
   it("allows_a_cookie_authenticated_POST_with_a_matching_csrf_header", async () => {
     const login = await request(server).post("/auth/login").send({ email, password: "Passw0rd-9" });
     const cookies = cookiesFrom(login);
     await request(server)
-      .post("/investors/me/kyc/submit")
+      .post("/onboarding/start")
       .set("Cookie", cookieHeader(cookies))
       .set("x-csrf-token", csrfFrom(cookies))
-      .expect(204);
+      .expect(201);
   });
 
   it("still_accepts_bearer_auth_without_any_csrf_token", async () => {
     // Bearer requests cannot be forged cross-site, so CSRF does not apply.
     await request(server)
-      .post("/investors/me/kyc/submit")
+      .post("/onboarding/start")
       .set("authorization", `Bearer ${bearer}`)
-      .expect(204);
+      .expect(201);
   });
 
   it("logout_clears_the_session_cookies", async () => {

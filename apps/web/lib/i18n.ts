@@ -258,6 +258,25 @@ export interface Dictionary {
   portfolioNav: string;
   offeringsNav: string;
   profileNav: string;
+  onboardingNav: string;
+  onboardingTitle: string;
+  onboardingIntro: string;
+  onboardingNotStarted: string;
+  onboardingStartButton: string;
+  onboardingInProgress: string;
+  onboardingUnderReview: string;
+  onboardingUnderReviewBody: string;
+  onboardingChangesRequested: string;
+  onboardingChangesIntro: string;
+  onboardingEvidenceHelp: string;
+  onboardingNoDocuments: string;
+  onboardingUploadLabel: string;
+  onboardingRemoveDocument: string;
+  onboardingContinueButton: string;
+  onboardingSaveButton: string;
+  onboardingSubmitButton: string;
+  onboardingChoosePlaceholder: string;
+  onboardingOpenWizard: string;
   signedInAs: string;
   investorPortalTitle: string;
   backToAssets: string;
@@ -594,6 +613,27 @@ export const dictionaries: Record<Locale, Dictionary> = {
     portfolioNav: "Portfolio",
     offeringsNav: "Offerings",
     profileNav: "Profile",
+    onboardingNav: "Verification",
+    onboardingTitle: "Identity verification",
+    onboardingIntro: "We need a few details and one identity document before you can invest.",
+    onboardingNotStarted: "You have not started your verification yet.",
+    onboardingStartButton: "Start verification",
+    onboardingInProgress: "In progress",
+    onboardingUnderReview: "Under review",
+    onboardingUnderReviewBody:
+      "Your application is with our compliance team. You will be notified when it is decided, or if anything needs changing.",
+    onboardingChangesRequested: "Changes requested",
+    onboardingChangesIntro: "Our reviewer asked you to update the following, then resubmit:",
+    onboardingEvidenceHelp:
+      "Upload a clear photo or scan of your identity document (JPEG, PNG or PDF, up to 10 MB).",
+    onboardingNoDocuments: "No document uploaded yet.",
+    onboardingUploadLabel: "Choose a document",
+    onboardingRemoveDocument: "Remove",
+    onboardingContinueButton: "Continue",
+    onboardingSaveButton: "Save and continue",
+    onboardingSubmitButton: "Submit for review",
+    onboardingChoosePlaceholder: "Choose…",
+    onboardingOpenWizard: "Open verification",
     signedInAs: "Signed in as",
     investorPortalTitle: "Investor Portal",
     backToAssets: "← Back to assets",

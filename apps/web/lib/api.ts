@@ -384,7 +384,34 @@ export interface ApiClient {
   getSession(): Promise<{ kind: "investor" | "officer"; permissions: string[] }>;
   logout(csrfToken: string): Promise<void>;
   me(token: string): Promise<InvestorViewDto>;
-  submitKyc(token: string): Promise<void>;
+  startOnboarding(csrfToken: string): Promise<OnboardingProgressDto>;
+  getOnboarding(): Promise<OnboardingStatusResponseDto>;
+  completeOnboardingStep(
+    csrfToken: string,
+    step: OnboardingStepDto,
+  ): Promise<OnboardingProgressDto>;
+  uploadEvidence(
+    csrfToken: string,
+    step: OnboardingStepDto,
+    file: File,
+  ): Promise<EvidenceDescriptorDto>;
+  removeEvidence(csrfToken: string, reference: string): Promise<OnboardingProgressDto>;
+  getMyEvidence(reference: string): Promise<EvidenceContentDto>;
+  getOnboardingAnswers(): Promise<OnboardingAnswersDto>;
+  saveOnboardingAnswers(
+    csrfToken: string,
+    step: OnboardingStepDto,
+    answers: StepAnswersDto,
+  ): Promise<OnboardingProgressDto>;
+  getApplicantAnswers(investorId: string): Promise<OnboardingAnswersDto>;
+  submitOnboarding(csrfToken: string): Promise<OnboardingProgressDto>;
+  getApplicantOnboarding(investorId: string): Promise<OnboardingStatusResponseDto>;
+  getEvidence(reference: string): Promise<EvidenceContentDto>;
+  requestOnboardingChanges(
+    csrfToken: string,
+    investorId: string,
+    requests: ChangeRequestDto[],
+  ): Promise<OnboardingProgressDto>;
   pendingKyc(officerToken: string): Promise<InvestorViewDto[]>;
   startReview(officerToken: string, investorId: string): Promise<void>;
   approve(officerToken: string, investorId: string): Promise<void>;
@@ -572,6 +599,77 @@ export interface CloseResultDto {
   }[];
 }
 
+// 2.3: the onboarding wizard. Steps are collected in any order; the officer
+// may send the application back naming exactly which ones to redo.
+export type OnboardingStepDto =
+  "profile" | "identity_evidence" | "bank_account" | "suitability" | "agreements";
+
+export type OnboardingStatusDto = "in_progress" | "submitted" | "changes_requested";
+
+export interface ChangeRequestDto {
+  step: OnboardingStepDto;
+  reason: string;
+}
+
+// Metadata only — document content is fetched separately and never listed.
+export interface EvidenceDescriptorDto {
+  reference: string;
+  investorId: string;
+  step: OnboardingStepDto;
+  filename: string;
+  contentType: string;
+  byteSize: number;
+  uploadedAt: string;
+}
+
+export interface OnboardingProgressDto {
+  applicationId: string;
+  status: OnboardingStatusDto;
+  completedSteps: OnboardingStepDto[];
+  outstandingSteps: OnboardingStepDto[];
+  changeRequests: ChangeRequestDto[];
+  evidence: EvidenceDescriptorDto[];
+  submittedAt?: string;
+}
+
+// "Never started" is a normal state, said explicitly rather than as an absent body.
+export interface OnboardingStatusResponseDto {
+  started: boolean;
+  application?: OnboardingProgressDto;
+}
+
+// The server owns the field set (PROVISIONAL — it requires local legal
+// validation). The wizard renders whatever this describes, so changing what an
+// applicant must provide needs no web release.
+export interface FormFieldDto {
+  name: string;
+  label: string;
+  type: "text" | "date" | "select" | "checkbox";
+  required: boolean;
+  options?: string[];
+  maxLength?: number;
+  help?: string;
+}
+
+export interface OnboardingFormDto {
+  provisional: boolean;
+  notice: string;
+  steps: Record<OnboardingStepDto, FormFieldDto[]>;
+}
+
+export type StepAnswersDto = Record<string, string>;
+
+export interface OnboardingAnswersDto {
+  form: OnboardingFormDto;
+  answers: Partial<Record<OnboardingStepDto, StepAnswersDto>>;
+}
+
+export interface EvidenceContentDto {
+  filename: string;
+  contentType: string;
+  contentBase64: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -587,7 +685,7 @@ export const createApiClient = (
 ): ApiClient => {
   const call = async (
     path: string,
-    init: { method?: string; token?: string; body?: unknown } = {},
+    init: { method?: string; token?: string; body?: unknown; form?: FormData } = {},
   ): Promise<Response> => {
     const method = init.method ?? "GET";
     // Cookie-session auth: the httpOnly session cookie is sent automatically
@@ -598,10 +696,16 @@ export const createApiClient = (
       method,
       credentials: "include",
       headers: {
+        // A multipart body sets its own content-type (with the boundary), so
+        // it must NOT be overridden here.
         ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
         ...(method !== "GET" && init.token !== undefined ? { "x-csrf-token": init.token } : {}),
       },
-      ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+      ...(init.form !== undefined
+        ? { body: init.form }
+        : init.body !== undefined
+          ? { body: JSON.stringify(init.body) }
+          : {}),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { message?: string };
@@ -654,9 +758,52 @@ export const createApiClient = (
       await call("/auth/logout", { method: "POST", token: csrfToken });
     },
     me: (token) => json(call("/investors/me", { token })),
-    submitKyc: async (token) => {
-      await call("/investors/me/kyc/submit", { method: "POST", token });
+    startOnboarding: (csrfToken) =>
+      json(call("/onboarding/start", { method: "POST", token: csrfToken })),
+    getOnboarding: () => json(call("/onboarding/me")),
+    completeOnboardingStep: (csrfToken, step) =>
+      json(call(`/onboarding/me/steps/${step}/complete`, { method: "POST", token: csrfToken })),
+    uploadEvidence: (csrfToken, step, file) => {
+      // Multipart, so the browser streams the file instead of inflating it by
+      // a third as base64 on the way up. The boundary header is left to fetch.
+      const form = new FormData();
+      form.append("step", step);
+      form.append("file", file);
+      return json(call("/onboarding/me/evidence", { method: "POST", token: csrfToken, form }));
     },
+    removeEvidence: (csrfToken, reference) =>
+      json(
+        call(`/onboarding/me/evidence/${encodeURIComponent(reference)}`, {
+          method: "DELETE",
+          token: csrfToken,
+        }),
+      ),
+    getMyEvidence: (reference) =>
+      json(call(`/onboarding/me/evidence/${encodeURIComponent(reference)}`)),
+    getOnboardingAnswers: () => json(call("/onboarding/me/answers")),
+    saveOnboardingAnswers: (csrfToken, step, answers) =>
+      json(
+        call(`/onboarding/me/steps/${step}/answers`, {
+          method: "POST",
+          token: csrfToken,
+          body: { answers },
+        }),
+      ),
+    getApplicantAnswers: (investorId) =>
+      json(call(`/onboarding/${encodeURIComponent(investorId)}/answers`)),
+    submitOnboarding: (csrfToken) =>
+      json(call("/onboarding/me/submit", { method: "POST", token: csrfToken })),
+    getApplicantOnboarding: (investorId) =>
+      json(call(`/onboarding/${encodeURIComponent(investorId)}`)),
+    getEvidence: (reference) => json(call(`/onboarding/evidence/${encodeURIComponent(reference)}`)),
+    requestOnboardingChanges: (csrfToken, investorId, requests) =>
+      json(
+        call(`/onboarding/${encodeURIComponent(investorId)}/request-changes`, {
+          method: "POST",
+          token: csrfToken,
+          body: { requests },
+        }),
+      ),
     pendingKyc: (officerToken) => json(call("/investors/pending-kyc", { token: officerToken })),
     startReview: async (officerToken, investorId) => {
       await call(`/investors/${investorId}/kyc/start-review`, {

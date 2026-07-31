@@ -45,3 +45,10 @@ export class KycDecisionIsFinalError extends Error {
     this.name = "KycDecisionIsFinalError";
   }
 }
+
+export class InvalidStepAnswersError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidStepAnswersError";
+  }
+}

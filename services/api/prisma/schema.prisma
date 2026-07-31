@@ -44,6 +44,7 @@ model Tenant {
   notifications          Notification[]
   onboardingApplications OnboardingApplication[]
   kycEvidence            KycEvidence[]
+  onboardingAnswers      OnboardingAnswer[]
 
   @@map("tenants")
 }
@@ -597,4 +598,21 @@ model KycEvidence {
 
   @@index([tenantId, investorId])
   @@map("kyc_evidence")
+}
+
+// 2.3e: the applicant's typed answers, ENCRYPTED AT REST like the documents.
+// One row per (investor, step) so a step can be re-answered without a
+// read-modify-write over everything else. `content` holds the sealed JSON.
+model OnboardingAnswer {
+  id         String   @id
+  tenantId   String   @default("default") @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  investorId String   @map("investor_id")
+  step       String
+  content    Bytes
+  updatedAt  DateTime @map("updated_at")
+
+  @@unique([tenantId, investorId, step])
+  @@index([tenantId, investorId])
+  @@map("onboarding_answers")
 }

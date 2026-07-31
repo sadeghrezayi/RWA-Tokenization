@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { GetInvestor } from "../../../src/application/identity/get-investor.js";
 import { RegisterInvestor } from "../../../src/application/identity/register-investor.js";
 import { RejectKyc } from "../../../src/application/identity/reject-kyc.js";
-import { SubmitKyc } from "../../../src/application/identity/submit-kyc.js";
 import { StartKycReview } from "../../../src/application/identity/start-kyc-review.js";
 import { InvestorNotFoundError } from "../../../src/application/identity/errors.js";
 import { RecordingKycDecisionNotifier } from "../../fakes/notification-fakes.js";
@@ -43,7 +42,9 @@ describe("GetInvestor", () => {
 
   it("includes_the_rejection_reason_when_rejected", async () => {
     const { investors, investorId, getInvestor } = await setup();
-    await new SubmitKyc(investors).execute({ investorId });
+    const investor = await investors.findById(investorId);
+    if (!investor) throw new Error("expected an investor");
+    await investors.save(investor.submitKyc());
     await new StartKycReview(investors).execute({ investorId });
     await new RejectKyc(investors, new RecordingKycDecisionNotifier()).execute({
       investorId,

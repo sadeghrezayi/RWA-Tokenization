@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { ApiClient, InvestorViewDto } from "../lib/api";
 import { dictionaries } from "../lib/i18n";
@@ -38,15 +39,6 @@ export const KycStatusCard = ({ locale, api, token }: KycStatusCardProps) => {
       await api.requestEmailVerification(emailAddress);
       setVerificationSent(true);
       setError(undefined);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
-  const submitKyc = async () => {
-    try {
-      await api.submitKyc(token);
-      await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -103,14 +95,12 @@ export const KycStatusCard = ({ locale, api, token }: KycStatusCardProps) => {
           )}
           <div className="row">
             {investor.kycState === "draft" && (
-              <Button
-                type="button"
-                onClick={() => {
-                  void submitKyc();
-                }}
-              >
-                {t.submitKycButton}
-              </Button>
+              // 2.3e: submitting happens in the onboarding wizard, which
+              // collects the evidence. There is deliberately no way to reach a
+              // reviewer from here with nothing attached.
+              <Link className="btn btn--primary" href={`/${locale}/onboarding`}>
+                {t.onboardingOpenWizard}
+              </Link>
             )}
             <Button
               type="button"

@@ -10,7 +10,6 @@ import { ListPendingKyc } from "./application/identity/list-pending-kyc.js";
 import { RegisterInvestor } from "./application/identity/register-investor.js";
 import { RejectKyc } from "./application/identity/reject-kyc.js";
 import { StartKycReview } from "./application/identity/start-kyc-review.js";
-import { SubmitKyc } from "./application/identity/submit-kyc.js";
 import { GetInvestorDetail, ListInvestors } from "./application/identity/investor-directory.js";
 import {
   AddCrmNote,
@@ -111,8 +110,13 @@ import { PublicController } from "./infrastructure/http/public.controller.js";
 import { OnboardingController } from "./infrastructure/http/onboarding.controller.js";
 import { AesGcmCipher } from "./infrastructure/crypto/aes-gcm-cipher.js";
 import { PrismaEvidenceStore } from "./infrastructure/persistence/prisma-evidence-store.js";
+import { PrismaStepAnswerStore } from "./infrastructure/persistence/prisma-step-answer-store.js";
 import { PrismaOnboardingRepository } from "./infrastructure/persistence/prisma-onboarding-repository.js";
-import type { EvidenceStore, OnboardingRepository } from "./application/onboarding/ports.js";
+import type {
+  EvidenceStore,
+  OnboardingRepository,
+  StepAnswerStore,
+} from "./application/onboarding/ports.js";
 import { StartOnboarding } from "./application/onboarding/start-onboarding.js";
 import { GetOnboardingProgress } from "./application/onboarding/get-onboarding-progress.js";
 import { CompleteOnboardingStep } from "./application/onboarding/complete-onboarding-step.js";
@@ -121,6 +125,8 @@ import { RemoveEvidence } from "./application/onboarding/remove-evidence.js";
 import { SubmitOnboarding } from "./application/onboarding/submit-onboarding.js";
 import { DownloadEvidence } from "./application/onboarding/download-evidence.js";
 import { RequestOnboardingChanges } from "./application/onboarding/request-onboarding-changes.js";
+import { SaveStepAnswers } from "./application/onboarding/save-step-answers.js";
+import { GetStepAnswers } from "./application/onboarding/get-step-answers.js";
 import type { JobScheduler } from "./application/jobs/ports.js";
 import { PgBossJobScheduler } from "./infrastructure/jobs/pg-boss-job-scheduler.js";
 import { ScheduledJobsBootstrap } from "./infrastructure/jobs/scheduled-jobs.bootstrap.js";
@@ -291,6 +297,8 @@ export const JOB_SCHEDULER = "JOB_SCHEDULER";
 export const CLOCK = "CLOCK";
 export const ONBOARDING_REPOSITORY = "ONBOARDING_REPOSITORY";
 export const EVIDENCE_STORE = "EVIDENCE_STORE";
+export const STEP_ANSWER_STORE = "STEP_ANSWER_STORE";
+export const PERSONAL_DATA_CIPHER = "PERSONAL_DATA_CIPHER";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
 export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
 export const HEALTH_PROBE = "HEALTH_PROBE";
@@ -481,11 +489,6 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         users: StaffUserRepository,
       ) => new CompleteOfficerMfaChallenge(challenge, store, totp, tokens, users),
       inject: [MFA_CHALLENGE_ISSUER, MFA_STORE, TOTP_SERVICE, TOKEN_ISSUER, STAFF_USER_REPOSITORY],
-    },
-    {
-      provide: SubmitKyc,
-      useFactory: (repo: InvestorRepository) => new SubmitKyc(repo),
-      inject: [INVESTOR_REPOSITORY],
     },
     {
       provide: StartKycReview,
@@ -1320,25 +1323,41 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       inject: [SCOPED_PRISMA],
     },
     {
-      // 2.3b: identity evidence is encrypted at rest with a key from
-      // configuration. Missing key => a loud warning and an insecure dev key,
-      // the same posture as AUTH_TOKEN_SECRET: the API stays bootable for
-      // development, and nobody can mistake that state for a protected one.
-      // Key rotation/escrow/HSM custody remain outstanding (OD-16).
-      provide: EVIDENCE_STORE,
-      useFactory: (prisma: PrismaService, clock: Clock): EvidenceStore => {
+      // 2.3b: personal data is encrypted at rest with a key from configuration.
+      // Missing key => a loud warning and an insecure dev key, the same posture
+      // as AUTH_TOKEN_SECRET: the API stays bootable for development, and
+      // nobody can mistake that state for a protected one. Key rotation,
+      // escrow and HSM/KMS custody remain outstanding (OD-16).
+      //
+      // One cipher for both stores, so documents and answers can never drift
+      // onto different keys.
+      provide: PERSONAL_DATA_CIPHER,
+      useFactory: (): AesGcmCipher => {
         const secret = process.env.KYC_EVIDENCE_KEY;
         if (!secret) {
           new Logger("AppModule").warn(
             "KYC_EVIDENCE_KEY is not set — using an insecure dev key; stored identity documents are NOT protected",
           );
         }
-        const key = secret
-          ? AesGcmCipher.keyFromSecret(secret)
-          : Buffer.alloc(32, "insecure-dev-evidence-key");
-        return new PrismaEvidenceStore(prisma, new AesGcmCipher(key), clock);
+        return new AesGcmCipher(
+          secret
+            ? AesGcmCipher.keyFromSecret(secret)
+            : Buffer.alloc(32, "insecure-dev-evidence-key"),
+        );
       },
-      inject: [SCOPED_PRISMA, CLOCK],
+    },
+    {
+      provide: EVIDENCE_STORE,
+      useFactory: (prisma: PrismaService, cipher: AesGcmCipher, clock: Clock): EvidenceStore =>
+        new PrismaEvidenceStore(prisma, cipher, clock),
+      inject: [SCOPED_PRISMA, PERSONAL_DATA_CIPHER, CLOCK],
+    },
+    {
+      // Same key and posture as the documents: answers are personal data.
+      provide: STEP_ANSWER_STORE,
+      useFactory: (prisma: PrismaService, cipher: AesGcmCipher, clock: Clock): StepAnswerStore =>
+        new PrismaStepAnswerStore(prisma, cipher, clock),
+      inject: [SCOPED_PRISMA, PERSONAL_DATA_CIPHER, CLOCK],
     },
     {
       provide: StartOnboarding,
@@ -1384,6 +1403,20 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         evidence: EvidenceStore,
       ) => new SubmitOnboarding(investors, applications, clock, evidence),
       inject: [INVESTOR_REPOSITORY, ONBOARDING_REPOSITORY, CLOCK, EVIDENCE_STORE],
+    },
+    {
+      provide: SaveStepAnswers,
+      useFactory: (
+        applications: OnboardingRepository,
+        evidence: EvidenceStore,
+        answers: StepAnswerStore,
+      ) => new SaveStepAnswers(applications, evidence, answers),
+      inject: [ONBOARDING_REPOSITORY, EVIDENCE_STORE, STEP_ANSWER_STORE],
+    },
+    {
+      provide: GetStepAnswers,
+      useFactory: (answers: StepAnswerStore) => new GetStepAnswers(answers),
+      inject: [STEP_ANSWER_STORE],
     },
     {
       provide: DownloadEvidence,

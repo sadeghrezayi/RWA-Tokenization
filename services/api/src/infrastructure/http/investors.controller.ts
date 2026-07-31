@@ -21,7 +21,6 @@ import { RegisterInvestor } from "../../application/identity/register-investor.j
 import { RequestEmailVerification } from "../../application/identity/request-email-verification.js";
 import { RejectKyc } from "../../application/identity/reject-kyc.js";
 import { StartKycReview } from "../../application/identity/start-kyc-review.js";
-import { SubmitKyc } from "../../application/identity/submit-kyc.js";
 import type { Principal } from "../../application/identity/ports.js";
 import { CurrentPrincipal, Public, RequirePermission } from "./auth.guard.js";
 import { PERMISSIONS } from "../../application/identity/authorization.js";
@@ -46,7 +45,6 @@ export class InvestorsController {
 
   constructor(
     private readonly registerInvestor: RegisterInvestor,
-    private readonly submitKyc: SubmitKyc,
     private readonly startKycReview: StartKycReview,
     private readonly approveKyc: ApproveKyc,
     private readonly rejectKyc: RejectKyc,
@@ -79,13 +77,6 @@ export class InvestorsController {
   @Get("me")
   me(@CurrentPrincipal() principal: Principal): Promise<InvestorView> {
     return this.getInvestor.execute({ investorId: investorIdOf(principal) });
-  }
-
-  @RequirePermission(PERMISSIONS.INVESTOR_PORTAL)
-  @Post("me/kyc/submit")
-  @HttpCode(204)
-  submitOwnKyc(@CurrentPrincipal() principal: Principal): Promise<void> {
-    return this.submitKyc.execute({ investorId: investorIdOf(principal) });
   }
 
   // --- compliance-officer actions (FR-ID-4) ---

@@ -96,6 +96,7 @@ import {
 import {
   EvidenceNotFoundError,
   EvidenceTooLargeError,
+  InvalidStepAnswersError,
   KycDecisionIsFinalError,
   MissingIdentityEvidenceError,
   OnboardingNotStartedError,
@@ -212,6 +213,7 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof MissingIdentityEvidenceError) return 409;
   if (exception instanceof KycDecisionIsFinalError) return 409;
   if (exception instanceof UnsupportedEvidenceTypeError) return 400;
+  if (exception instanceof InvalidStepAnswersError) return 400;
   if (exception instanceof EntityOnboardingNotAvailableError) return 400;
   if (exception instanceof EvidenceTooLargeError) return 413;
   return 500;

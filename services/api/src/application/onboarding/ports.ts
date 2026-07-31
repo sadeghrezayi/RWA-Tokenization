@@ -52,3 +52,16 @@ export interface EvidenceStore {
   // honestly rather than assuming.
   erase(reference: string): Promise<boolean>;
 }
+
+// 2.3e: the applicant's typed answers. Personal data, so it lives behind the
+// same guarantees as the documents — encrypted at rest, erasable — and behind
+// its own port so the wizard's storage never leaks into the domain.
+export type StepAnswers = Record<string, string>;
+
+export interface StepAnswerStore {
+  save(investorId: string, step: OnboardingStep, answers: StepAnswers): Promise<void>;
+  read(investorId: string, step: OnboardingStep): Promise<StepAnswers | undefined>;
+  // Everything the applicant has answered so far, for prefill and for review.
+  readAll(investorId: string): Promise<Partial<Record<OnboardingStep, StepAnswers>>>;
+  erase(investorId: string): Promise<boolean>;
+}

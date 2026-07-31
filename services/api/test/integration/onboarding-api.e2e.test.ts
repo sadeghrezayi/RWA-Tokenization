@@ -7,6 +7,7 @@ import request from "supertest";
 import { AppModule } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 import type { OnboardingProgressView } from "../../src/application/onboarding/onboarding-view.js";
+import type { OnboardingForm } from "../../src/application/onboarding/onboarding-form.js";
 
 // 2.3d: the onboarding wizard end to end against real Postgres — the applicant
 // path, the officer path, and the boundaries between them.
@@ -43,19 +44,36 @@ describe("Onboarding API (e2e, real Postgres)", () => {
       .field("step", "identity_evidence")
       .attach("file", scan, { filename, contentType: "image/jpeg" });
 
+  // Answers that satisfy whatever the server's (provisional) form asks for.
+  const answersFor = (form: OnboardingForm, step: keyof OnboardingForm["steps"]) =>
+    Object.fromEntries(
+      form.steps[step].map((field) => [
+        field.name,
+        field.type === "checkbox"
+          ? "true"
+          : field.type === "select"
+            ? (field.options?.[0] ?? "x")
+            : field.type === "date"
+              ? "1990-01-01"
+              : `${field.name}-value`,
+      ]),
+    );
+
   const completeAllSteps = async (token = bearer): Promise<void> => {
-    for (const step of [
-      "profile",
-      "identity_evidence",
-      "bank_account",
-      "suitability",
-      "agreements",
-    ]) {
+    const form = (await request(server).get("/onboarding/form").set(auth(token)).expect(200))
+      .body as OnboardingForm;
+    for (const step of ["profile", "bank_account", "suitability", "agreements"] as const) {
       await request(server)
-        .post(`/onboarding/me/steps/${step}/complete`)
+        .post(`/onboarding/me/steps/${step}/answers`)
         .set(auth(token))
+        .send({ answers: answersFor(form, step) })
         .expect(201);
     }
+    // Documents, not a form.
+    await request(server)
+      .post("/onboarding/me/steps/identity_evidence/complete")
+      .set(auth(token))
+      .expect(201);
   };
 
   beforeAll(async () => {
@@ -87,6 +105,7 @@ describe("Onboarding API (e2e, real Postgres)", () => {
       if (investor) {
         await prisma.kycEvidence.deleteMany({ where: { investorId: investor.id } });
         await prisma.onboardingApplication.deleteMany({ where: { investorId: investor.id } });
+        await prisma.onboardingAnswer.deleteMany({ where: { investorId: investor.id } });
         await prisma.notification.deleteMany({ where: { recipientId: investor.id } });
         await prisma.emailVerificationToken.deleteMany({ where: { investorId: investor.id } });
         await prisma.investor.deleteMany({ where: { id: investor.id } });
@@ -170,6 +189,42 @@ describe("Onboarding API (e2e, real Postgres)", () => {
       .expect(404);
   });
 
+  it("publishes the field set as provisional, so nobody reads it as a legal requirement", async () => {
+    const res = await request(server).get("/onboarding/form").set(auth(bearer)).expect(200);
+    const form = res.body as OnboardingForm;
+
+    expect(form.provisional).toBe(true);
+    expect(form.notice.toLowerCase()).toContain("local legal validation");
+    expect(form.steps.profile.length).toBeGreaterThan(0);
+  });
+
+  it("stores answers as ciphertext and gives them back for prefill", async () => {
+    const form = (await request(server).get("/onboarding/form").set(auth(bearer)).expect(200))
+      .body as OnboardingForm;
+    const answers = answersFor(form, "profile");
+
+    await request(server)
+      .post("/onboarding/me/steps/profile/answers")
+      .set(auth(bearer))
+      .send({ answers })
+      .expect(201);
+
+    const row = await prisma.onboardingAnswer.findFirst({ where: { step: "profile" } });
+    // A national ID must not be sitting in the database in the clear.
+    expect(Buffer.from(row?.content ?? []).toString("utf8")).not.toContain("nationalId-value");
+
+    const mine = await request(server).get("/onboarding/me/answers").set(auth(bearer)).expect(200);
+    expect((mine.body as { answers: Record<string, unknown> }).answers.profile).toEqual(answers);
+  });
+
+  it("refuses an answer set that misses a required field (400)", async () => {
+    await request(server)
+      .post("/onboarding/me/steps/profile/answers")
+      .set(auth(bearer))
+      .send({ answers: { fullName: "Only a name" } })
+      .expect(400);
+  });
+
   it("submits a complete application and queues it for the officer", async () => {
     await completeAllSteps();
 
@@ -211,8 +266,21 @@ describe("Onboarding API (e2e, real Postgres)", () => {
     ).toBe(true);
   });
 
+  it("lets the officer read the answers with the labels that produced them", async () => {
+    const res = await request(server)
+      .get(`/onboarding/${investorId}/answers`)
+      .set(auth(officer))
+      .expect(200);
+    const body = res.body as { form: OnboardingForm; answers: Record<string, unknown> };
+
+    expect(body.form.provisional).toBe(true);
+    expect(body.answers.profile).toBeDefined();
+    expect(body.answers.bank_account).toBeDefined();
+  });
+
   it("keeps an applicant away from the officer's endpoints (403)", async () => {
     await request(server).get(`/onboarding/${investorId}`).set(auth(bearer)).expect(403);
+    await request(server).get(`/onboarding/${investorId}/answers`).set(auth(bearer)).expect(403);
     await request(server)
       .post(`/onboarding/${investorId}/request-changes`)
       .set(auth(bearer))
@@ -245,9 +313,12 @@ describe("Onboarding API (e2e, real Postgres)", () => {
   });
 
   it("lets the applicant fix the named step and resubmit", async () => {
+    const form = (await request(server).get("/onboarding/form").set(auth(bearer)).expect(200))
+      .body as OnboardingForm;
     await request(server)
-      .post("/onboarding/me/steps/bank_account/complete")
+      .post("/onboarding/me/steps/bank_account/answers")
       .set(auth(bearer))
+      .send({ answers: answersFor(form, "bank_account") })
       .expect(201);
 
     const resubmitted = await request(server)

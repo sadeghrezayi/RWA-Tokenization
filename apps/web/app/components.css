@@ -1197,3 +1197,135 @@ a.btn {
 .hero .btn {
   align-self: center;
 }
+
+/* 2.3e onboarding wizard -------------------------------------------------- */
+/* The stepper is the applicant's map of the process: where they are, what is
+   done, and what the reviewer sent back. State is carried by text as well as
+   colour (see stepper.tsx), so the colours here are reinforcement only. */
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stepper__item {
+  /* Wide enough that the longest step label stays on one line at desktop
+     widths, so the five items read as a row rather than a ragged block. */
+  flex: 1 1 10rem;
+}
+.stepper__button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.stepper__button:hover {
+  border-color: var(--border-strong);
+}
+.stepper__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  font-size: var(--text-xs);
+}
+.stepper__label {
+  flex: 1 1 auto;
+  font-size: var(--text-sm);
+}
+/* "done" is already carried visually by the tick, so the word is kept for
+   assistive technology only — that keeps each step on one line. "Needs
+   changes" stays visible: it is a call to action, not a confirmation, and
+   colour alone must not be the only signal. */
+.stepper__state {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.stepper__state--warn {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stepper__item--current .stepper__button {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.stepper__item--done .stepper__button {
+  color: var(--text);
+}
+.stepper__item--done .stepper__index {
+  background: var(--success-soft, var(--surface-raised));
+}
+.stepper__item--changes .stepper__button {
+  border-color: var(--warning, var(--border-strong));
+}
+.stepper__item--changes .stepper__state--warn {
+  color: var(--warning, var(--text));
+}
+
+/* What the reviewer asked for, stated where the applicant is working. */
+.callout {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-inline-start-width: 3px;
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+.callout--warning {
+  border-inline-start-color: var(--warning, var(--border-strong));
+}
+.callout p {
+  margin: 0 0 var(--space-2);
+}
+.callout ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.list__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+.list__row > span:first-child {
+  flex: 1 1 auto;
+}
+.field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}

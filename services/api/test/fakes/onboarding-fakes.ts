@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { OnboardingApplication } from "../../src/domain/onboarding/onboarding-application.js";
+import type { OnboardingStep } from "../../src/domain/onboarding/onboarding-application.js";
 import type {
   EvidenceContent,
   EvidenceDescriptor,
   EvidenceStore,
   OnboardingRepository,
+  StepAnswers,
+  StepAnswerStore,
 } from "../../src/application/onboarding/ports.js";
 
 export class InMemoryOnboardingRepository implements OnboardingRepository {
@@ -61,5 +64,27 @@ export class InMemoryEvidenceStore implements EvidenceStore {
 
   erase(reference: string): Promise<boolean> {
     return Promise.resolve(this.byReference.delete(reference));
+  }
+}
+
+export class InMemoryStepAnswerStore implements StepAnswerStore {
+  private readonly byInvestor = new Map<string, Partial<Record<OnboardingStep, StepAnswers>>>();
+
+  save(investorId: string, step: OnboardingStep, answers: StepAnswers): Promise<void> {
+    const existing = this.byInvestor.get(investorId) ?? {};
+    this.byInvestor.set(investorId, { ...existing, [step]: { ...answers } });
+    return Promise.resolve();
+  }
+
+  read(investorId: string, step: OnboardingStep): Promise<StepAnswers | undefined> {
+    return Promise.resolve(this.byInvestor.get(investorId)?.[step]);
+  }
+
+  readAll(investorId: string): Promise<Partial<Record<OnboardingStep, StepAnswers>>> {
+    return Promise.resolve(this.byInvestor.get(investorId) ?? {});
+  }
+
+  erase(investorId: string): Promise<boolean> {
+    return Promise.resolve(this.byInvestor.delete(investorId));
   }
 }

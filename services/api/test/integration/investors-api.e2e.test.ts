@@ -5,6 +5,7 @@ import argon2 from "argon2";
 import request from "supertest";
 import { AppModule, CLAIM_ISSUER } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
+import { seedSubmittedKyc } from "./support/kyc.js";
 import { RecordingClaimIssuer } from "../fakes/identity-fakes.js";
 
 const OFFICER = { email: "officer@example.com", password: "0fficer-pass" };
@@ -103,10 +104,7 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
     const { investorId, token } = await registerAndLogin();
     const officer = await officerToken();
 
-    await request(server)
-      .post("/investors/me/kyc/submit")
-      .set("authorization", `Bearer ${token}`)
-      .expect(204);
+    await seedSubmittedKyc(prisma, investorId);
 
     const pending = await request(server)
       .get("/investors/pending-kyc")
@@ -135,10 +133,7 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
     const { investorId, token } = await registerAndLogin();
     const officer = await officerToken();
 
-    await request(server)
-      .post("/investors/me/kyc/submit")
-      .set("authorization", `Bearer ${token}`)
-      .expect(204);
+    await seedSubmittedKyc(prisma, investorId);
     await request(server)
       .post(`/investors/${investorId}/kyc/start-review`)
       .set("authorization", `Bearer ${officer}`)
