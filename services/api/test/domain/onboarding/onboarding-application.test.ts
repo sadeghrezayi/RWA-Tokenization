@@ -138,7 +138,9 @@ describe("OnboardingApplication — persistence seam", () => {
       completed: returned.completedSteps(),
       changeRequests: returned.changeRequests,
       startedAt: NOW,
-      submittedAt: returned.submittedAt,
+      // exactOptionalPropertyTypes: an optional property is omitted, never set
+      // to undefined explicitly.
+      ...(returned.submittedAt !== undefined ? { submittedAt: returned.submittedAt } : {}),
     });
 
     expect(restored.status).toBe("changes_requested");
