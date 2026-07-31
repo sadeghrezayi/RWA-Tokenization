@@ -108,6 +108,19 @@ import { PublishOffering } from "./application/offerings/publish-offering.js";
 import type { PublicPageRevalidator } from "./application/offerings/ports.js";
 import { WebPublicPageRevalidator } from "./infrastructure/http/web-public-page-revalidator.js";
 import { PublicController } from "./infrastructure/http/public.controller.js";
+import { OnboardingController } from "./infrastructure/http/onboarding.controller.js";
+import { AesGcmCipher } from "./infrastructure/crypto/aes-gcm-cipher.js";
+import { PrismaEvidenceStore } from "./infrastructure/persistence/prisma-evidence-store.js";
+import { PrismaOnboardingRepository } from "./infrastructure/persistence/prisma-onboarding-repository.js";
+import type { EvidenceStore, OnboardingRepository } from "./application/onboarding/ports.js";
+import { StartOnboarding } from "./application/onboarding/start-onboarding.js";
+import { GetOnboardingProgress } from "./application/onboarding/get-onboarding-progress.js";
+import { CompleteOnboardingStep } from "./application/onboarding/complete-onboarding-step.js";
+import { UploadEvidence } from "./application/onboarding/upload-evidence.js";
+import { RemoveEvidence } from "./application/onboarding/remove-evidence.js";
+import { SubmitOnboarding } from "./application/onboarding/submit-onboarding.js";
+import { DownloadEvidence } from "./application/onboarding/download-evidence.js";
+import { RequestOnboardingChanges } from "./application/onboarding/request-onboarding-changes.js";
 import type { JobScheduler } from "./application/jobs/ports.js";
 import { PgBossJobScheduler } from "./infrastructure/jobs/pg-boss-job-scheduler.js";
 import { ScheduledJobsBootstrap } from "./infrastructure/jobs/scheduled-jobs.bootstrap.js";
@@ -276,6 +289,8 @@ export const KYC_DECISION_NOTIFIER = "KYC_DECISION_NOTIFIER";
 export const DISTRIBUTION_PAID_NOTIFIER = "DISTRIBUTION_PAID_NOTIFIER";
 export const JOB_SCHEDULER = "JOB_SCHEDULER";
 export const CLOCK = "CLOCK";
+export const ONBOARDING_REPOSITORY = "ONBOARDING_REPOSITORY";
+export const EVIDENCE_STORE = "EVIDENCE_STORE";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
 export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
 export const HEALTH_PROBE = "HEALTH_PROBE";
@@ -329,6 +344,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     ApprovalsController,
     NotificationsController,
     PublicController,
+    OnboardingController,
   ],
   providers: [
     PrismaService,
@@ -1297,6 +1313,92 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         redemptions: ListRedemptions,
       ) => new GetWorkQueue(pendingKyc, approvals, redemptions),
       inject: [ListPendingKyc, ListApprovals, ListRedemptions],
+    },
+    {
+      provide: ONBOARDING_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaOnboardingRepository(prisma),
+      inject: [SCOPED_PRISMA],
+    },
+    {
+      // 2.3b: identity evidence is encrypted at rest with a key from
+      // configuration. Missing key => a loud warning and an insecure dev key,
+      // the same posture as AUTH_TOKEN_SECRET: the API stays bootable for
+      // development, and nobody can mistake that state for a protected one.
+      // Key rotation/escrow/HSM custody remain outstanding (OD-16).
+      provide: EVIDENCE_STORE,
+      useFactory: (prisma: PrismaService, clock: Clock): EvidenceStore => {
+        const secret = process.env.KYC_EVIDENCE_KEY;
+        if (!secret) {
+          new Logger("AppModule").warn(
+            "KYC_EVIDENCE_KEY is not set — using an insecure dev key; stored identity documents are NOT protected",
+          );
+        }
+        const key = secret
+          ? AesGcmCipher.keyFromSecret(secret)
+          : Buffer.alloc(32, "insecure-dev-evidence-key");
+        return new PrismaEvidenceStore(prisma, new AesGcmCipher(key), clock);
+      },
+      inject: [SCOPED_PRISMA, CLOCK],
+    },
+    {
+      provide: StartOnboarding,
+      useFactory: (
+        investors: InvestorRepository,
+        applications: OnboardingRepository,
+        ids: IdGenerator,
+        clock: Clock,
+        evidence: EvidenceStore,
+      ) => new StartOnboarding(investors, applications, ids, clock, evidence),
+      inject: [INVESTOR_REPOSITORY, ONBOARDING_REPOSITORY, ID_GENERATOR, CLOCK, EVIDENCE_STORE],
+    },
+    {
+      provide: GetOnboardingProgress,
+      useFactory: (applications: OnboardingRepository, evidence: EvidenceStore) =>
+        new GetOnboardingProgress(applications, evidence),
+      inject: [ONBOARDING_REPOSITORY, EVIDENCE_STORE],
+    },
+    {
+      provide: CompleteOnboardingStep,
+      useFactory: (applications: OnboardingRepository, evidence: EvidenceStore) =>
+        new CompleteOnboardingStep(applications, evidence),
+      inject: [ONBOARDING_REPOSITORY, EVIDENCE_STORE],
+    },
+    {
+      provide: UploadEvidence,
+      useFactory: (applications: OnboardingRepository, evidence: EvidenceStore) =>
+        new UploadEvidence(applications, evidence),
+      inject: [ONBOARDING_REPOSITORY, EVIDENCE_STORE],
+    },
+    {
+      provide: RemoveEvidence,
+      useFactory: (applications: OnboardingRepository, evidence: EvidenceStore) =>
+        new RemoveEvidence(applications, evidence),
+      inject: [ONBOARDING_REPOSITORY, EVIDENCE_STORE],
+    },
+    {
+      provide: SubmitOnboarding,
+      useFactory: (
+        investors: InvestorRepository,
+        applications: OnboardingRepository,
+        clock: Clock,
+        evidence: EvidenceStore,
+      ) => new SubmitOnboarding(investors, applications, clock, evidence),
+      inject: [INVESTOR_REPOSITORY, ONBOARDING_REPOSITORY, CLOCK, EVIDENCE_STORE],
+    },
+    {
+      provide: DownloadEvidence,
+      useFactory: (evidence: EvidenceStore) => new DownloadEvidence(evidence),
+      inject: [EVIDENCE_STORE],
+    },
+    {
+      provide: RequestOnboardingChanges,
+      useFactory: (
+        investors: InvestorRepository,
+        applications: OnboardingRepository,
+        evidence: EvidenceStore,
+        notifier: Notifier,
+      ) => new RequestOnboardingChanges(investors, applications, evidence, notifier),
+      inject: [INVESTOR_REPOSITORY, ONBOARDING_REPOSITORY, EVIDENCE_STORE, NOTIFIER],
     },
     { provide: LEDGER_READER, useExisting: PrismaSettlementRail },
     {

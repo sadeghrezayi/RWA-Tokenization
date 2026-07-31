@@ -88,6 +88,19 @@ import {
 import { ApprovalNotFoundError } from "../../application/approvals/errors.js";
 import { NotificationNotFoundError } from "../../application/notifications/errors.js";
 import { InvalidNotificationError } from "../../domain/notifications/errors.js";
+import {
+  EntityOnboardingNotAvailableError,
+  InvalidOnboardingTransitionError,
+  OnboardingIncompleteError,
+} from "../../domain/onboarding/errors.js";
+import {
+  EvidenceNotFoundError,
+  EvidenceTooLargeError,
+  KycDecisionIsFinalError,
+  MissingIdentityEvidenceError,
+  OnboardingNotStartedError,
+  UnsupportedEvidenceTypeError,
+} from "../../application/onboarding/errors.js";
 
 interface MinimalResponse {
   status(code: number): { json(body: unknown): void };
@@ -189,5 +202,17 @@ const statusFor = (exception: unknown): number => {
   // Notifications (1.7): unknown / not-mine → 404; invalid construction → 400.
   if (exception instanceof NotificationNotFoundError) return 404;
   if (exception instanceof InvalidNotificationError) return 400;
+  // 2.3: onboarding. State-machine conflicts are 409; a request the applicant
+  // can fix by sending something else is 400; an oversized document gets the
+  // status that names the actual problem (413).
+  if (exception instanceof OnboardingNotStartedError) return 404;
+  if (exception instanceof EvidenceNotFoundError) return 404;
+  if (exception instanceof InvalidOnboardingTransitionError) return 409;
+  if (exception instanceof OnboardingIncompleteError) return 409;
+  if (exception instanceof MissingIdentityEvidenceError) return 409;
+  if (exception instanceof KycDecisionIsFinalError) return 409;
+  if (exception instanceof UnsupportedEvidenceTypeError) return 400;
+  if (exception instanceof EntityOnboardingNotAvailableError) return 400;
+  if (exception instanceof EvidenceTooLargeError) return 413;
   return 500;
 };
