@@ -19,12 +19,29 @@ export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 // Individual only for now; "entity" exists so the refusal is explicit rather
 // than an applicant silently going down the individual path (OD-14/KYB).
-export type ApplicantKind = "individual" | "entity";
+export const APPLICANT_KINDS = ["individual", "entity"] as const;
+export type ApplicantKind = (typeof APPLICANT_KINDS)[number];
 
 // This is the COLLECTION lifecycle, deliberately distinct from KycStatus, which
 // remains the authority on whether an investor is approved. Duplicating that
 // state machine here would create two answers to "is this investor cleared".
-export type OnboardingStatus = "in_progress" | "submitted" | "changes_requested";
+export const ONBOARDING_STATUSES = ["in_progress", "submitted", "changes_requested"] as const;
+export type OnboardingStatus = (typeof ONBOARDING_STATUSES)[number];
+
+// Persistence stores these as plain strings. Adapters must narrow a row back
+// into the domain's vocabulary, and the domain owns what is valid — so the
+// check lives here instead of being re-stated (and re-guessed) per adapter.
+const isOneOf = <T extends string>(values: readonly T[], value: string): value is T =>
+  (values as readonly string[]).includes(value);
+
+export const isOnboardingStep = (value: string): value is OnboardingStep =>
+  isOneOf(ONBOARDING_STEPS, value);
+
+export const isOnboardingStatus = (value: string): value is OnboardingStatus =>
+  isOneOf(ONBOARDING_STATUSES, value);
+
+export const isApplicantKind = (value: string): value is ApplicantKind =>
+  isOneOf(APPLICANT_KINDS, value);
 
 export interface ChangeRequest {
   step: OnboardingStep;

@@ -20,28 +20,30 @@ model Tenant {
   status    String   @default("active")
   createdAt DateTime @default(now()) @map("created_at")
 
-  organizations         Organization[]
-  tokenTransfers        TokenTransfer[]
-  redemptions           Redemption[]
-  attestations          Attestation[]
-  assets                Asset[]
-  assetDocuments        AssetDocument[]
-  assetEvents           AssetEvent[]
-  distributions         Distribution[]
-  distributionPayouts   DistributionPayout[]
-  offerings             Offering[]
-  offeringSubscriptions OfferingSubscription[]
-  offeringAllocations   OfferingAllocation[]
-  ledgerAccounts        LedgerAccount[]
-  ledgerEntries         LedgerEntry[]
-  investorWallets       InvestorWallet[]
-  investors             Investor[]
-  onchainIdentities     OnchainIdentity[]
-  crmProfiles           CrmProfile[]
-  crmNotes              CrmNote[]
-  crmFollowUps          CrmFollowUp[]
-  approvals             Approval[]
-  notifications         Notification[]
+  organizations          Organization[]
+  tokenTransfers         TokenTransfer[]
+  redemptions            Redemption[]
+  attestations           Attestation[]
+  assets                 Asset[]
+  assetDocuments         AssetDocument[]
+  assetEvents            AssetEvent[]
+  distributions          Distribution[]
+  distributionPayouts    DistributionPayout[]
+  offerings              Offering[]
+  offeringSubscriptions  OfferingSubscription[]
+  offeringAllocations    OfferingAllocation[]
+  ledgerAccounts         LedgerAccount[]
+  ledgerEntries          LedgerEntry[]
+  investorWallets        InvestorWallet[]
+  investors              Investor[]
+  onchainIdentities      OnchainIdentity[]
+  crmProfiles            CrmProfile[]
+  crmNotes               CrmNote[]
+  crmFollowUps           CrmFollowUp[]
+  approvals              Approval[]
+  notifications          Notification[]
+  onboardingApplications OnboardingApplication[]
+  kycEvidence            KycEvidence[]
 
   @@map("tenants")
 }
@@ -500,18 +502,18 @@ model CrmNote {
 }
 
 model CrmFollowUp {
-  id         String    @id
-  tenantId   String    @default("default") @map("tenant_id")
-  tenant     Tenant    @relation(fields: [tenantId], references: [id])
-  investorId String    @map("investor_id")
-  text       String
-  dueAt      DateTime  @map("due_at")
-  state      String
-  doneAt     DateTime? @map("done_at")
+  id            String    @id
+  tenantId      String    @default("default") @map("tenant_id")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  investorId    String    @map("investor_id")
+  text          String
+  dueAt         DateTime  @map("due_at")
+  state         String
+  doneAt        DateTime? @map("done_at")
   // 1.7d: when the overdue reminder was announced (null = not yet), so the
   // scheduled scan never repeats a reminder.
   dueNotifiedAt DateTime? @map("due_notified_at")
-  createdAt  DateTime  @map("created_at")
+  createdAt     DateTime  @map("created_at")
 
   @@index([tenantId])
   @@map("crm_follow_ups")
@@ -556,4 +558,43 @@ model Notification {
 
   @@index([tenantId, recipientKind, recipientId, createdAt])
   @@map("notifications")
+}
+
+// 2.3a: the evidence-collection lifecycle for an investor's onboarding.
+// Tenant-owned. Deliberately separate from Investor.kycState, which remains the
+// authority on whether the investor is approved.
+model OnboardingApplication {
+  id             String    @id
+  tenantId       String    @default("default") @map("tenant_id")
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  investorId     String    @unique @map("investor_id")
+  kind           String
+  status         String
+  completedSteps String[]  @map("completed_steps")
+  changeRequests Json      @map("change_requests")
+  startedAt      DateTime  @map("started_at")
+  submittedAt    DateTime? @map("submitted_at")
+
+  @@index([tenantId, status])
+  @@map("onboarding_applications")
+}
+
+// 2.3b: identity evidence, ENCRYPTED AT REST (AES-256-GCM) — deliberately NOT
+// IPFS, because personal data must be erasable and must not be fetchable by
+// anyone holding a content address. `content` holds the sealed blob only; no
+// plaintext of the document is stored anywhere in this table.
+model KycEvidence {
+  reference   String   @id
+  tenantId    String   @default("default") @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  investorId  String   @map("investor_id")
+  step        String
+  filename    String
+  contentType String   @map("content_type")
+  byteSize    Int      @map("byte_size")
+  content     Bytes
+  uploadedAt  DateTime @map("uploaded_at")
+
+  @@index([tenantId, investorId])
+  @@map("kyc_evidence")
 }

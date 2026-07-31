@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  APPLICANT_KINDS,
+  ONBOARDING_STATUSES,
   ONBOARDING_STEPS,
   OnboardingApplication,
+  isApplicantKind,
+  isOnboardingStatus,
+  isOnboardingStep,
 } from "../../../src/domain/onboarding/onboarding-application.js";
 import {
   EntityOnboardingNotAvailableError,
@@ -146,5 +151,22 @@ describe("OnboardingApplication — persistence seam", () => {
     expect(restored.status).toBe("changes_requested");
     expect(restored.outstandingSteps()).toEqual(["suitability"]);
     expect(restored.changeRequests).toEqual([{ step: "suitability", reason: "incomplete" }]);
+  });
+});
+
+describe("OnboardingApplication — recognizing stored values", () => {
+  // Persistence stores these as plain strings. Adapters need to narrow a row
+  // back to the domain's vocabulary; the domain owns what is valid, so the
+  // check lives here rather than being re-guessed per adapter.
+  it("recognizes its own steps, statuses and kinds", () => {
+    expect(ONBOARDING_STEPS.every(isOnboardingStep)).toBe(true);
+    expect(ONBOARDING_STATUSES.every(isOnboardingStatus)).toBe(true);
+    expect(APPLICANT_KINDS.every(isApplicantKind)).toBe(true);
+  });
+
+  it("rejects anything else, so corrupt data surfaces instead of spreading", () => {
+    expect(isOnboardingStep("passport")).toBe(false);
+    expect(isOnboardingStatus("approved")).toBe(false);
+    expect(isApplicantKind("trust")).toBe(false);
   });
 });
