@@ -309,6 +309,7 @@ export interface Dictionary {
   portfolioIncomeSubtitle: string;
   portfolioNoIncome: string;
   portfolioPaidAt: string;
+  menuLabel: string;
   signedInAs: string;
   investorPortalTitle: string;
   backToAssets: string;
@@ -702,6 +703,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
     portfolioIncomeSubtitle: "Distributions that have been paid to you.",
     portfolioNoIncome: "No income has been paid to you yet.",
     portfolioPaidAt: "Paid",
+    menuLabel: "Menu",
     signedInAs: "Signed in as",
     investorPortalTitle: "Investor Portal",
     backToAssets: "← Back to assets",

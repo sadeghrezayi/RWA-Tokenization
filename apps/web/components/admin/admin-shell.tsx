@@ -26,6 +26,11 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
   // threaded to pages for state-changing requests.
   const [status, setStatus] = useState<"loading" | "authed" | "anon">("loading");
   const [csrf, setCsrf] = useState<string>("");
+  // The admin nav has a dozen entries. Wrapped across a phone screen they
+  // pushed the actual page below the fold, so on small screens the nav is
+  // disclosed on demand. CSS hides this button at desktop widths, where the
+  // nav is always visible.
+  const [menuOpen, setMenuOpen] = useState(false);
   const [permissions, setPermissions] = useState<readonly string[]>([]);
 
   // Loading the session is shared by the initial mount AND a fresh login: the
@@ -196,7 +201,31 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
             </span>
           </Link>
 
-          <nav className="sidebar__nav" aria-label="admin navigation">
+          <button
+            type="button"
+            className="sidebar__menu-toggle"
+            aria-expanded={menuOpen}
+            aria-controls="admin-nav"
+            onClick={() => {
+              setMenuOpen((open) => !open);
+            }}
+          >
+            <span className="nav-link__icon" aria-hidden="true">
+              ☰
+            </span>
+            {t.menuLabel}
+          </button>
+
+          <nav
+            id="admin-nav"
+            className={menuOpen ? "sidebar__nav sidebar__nav--open" : "sidebar__nav"}
+            aria-label="admin navigation"
+            onClick={() => {
+              // Choosing a destination closes the menu; leaving it open would
+              // cover the page the officer just asked for.
+              setMenuOpen(false);
+            }}
+          >
             {groups.map((group) => (
               <div key={group.label} className="sidebar__group">
                 <p className="sidebar__group-label">{group.label}</p>

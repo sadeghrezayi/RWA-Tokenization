@@ -24,7 +24,7 @@ export default async function PublicLayout({
           <span className="brand__logo" aria-hidden="true">
             ◈
           </span>
-          <span>{t.appTitle}</span>
+          <span className="brand-text">{t.appTitle}</span>
         </Link>
         <nav className="public__nav" aria-label="public navigation">
           <Link href={`/${locale}/browse`}>{t.publicBrowseTitle}</Link>

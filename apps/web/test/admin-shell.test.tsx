@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // next/navigation + next/link are mocked so the shell can be unit-tested.
@@ -46,6 +46,16 @@ const SessionProbe = () => <div data-testid="probe">section content</div>;
 const asOfficer = () =>
   getSession.mockResolvedValue({ kind: "officer", permissions: Object.values(PERMISSIONS) });
 const asAnon = () => getSession.mockRejectedValue(new Error("401"));
+
+const renderSignedIn = async (): Promise<void> => {
+  asOfficer();
+  render(
+    <AdminShell locale="en">
+      <SessionProbe />
+    </AdminShell>,
+  );
+  await screen.findByTestId("probe");
+};
 
 describe("AdminShell", () => {
   beforeEach(() => {
@@ -165,5 +175,39 @@ describe("AdminShell", () => {
     });
     expect(logout).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Compliance Review")).toBeInTheDocument();
+  });
+
+  it("collapses the navigation behind a menu button, closed to begin with", async () => {
+    // Twelve nav items wrapped across a phone screen pushed the actual page
+    // below the fold. On small screens the nav is disclosed on demand; the
+    // button is hidden by CSS at desktop widths, where the nav is always shown.
+    await renderSignedIn();
+
+    const toggle = await screen.findByRole("button", { name: /menu/i });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(document.querySelector(".sidebar__nav--open")).toBeNull();
+  });
+
+  it("opens and closes the navigation from that button", async () => {
+    await renderSignedIn();
+    const toggle = await screen.findByRole("button", { name: /menu/i });
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(document.querySelector(".sidebar__nav--open")).not.toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("closes the menu once a destination is chosen", async () => {
+    // Leaving it open would cover the page the officer just navigated to.
+    await renderSignedIn();
+    const toggle = await screen.findByRole("button", { name: /menu/i });
+    fireEvent.click(toggle);
+
+    fireEvent.click(screen.getByRole("link", { name: /Investors/ }));
+
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
   });
 });

@@ -100,6 +100,22 @@
   text-align: left;
   width: 100%;
 }
+/* Disclosure control for the admin nav. Desktop always shows the nav, so the
+   button only exists below the shell breakpoint (see the media query). */
+.sidebar__menu-toggle {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 550;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
 .nav-link:hover {
   background: var(--surface-2);
 }
@@ -236,9 +252,47 @@
     align-items: center;
     gap: 2px;
   }
-  .sidebar__group-label,
-  .sidebar__footer {
+  .sidebar__group-label {
     display: none;
+  }
+  /* The footer holds LOG OUT. Hiding it on small screens left a phone user
+     with no way to sign out at all — it now sits at the end of the same
+     wrapping row as the nav links. */
+  .sidebar__footer {
+    flex-direction: row;
+    align-items: center;
+    border-top: none;
+    padding-top: 0;
+  }
+  /* Every nav item must be reachable: the row wraps instead of running off the
+     side of the screen. Links size to their label instead of claiming the full
+     width, so four of them fit in one or two rows rather than four. */
+  .sidebar__nav,
+  .sidebar__group {
+    flex-wrap: wrap;
+  }
+  .sidebar__nav .nav-link,
+  .sidebar__footer .nav-link {
+    width: auto;
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
+  }
+  .sidebar {
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+  /* A dozen wrapped nav items filled the whole screen before any content, so
+     the admin nav collapses behind its toggle here. Shells without the toggle
+     (the four-item investor portal) are unaffected and keep showing the nav. */
+  .sidebar:has(.sidebar__menu-toggle) .sidebar__nav {
+    display: none;
+  }
+  .sidebar:has(.sidebar__menu-toggle) .sidebar__nav--open {
+    display: flex;
+    width: 100%;
+  }
+  .sidebar__menu-toggle {
+    display: inline-flex;
   }
 }
 .page-title {
@@ -787,7 +841,9 @@ select.field__input {
 .stat-row {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: 1fr 1fr;
+  /* Tiles size themselves to the screen: two columns where they fit, one on a
+     narrow phone, rather than two cramped columns that clip their own labels. */
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
 }
 @media (min-width: 720px) {
   .stat-row {
@@ -1113,6 +1169,20 @@ textarea.field__input {
 }
 .public__nav a:hover {
   color: var(--brand);
+}
+/* On a phone the brand name was wrapping to three lines and crowding the nav
+   out of the bar. The name shortens to the logo, and the bar keeps one row. */
+@media (max-width: 560px) {
+  .public__bar {
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+  }
+  .public__bar .brand-text {
+    display: none;
+  }
+  .public__nav {
+    gap: var(--space-3);
+  }
 }
 .public__main {
   max-width: 960px;
