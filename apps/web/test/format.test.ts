@@ -9,18 +9,25 @@ import {
 
 describe("formatRial", () => {
   it("groups_thousands_and_appends_the_rial_symbol", () => {
-    expect(formatRial("500000")).toBe("500,000 ﷼");
-    expect(formatRial("1000")).toBe("1,000 ﷼");
-    expect(formatRial("0")).toBe("0 ﷼");
+    expect(formatRial("500000")).toBe("500,000\u00a0﷼");
+    expect(formatRial("1000")).toBe("1,000\u00a0﷼");
+    expect(formatRial("0")).toBe("0\u00a0﷼");
+  });
+
+  it("keeps an amount and its currency on one line", () => {
+    // A currency symbol orphaned onto the next line reads as a separate value;
+    // seen live on the portfolio stat tiles.
+    expect(formatRial("4500000")).toContain("\u00a0");
+    expect(formatRial("4500000")).not.toMatch(/\d /);
   });
 
   it("accepts_bigint_and_number", () => {
-    expect(formatRial(67000n)).toBe("67,000 ﷼");
-    expect(formatRial(42)).toBe("42 ﷼");
+    expect(formatRial(67000n)).toBe("67,000\u00a0﷼");
+    expect(formatRial(42)).toBe("42\u00a0﷼");
   });
 
   it("handles_very_large_amounts_without_precision_loss", () => {
-    expect(formatRial("1000000000000000")).toBe("1,000,000,000,000,000 ﷼");
+    expect(formatRial("1000000000000000")).toBe("1,000,000,000,000,000\u00a0﷼");
   });
 
   it("returns_a_dash_for_a_non_numeric_value", () => {

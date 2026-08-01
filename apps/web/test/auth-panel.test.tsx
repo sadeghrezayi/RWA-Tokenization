@@ -28,6 +28,7 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   removeEvidence: vi.fn(),
   getMyEvidence: vi.fn(),
   getOnboardingAnswers: vi.fn(),
+  getPortfolio: vi.fn(),
   saveOnboardingAnswers: vi.fn(),
   getApplicantAnswers: vi.fn(),
   submitOnboarding: vi.fn(),

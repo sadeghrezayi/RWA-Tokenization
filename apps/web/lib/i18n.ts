@@ -293,6 +293,22 @@ export interface Dictionary {
   onboardingReviewUndisplayable: string;
   onboardingReviewAccepted: string;
   onboardingReviewDeclined: string;
+  portfolioSummaryTitle: string;
+  portfolioInvestedLabel: string;
+  portfolioIncomeLabel: string;
+  portfolioIncomeHint: string;
+  portfolioValuedAt: string;
+  portfolioValueFresh: string;
+  portfolioValueStale: string;
+  portfolioStaleExplainer: string;
+  portfolioNotValued: string;
+  portfolioNotValuedExplainer: string;
+  portfolioAllocationTitle: string;
+  portfolioNoAllocation: string;
+  portfolioIncomeTitle: string;
+  portfolioIncomeSubtitle: string;
+  portfolioNoIncome: string;
+  portfolioPaidAt: string;
   signedInAs: string;
   investorPortalTitle: string;
   backToAssets: string;
@@ -668,6 +684,24 @@ export const dictionaries: Record<Locale, Dictionary> = {
       "This document could not be displayed — it may be corrupt or in an unexpected format.",
     onboardingReviewAccepted: "Accepted",
     onboardingReviewDeclined: "Not accepted",
+    portfolioSummaryTitle: "Your position",
+    portfolioInvestedLabel: "Invested",
+    portfolioIncomeLabel: "Income received",
+    portfolioIncomeHint: "Distributions actually paid to you",
+    portfolioValuedAt: "Valued",
+    portfolioValueFresh: "Valuation current",
+    portfolioValueStale: "Out of date",
+    portfolioStaleExplainer:
+      "This value comes from a valuation that is now out of date. It is shown with the date it was made, not as today's price.",
+    portfolioNotValued: "Not yet valued",
+    portfolioNotValuedExplainer:
+      "No valuation has been published for your holdings yet, so no value is shown. Your token balance is unaffected.",
+    portfolioAllocationTitle: "How your portfolio is split",
+    portfolioNoAllocation: "There is nothing valued to break down yet.",
+    portfolioIncomeTitle: "Income",
+    portfolioIncomeSubtitle: "Distributions that have been paid to you.",
+    portfolioNoIncome: "No income has been paid to you yet.",
+    portfolioPaidAt: "Paid",
     signedInAs: "Signed in as",
     investorPortalTitle: "Investor Portal",
     backToAssets: "← Back to assets",

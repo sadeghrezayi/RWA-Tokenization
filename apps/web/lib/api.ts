@@ -480,6 +480,7 @@ export interface ApiClient {
   ): Promise<{ attestationId: string; payloadHash: string }>;
   listAttestations(officerToken: string, assetId: string): Promise<AttestationViewDto[]>;
   myHoldings(token: string): Promise<HoldingDto[]>;
+  getPortfolio(): Promise<PortfolioDto>;
   transferTokens(
     token: string,
     body: { assetId: string; toEmail: string; tokens: string },
@@ -668,6 +669,38 @@ export interface EvidenceContentDto {
   filename: string;
   contentType: string;
   contentBase64: string;
+}
+
+// 2.5: the holder's own position. Strictly factual — value carries the date of
+// the attestation behind it and whether that attestation is still fresh; income
+// is money that was actually paid. There is deliberately no projected yield.
+export interface PortfolioHoldingDto {
+  assetId: string;
+  assetName: string;
+  tokens: string;
+  valueRial?: string;
+  valuationFresh: boolean;
+  valuedAt?: string;
+  shareBasisPoints?: number;
+}
+
+export interface PortfolioIncomeItemDto {
+  distributionId: string;
+  assetId: string;
+  assetName: string;
+  amountRial: string;
+  paidAt: string;
+}
+
+export interface PortfolioDto {
+  totalInvestedRial: string;
+  portfolioValueRial: string;
+  portfolioValueFresh: boolean;
+  valuedAt?: string;
+  incomeReceivedRial: string;
+  holdings: PortfolioHoldingDto[];
+  income: PortfolioIncomeItemDto[];
+  subscriptions: SubscriptionHistoryDto[];
 }
 
 export class ApiError extends Error {
@@ -928,6 +961,7 @@ export const createApiClient = (
       await call(`/distributions/${distributionId}/pay`, { method: "POST", token: officerToken });
     },
     myHoldings: (token) => json(call("/transfers/holdings", { token })),
+    getPortfolio: () => json(call("/portfolio/me")),
     transferTokens: (token, body) => json(call("/transfers", { method: "POST", token, body })),
     requestRedemption: (token, body) => json(call("/redemptions", { method: "POST", token, body })),
     myRedemptions: (token) => json(call("/redemptions/me", { token })),

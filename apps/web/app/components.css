@@ -1353,3 +1353,73 @@ a.btn {
 object.evidence-view {
   height: 60vh;
 }
+
+/* 2.5b allocation ---------------------------------------------------------- */
+/* One bar plus a legend: the bar gives the impression, the legend states the
+   fact. Colour is never the only carrier of meaning. */
+.allocation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.allocation__bar {
+  display: flex;
+  width: 100%;
+  height: 0.75rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-raised);
+}
+.allocation__segment {
+  display: block;
+  height: 100%;
+}
+.allocation__legend {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.allocation__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.allocation__swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 auto;
+  border-radius: 3px;
+}
+.allocation__label {
+  flex: 1 1 auto;
+}
+.allocation__share {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.allocation__value {
+  min-width: 8rem;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+/* A five-step ramp: distinguishable in sequence, and each pair still
+   distinguishable in greyscale. */
+.allocation__segment--1 {
+  background: var(--accent);
+}
+.allocation__segment--2 {
+  background: #6366f1;
+}
+.allocation__segment--3 {
+  background: #0ea5e9;
+}
+.allocation__segment--4 {
+  background: #14b8a6;
+}
+.allocation__segment--5 {
+  background: #f59e0b;
+}

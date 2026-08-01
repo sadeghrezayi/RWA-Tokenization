@@ -11,7 +11,9 @@ const toIntegerString = (value: string | number | bigint): string | undefined =>
 // Rial (﷼). PRD C3/D3: the domestic settlement unit.
 export const formatRial = (value: string | number | bigint): string => {
   const digits = toIntegerString(value);
-  return digits === undefined ? "—" : `${groupThousands(digits)} ﷼`;
+  // Non-breaking space: an amount and its currency are one value, and a stat
+  // tile that wraps between them reads as two.
+  return digits === undefined ? "—" : `${groupThousands(digits)}\u00a0﷼`;
 };
 
 export const formatTokens = (value: string | number | bigint): string => {
