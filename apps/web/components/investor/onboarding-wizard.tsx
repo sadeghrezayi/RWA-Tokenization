@@ -9,6 +9,10 @@ import type {
   OnboardingStepDto,
   StepAnswersDto,
 } from "../../lib/api";
+import {
+  ONBOARDING_STEP_LABELS as STEP_LABELS,
+  ONBOARDING_STEP_ORDER as STEP_ORDER,
+} from "../../lib/onboarding";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
 import { Badge } from "../ui/badge";
@@ -20,22 +24,6 @@ export interface OnboardingWizardProps {
   api: ApiClient;
   csrfToken: string;
 }
-
-const STEP_ORDER: OnboardingStepDto[] = [
-  "profile",
-  "identity_evidence",
-  "bank_account",
-  "suitability",
-  "agreements",
-];
-
-const STEP_LABELS: Record<OnboardingStepDto, string> = {
-  profile: "Your details",
-  identity_evidence: "Identity document",
-  bank_account: "Bank account",
-  suitability: "Suitability",
-  agreements: "Agreements",
-};
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);

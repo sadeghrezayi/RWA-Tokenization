@@ -105,4 +105,22 @@ describe("OfficerPanel (KYC queue)", () => {
       expect(reject).toHaveBeenCalledWith("off-tok", "inv-9", "document mismatch");
     });
   });
+
+  it("links each queued applicant to their verification file", async () => {
+    // Approving without reading the evidence is exactly what 2.3 exists to
+    // prevent, so the queue points at the file.
+    const pendingKyc = vi.fn().mockResolvedValue([
+      {
+        id: "inv-7",
+        email: "sara@demo.com",
+        emailVerified: true,
+        kycState: "submitted",
+        eligibleForClaims: false,
+      },
+    ]);
+    render(<OfficerPanel locale="en" api={stubApi({ pendingKyc })} token="tok" />);
+
+    const link = await screen.findByRole("link", { name: /review/i });
+    expect(link.getAttribute("href")).toBe("/en/admin/investors/inv-7");
+  });
 });

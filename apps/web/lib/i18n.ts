@@ -277,6 +277,22 @@ export interface Dictionary {
   onboardingSubmitButton: string;
   onboardingChoosePlaceholder: string;
   onboardingOpenWizard: string;
+  onboardingReviewTitle: string;
+  onboardingReviewNotStarted: string;
+  onboardingReviewSubmittedAt: string;
+  onboardingReviewAlreadyAsked: string;
+  onboardingReviewNotAnswered: string;
+  onboardingReviewViewButton: string;
+  onboardingReviewRequestChanges: string;
+  onboardingReviewSendBack: string;
+  onboardingReviewReasonHelp: string;
+  onboardingReviewNeedsReason: string;
+  onboardingReviewOpenFile: string;
+  onboardingReviewLoading: string;
+  onboardingReviewCancel: string;
+  onboardingReviewUndisplayable: string;
+  onboardingReviewAccepted: string;
+  onboardingReviewDeclined: string;
   signedInAs: string;
   investorPortalTitle: string;
   backToAssets: string;
@@ -634,6 +650,24 @@ export const dictionaries: Record<Locale, Dictionary> = {
     onboardingSubmitButton: "Submit for review",
     onboardingChoosePlaceholder: "Choose…",
     onboardingOpenWizard: "Open verification",
+    onboardingReviewTitle: "Identity verification file",
+    onboardingReviewNotStarted: "This applicant has not started their verification.",
+    onboardingReviewSubmittedAt: "Submitted",
+    onboardingReviewAlreadyAsked: "You already asked the applicant to update:",
+    onboardingReviewNotAnswered: "— not answered —",
+    onboardingReviewViewButton: "View",
+    onboardingReviewRequestChanges: "Request changes",
+    onboardingReviewSendBack: "Send back to applicant",
+    onboardingReviewReasonHelp:
+      "Write a reason for each step the applicant must redo. Steps you leave blank stay accepted.",
+    onboardingReviewNeedsReason: "Name at least one step and say what needs changing.",
+    onboardingReviewOpenFile: "Review",
+    onboardingReviewLoading: "Loading…",
+    onboardingReviewCancel: "Cancel",
+    onboardingReviewUndisplayable:
+      "This document could not be displayed — it may be corrupt or in an unexpected format.",
+    onboardingReviewAccepted: "Accepted",
+    onboardingReviewDeclined: "Not accepted",
     signedInAs: "Signed in as",
     investorPortalTitle: "Investor Portal",
     backToAssets: "← Back to assets",

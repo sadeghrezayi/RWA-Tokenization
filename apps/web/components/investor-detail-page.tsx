@@ -6,6 +6,7 @@ import type { ApiClient, InvestorDetailDto, RelationshipStageDto } from "../lib/
 import { formatDate, formatDateTime, formatRial, formatTokens } from "../lib/format";
 import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
+import { OnboardingReviewCard } from "./admin/onboarding-review-card";
 import { Address } from "./ui/address";
 import { Badge } from "./ui/badge";
 import { Button, Card, EmptyState, Field, SelectField, Stat } from "./ui/primitives";
@@ -118,6 +119,10 @@ export const InvestorDetailPage = ({
           hint={detail.sales.portfolioValueFresh ? t.freshValueLabel : t.staleValueLabel}
         />
       </div>
+
+      {/* 2.3f: the verification file sits above relationship management — it is
+          what an officer opens this page to read before deciding. */}
+      <OnboardingReviewCard locale={locale} api={api} csrfToken={token} investorId={investorId} />
 
       <Card title={t.relationshipSectionLabel}>
         <div className="stack">

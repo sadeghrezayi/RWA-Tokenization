@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "../lib/api";
 import type { ApiClient, InvestorViewDto } from "../lib/api";
@@ -78,6 +79,15 @@ export const OfficerPanel = ({
                     </td>
                     <td>
                       <div className="table__actions">
+                        {/* 2.3f: read the file before deciding — approving
+                            straight from the queue without opening the
+                            evidence is what the wizard exists to prevent. */}
+                        <Link
+                          className="btn btn--secondary btn--sm"
+                          href={`/${locale}/admin/investors/${investor.id}`}
+                        >
+                          {t.onboardingReviewOpenFile}
+                        </Link>
                         <Button
                           type="button"
                           size="sm"

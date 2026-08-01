@@ -196,7 +196,7 @@ describe("OnboardingWizard", () => {
       submitOnboarding,
     });
 
-    await screen.findByRole("tab", { name: /Your details/ });
+    await screen.findByRole("tab", { name: /Personal details/ });
     expect(screen.queryByRole("button", { name: /submit/i })).toBeNull();
 
     rerender(
