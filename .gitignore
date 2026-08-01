@@ -54,3 +54,9 @@ tmp/
 # Local deliverable exports (not product code)
 platform-overview/
 platform-overview.zip
+
+# === Playwright (layout-regression harness) ===
+test-results/
+playwright-report/
+blob-report/
+.playwright/

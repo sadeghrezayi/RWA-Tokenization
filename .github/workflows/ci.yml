@@ -119,3 +119,32 @@ jobs:
 
       - name: Integration tests (Postgres + IPFS + anvil)
         run: pnpm --filter @tokenization/api test:integration
+
+      # Layout-regression harness: assertion-based contracts (no pixel
+      # baselines — a macOS render would never match this runner's). Needs the
+      # API and the web build actually serving, so it runs after both are built.
+      - name: Install Playwright browser
+        run: pnpm --filter @tokenization/web exec playwright install --with-deps chromium
+
+      - name: Start API and web for layout tests
+        env:
+          WEB_ORIGIN: http://localhost:3000
+          AUTH_TOKEN_SECRET: ci-layout-secret
+        run: |
+          node services/api/dist/main.js > /tmp/api.log 2>&1 &
+          pnpm --filter @tokenization/web exec next start -p 3000 > /tmp/web.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://127.0.0.1:3001/public/offerings \
+               && curl -sf -o /dev/null http://127.0.0.1:3000/en; then break; fi
+            sleep 1
+          done
+          curl -sf -o /dev/null http://127.0.0.1:3001/public/offerings || { echo "api did not start"; cat /tmp/api.log; exit 1; }
+          curl -sf -o /dev/null http://127.0.0.1:3000/en || { echo "web did not start"; cat /tmp/web.log; exit 1; }
+
+      - name: Layout regression (mobile + desktop)
+        env:
+          # Empty channel => use Playwright's own Chromium, not a system Chrome.
+          PLAYWRIGHT_CHANNEL: ""
+          WEB_BASE_URL: http://localhost:3000
+          API_BASE_URL: http://localhost:3001
+        run: pnpm --filter @tokenization/web test:layout
