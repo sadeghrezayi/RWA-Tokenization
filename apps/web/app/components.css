@@ -548,6 +548,28 @@ select.field__input {
 /* ---- Table ------------------------------------------------------------ */
 .table-wrap {
   overflow-x: auto;
+  /* A wide table scrolls inside its own box rather than pushing the page
+     sideways. The edge shadows are the affordance that there is more to see:
+     background-attachment local/scroll makes them appear only when the table
+     actually overflows, and fade away at each end — no JS, no scroll
+     listeners. */
+  background-image:
+    linear-gradient(to right, var(--surface), transparent 12px),
+    linear-gradient(to left, var(--surface), transparent 12px),
+    linear-gradient(to right, rgba(15, 23, 42, 0.12), transparent 12px),
+    linear-gradient(to left, rgba(15, 23, 42, 0.12), transparent 12px);
+  background-position:
+    left center,
+    right center,
+    left center,
+    right center;
+  background-repeat: no-repeat;
+  background-size:
+    24px 100%,
+    24px 100%,
+    12px 100%,
+    12px 100%;
+  background-attachment: local, local, scroll, scroll;
 }
 .table {
   width: 100%;
@@ -1170,6 +1192,28 @@ textarea.field__input {
 .public__nav a:hover {
   color: var(--brand);
 }
+@media (max-width: 560px) {
+  /* Side-by-side title and actions squeezed a long subtitle into a narrow
+     column with the badge floating in the middle of it. Below this width the
+     header stacks: title, subtitle, then whatever the card offers. */
+  .card__header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--space-4);
+  }
+  .card__body {
+    padding: var(--space-4);
+  }
+  /* The wizard's step list is the screen's map, not its content — it should
+     not push the form it belongs to off the bottom. */
+  .stepper {
+    gap: var(--space-1);
+  }
+  .stepper__button {
+    padding: var(--space-2);
+  }
+}
+
 /* On a phone the brand name was wrapping to three lines and crowding the nav
    out of the bar. The name shortens to the logo, and the bar keeps one row. */
 @media (max-width: 560px) {
