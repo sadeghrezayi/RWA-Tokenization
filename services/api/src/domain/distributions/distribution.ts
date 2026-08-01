@@ -31,6 +31,9 @@ export class Distribution {
     public readonly totalAmountRial: bigint,
     public readonly state: DistributionState,
     public readonly payouts: readonly Payout[],
+    // Set when the distribution is actually paid. A holder's income statement
+    // has to be dateable; state alone cannot say when the money moved.
+    public readonly paidAt?: Date,
   ) {}
 
   // FR-YD-1: pro-rata by holdings. Floor each share, then hand the leftover
@@ -83,6 +86,7 @@ export class Distribution {
     totalAmountRial: bigint;
     state: DistributionState;
     payouts: readonly Payout[];
+    paidAt?: Date;
   }): Distribution {
     return new Distribution(
       fields.id,
@@ -91,10 +95,11 @@ export class Distribution {
       fields.totalAmountRial,
       fields.state,
       [...fields.payouts],
+      fields.paidAt,
     );
   }
 
-  markPaid(): Distribution {
+  markPaid(paidAt: Date): Distribution {
     if (this.state !== "declared") {
       throw new InvalidDistributionTransitionError(
         `cannot pay a distribution in state "${this.state}"`,
@@ -107,6 +112,7 @@ export class Distribution {
       this.totalAmountRial,
       "paid",
       this.payouts,
+      paidAt,
     );
   }
 }

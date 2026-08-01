@@ -30,6 +30,7 @@ export class PrismaDistributionRepository implements DistributionRepository {
       tokenAddress: distribution.tokenAddress,
       totalAmountRial: distribution.totalAmountRial,
       state: distribution.state,
+      paidAt: distribution.paidAt ?? null,
     };
     // Tenant-safe pattern (no upsert): probe, then create or updateMany.
     const exists = await this.prisma.distribution.findFirst({ where: { id: distribution.id } });
@@ -59,6 +60,7 @@ const toDomain = (row: FullRow): Distribution =>
     tokenAddress: row.tokenAddress,
     totalAmountRial: row.totalAmountRial,
     state: row.state,
+    ...(row.paidAt !== null ? { paidAt: row.paidAt } : {}),
     payouts: row.payouts.map((p) => ({
       investorId: p.investorId,
       tokens: p.tokens,

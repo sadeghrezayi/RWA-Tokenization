@@ -26,6 +26,10 @@ export interface ValuedHolding {
   tokens: string;
   valueRial?: string;
   valuationFresh: boolean;
+  // When the valuation behind valueRial was issued. A value with no date is an
+  // unqualified number; every reader of this view needs to be able to say
+  // "as at ...", whether it is an officer or the holder themselves.
+  valuedAt?: string;
 }
 
 export interface InvestorSalesView {
@@ -106,6 +110,7 @@ export class GetInvestorSales {
         tokens: holding.tokens,
         ...(valueRial !== undefined ? { valueRial: String(valueRial) } : {}),
         valuationFresh: fresh,
+        ...(attestation !== undefined ? { valuedAt: attestation.issuedAt.toISOString() } : {}),
       });
     }
 

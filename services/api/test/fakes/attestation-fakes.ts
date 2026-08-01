@@ -32,6 +32,11 @@ export class InMemoryAttestationRepository implements AttestationRepository {
     return Promise.resolve();
   }
 
+  // Lets a test model "no valuation has been published" after seeding one.
+  clear(): void {
+    this.byId.clear();
+  }
+
   // Newest first, by issuance time.
   private forAsset(assetId: string): Attestation[] {
     return [...this.byId.values()]

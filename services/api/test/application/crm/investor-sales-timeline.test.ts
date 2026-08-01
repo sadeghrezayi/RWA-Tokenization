@@ -125,6 +125,8 @@ describe("GetInvestorSales", () => {
         tokens: "45",
         valueRial: "6250000000",
         valuationFresh: true,
+        // 2.5a: a value now carries the date of the attestation behind it.
+        valuedAt: "2026-07-01T00:00:00.000Z",
       },
     ]);
   });

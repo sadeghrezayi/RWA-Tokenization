@@ -1,5 +1,6 @@
 import type { DistributionState } from "../../domain/distributions/distribution.js";
 import type { AssetEventLog, AssetRepository } from "../assets/ports.js";
+import type { Clock } from "../offerings/ports.js";
 import { loadDistribution } from "./get-distribution.js";
 import type {
   DistributionLedger,
@@ -17,6 +18,7 @@ export class PayDistribution {
     private readonly events: AssetEventLog,
     private readonly assets: AssetRepository,
     private readonly notifier: DistributionPaidNotifier,
+    private readonly clock: Clock,
   ) {}
 
   async execute(input: {
@@ -24,7 +26,7 @@ export class PayDistribution {
     actor: string;
   }): Promise<{ state: DistributionState }> {
     const distribution = await loadDistribution(this.distributions, input.distributionId);
-    const paid = distribution.markPaid();
+    const paid = distribution.markPaid(this.clock.now());
     await this.distributions.save(paid);
     await this.events.append({
       assetId: paid.assetId,

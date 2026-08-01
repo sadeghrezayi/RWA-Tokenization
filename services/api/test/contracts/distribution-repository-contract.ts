@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Distribution } from "../../src/domain/distributions/distribution.js";
 import type { DistributionRepository } from "../../src/application/distributions/ports.js";
 
+const PAID_AT = new Date("2026-07-31T09:00:00Z");
+
+
 const declare = (id: string) =>
   Distribution.declare({
     id,
@@ -45,7 +48,7 @@ export const distributionRepositoryContract = (
     it("save_overwrites_state_from_declared_to_paid", async () => {
       const declared = declare("dist-1");
       await repo.save(declared);
-      await repo.save(declared.markPaid());
+      await repo.save(declared.markPaid(PAID_AT));
 
       const found = await repo.findById("dist-1");
       expect(found?.state).toBe("paid");

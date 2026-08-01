@@ -108,6 +108,8 @@ import type { PublicPageRevalidator } from "./application/offerings/ports.js";
 import { WebPublicPageRevalidator } from "./infrastructure/http/web-public-page-revalidator.js";
 import { PublicController } from "./infrastructure/http/public.controller.js";
 import { OnboardingController } from "./infrastructure/http/onboarding.controller.js";
+import { PortfolioController } from "./infrastructure/http/portfolio.controller.js";
+import { GetMyPortfolio } from "./application/portfolio/get-my-portfolio.js";
 import { AesGcmCipher } from "./infrastructure/crypto/aes-gcm-cipher.js";
 import { PrismaEvidenceStore } from "./infrastructure/persistence/prisma-evidence-store.js";
 import { PrismaStepAnswerStore } from "./infrastructure/persistence/prisma-step-answer-store.js";
@@ -353,6 +355,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     NotificationsController,
     PublicController,
     OnboardingController,
+    PortfolioController,
   ],
   providers: [
     PrismaService,
@@ -969,13 +972,15 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         events: AssetEventLog,
         assets: AssetRepository,
         notifier: DistributionPaidNotifier,
-      ) => new PayDistribution(distributions, ledger, events, assets, notifier),
+        clock: Clock,
+      ) => new PayDistribution(distributions, ledger, events, assets, notifier, clock),
       inject: [
         DISTRIBUTION_REPOSITORY,
         DISTRIBUTION_LEDGER,
         ASSET_EVENT_LOG,
         ASSET_REPOSITORY,
         DISTRIBUTION_PAID_NOTIFIER,
+        CLOCK,
       ],
     },
     {
@@ -1369,6 +1374,17 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         evidence: EvidenceStore,
       ) => new StartOnboarding(investors, applications, ids, clock, evidence),
       inject: [INVESTOR_REPOSITORY, ONBOARDING_REPOSITORY, ID_GENERATOR, CLOCK, EVIDENCE_STORE],
+    },
+    {
+      // 2.5: composes the existing sales read model with paid distributions —
+      // one definition of "what this is worth", shared with the officer view.
+      provide: GetMyPortfolio,
+      useFactory: (
+        sales: GetInvestorSales,
+        distributions: DistributionRepository,
+        assets: AssetRepository,
+      ) => new GetMyPortfolio(sales, distributions, assets),
+      inject: [GetInvestorSales, DISTRIBUTION_REPOSITORY, ASSET_REPOSITORY],
     },
     {
       provide: GetOnboardingProgress,

@@ -26,6 +26,8 @@ import {
 } from "../../fakes/distribution-fakes.js";
 import { RecordingDistributionPaidNotifier } from "../../fakes/notification-fakes.js";
 
+const PAID_AT = new Date("2026-07-31T09:00:00Z");
+
 const ACTOR = "officer-1";
 
 const tokenizedAsset = (id = "asset-1") =>
@@ -76,7 +78,9 @@ const setup = async () => {
       new SequentialIdGenerator(),
       events,
     ),
-    pay: new PayDistribution(distributions, ledger, events, assets, paidNotifier),
+    pay: new PayDistribution(distributions, ledger, events, assets, paidNotifier, {
+      now: () => PAID_AT,
+    }),
     get: new GetDistribution(distributions, assets, investors),
     list: new ListDistributions(distributions, assets),
   };

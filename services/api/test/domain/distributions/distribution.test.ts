@@ -5,6 +5,8 @@ import {
   InvalidDistributionTransitionError,
 } from "../../../src/domain/distributions/errors.js";
 
+const PAID_AT = new Date("2026-07-31T09:00:00Z");
+
 const declare = (totalAmountRial: bigint, snapshot: { investorId: string; tokens: bigint }[]) =>
   Distribution.declare({
     id: "dist-1",
@@ -93,18 +95,18 @@ describe("Distribution — declaration and pro-rata math (FR-YD-1)", () => {
 
 describe("Distribution — lifecycle (FR-YD-2 idempotency)", () => {
   it("moves_declared_to_paid", () => {
-    const paid = declare(100n, [{ investorId: "a", tokens: 1n }]).markPaid();
+    const paid = declare(100n, [{ investorId: "a", tokens: 1n }]).markPaid(PAID_AT);
     expect(paid.state).toBe("paid");
   });
 
   it("rejects_paying_twice", () => {
-    const paid = declare(100n, [{ investorId: "a", tokens: 1n }]).markPaid();
-    expect(() => paid.markPaid()).toThrow(InvalidDistributionTransitionError);
+    const paid = declare(100n, [{ investorId: "a", tokens: 1n }]).markPaid(PAID_AT);
+    expect(() => paid.markPaid(PAID_AT)).toThrow(InvalidDistributionTransitionError);
   });
 
   it("is_immutable_mark_paid_returns_a_new_distribution", () => {
     const declared = declare(100n, [{ investorId: "a", tokens: 1n }]);
-    declared.markPaid();
+    declared.markPaid(PAID_AT);
     expect(declared.state).toBe("declared");
   });
 });
@@ -125,6 +127,18 @@ describe("Distribution — persistence seam", () => {
     });
     expect(restored.state).toBe("paid");
     expect(restored.payouts).toEqual(declared.payouts);
-    expect(() => restored.markPaid()).toThrow(InvalidDistributionTransitionError);
+    expect(() => restored.markPaid(PAID_AT)).toThrow(InvalidDistributionTransitionError);
+  });
+
+  it("records when it was paid, so a holder can date the income", () => {
+    // An income statement with no dates cannot be reconciled against anything.
+    const paidAt = new Date("2026-07-31T09:00:00Z");
+    const paid = declare(100n, [{ investorId: "a", tokens: 1n }]).markPaid(paidAt);
+
+    expect(paid.paidAt).toEqual(paidAt);
+  });
+
+  it("has no paid date until it is actually paid", () => {
+    expect(declare(100n, [{ investorId: "a", tokens: 1n }]).paidAt).toBeUndefined();
   });
 });

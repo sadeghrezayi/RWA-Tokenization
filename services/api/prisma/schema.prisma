@@ -317,6 +317,9 @@ model Distribution {
   tokenAddress    String               @map("token_address")
   totalAmountRial BigInt               @map("total_amount_rial")
   state           DistributionState
+  // Set when the distribution is actually paid, so a holder's income can be
+  // dated. Null for anything not yet paid (and for rows written before 2.5a).
+  paidAt          DateTime?            @map("paid_at")
   payouts         DistributionPayout[]
   createdAt       DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime             @updatedAt @map("updated_at")

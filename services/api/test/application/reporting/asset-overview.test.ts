@@ -14,6 +14,8 @@ import { InMemoryDistributionRepository } from "../../fakes/distribution-fakes.j
 import { InMemoryAttestationRepository } from "../../fakes/attestation-fakes.js";
 import { FixedClock } from "../../fakes/offering-fakes.js";
 
+const PAID_AT = new Date("2026-07-31T09:00:00Z");
+
 const OPENS = new Date("2026-07-01T00:00:00Z");
 const DURING = new Date("2026-07-05T12:00:00Z");
 const CLOSES = new Date("2026-07-10T00:00:00Z");
@@ -88,7 +90,7 @@ describe("GetAssetOverview", () => {
         tokenAddress: "0xTok1",
         totalAmountRial: 50_000n,
         snapshot: [{ investorId: "a", tokens: 67n }],
-      }).markPaid(),
+      }).markPaid(PAID_AT),
     );
 
     // asset-1: a fresh valuation attestation of 9,000,000,000 Rial.
