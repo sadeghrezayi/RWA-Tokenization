@@ -45,6 +45,7 @@ model Tenant {
   onboardingApplications OnboardingApplication[]
   kycEvidence            KycEvidence[]
   onboardingAnswers      OnboardingAnswer[]
+  fundingRequests        FundingRequest[]
 
   @@map("tenants")
 }
@@ -618,4 +619,29 @@ model OnboardingAnswer {
   @@unique([tenantId, investorId, step])
   @@index([tenantId, investorId])
   @@map("onboarding_answers")
+}
+
+// 2.4 / OD-6: money enters as a bank transfer that treasury confirms.
+// `amount_rial` is what the investor declared they would send; `settled_amount_rial`
+// is what actually arrived and was credited — a bank credits what was really
+// sent, and conflating the two would put the ledger out of step with the
+// statement. Every settled state is terminal, which is what stops a deposit
+// being credited twice.
+model FundingRequest {
+  id                String    @id
+  tenantId          String    @default("default") @map("tenant_id")
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  investorId        String    @map("investor_id")
+  amountRial        BigInt    @map("amount_rial")
+  reference         String
+  status            String
+  requestedAt       DateTime  @map("requested_at")
+  settledAt         DateTime? @map("settled_at")
+  settledAmountRial BigInt?   @map("settled_amount_rial")
+  rejectionReason   String?   @map("rejection_reason")
+
+  @@unique([tenantId, reference])
+  @@index([tenantId, status])
+  @@index([tenantId, investorId])
+  @@map("funding_requests")
 }

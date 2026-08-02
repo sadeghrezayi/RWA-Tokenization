@@ -89,6 +89,13 @@ import { ApprovalNotFoundError } from "../../application/approvals/errors.js";
 import { NotificationNotFoundError } from "../../application/notifications/errors.js";
 import { InvalidNotificationError } from "../../domain/notifications/errors.js";
 import {
+  InvalidFundingAmountError,
+  InvalidFundingReferenceError,
+  InvalidFundingTransitionError,
+  MissingRejectionReasonError,
+} from "../../domain/funding/errors.js";
+import { FundingRequestNotFoundError } from "../../application/funding/errors.js";
+import {
   EntityOnboardingNotAvailableError,
   InvalidOnboardingTransitionError,
   OnboardingIncompleteError,
@@ -216,5 +223,12 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidStepAnswersError) return 400;
   if (exception instanceof EntityOnboardingNotAvailableError) return 400;
   if (exception instanceof EvidenceTooLargeError) return 413;
+  // 2.4 funding: a settled request refusing a second settlement is a conflict
+  // with current state, not bad input.
+  if (exception instanceof FundingRequestNotFoundError) return 404;
+  if (exception instanceof InvalidFundingTransitionError) return 409;
+  if (exception instanceof InvalidFundingAmountError) return 400;
+  if (exception instanceof InvalidFundingReferenceError) return 400;
+  if (exception instanceof MissingRejectionReasonError) return 400;
   return 500;
 };

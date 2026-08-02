@@ -109,6 +109,14 @@ import { WebPublicPageRevalidator } from "./infrastructure/http/web-public-page-
 import { PublicController } from "./infrastructure/http/public.controller.js";
 import { OnboardingController } from "./infrastructure/http/onboarding.controller.js";
 import { PortfolioController } from "./infrastructure/http/portfolio.controller.js";
+import { FundingController } from "./infrastructure/http/funding.controller.js";
+import { PrismaFundingRepository } from "./infrastructure/persistence/prisma-funding-repository.js";
+import type { FundingRepository, PaymentInstructions } from "./application/funding/ports.js";
+import { RequestFunding } from "./application/funding/request-funding.js";
+import { ConfirmFunding } from "./application/funding/confirm-funding.js";
+import { RejectFunding } from "./application/funding/reject-funding.js";
+import { CancelFunding } from "./application/funding/cancel-funding.js";
+import { ListMyFunding, ListPendingFunding } from "./application/funding/list-funding.js";
 import { GetMyPortfolio } from "./application/portfolio/get-my-portfolio.js";
 import { AesGcmCipher } from "./infrastructure/crypto/aes-gcm-cipher.js";
 import { PrismaEvidenceStore } from "./infrastructure/persistence/prisma-evidence-store.js";
@@ -300,6 +308,8 @@ export const CLOCK = "CLOCK";
 export const ONBOARDING_REPOSITORY = "ONBOARDING_REPOSITORY";
 export const EVIDENCE_STORE = "EVIDENCE_STORE";
 export const STEP_ANSWER_STORE = "STEP_ANSWER_STORE";
+export const FUNDING_REPOSITORY = "FUNDING_REPOSITORY";
+export const PAYMENT_INSTRUCTIONS = "PAYMENT_INSTRUCTIONS";
 export const PERSONAL_DATA_CIPHER = "PERSONAL_DATA_CIPHER";
 export const DISTRIBUTION_REPOSITORY = "DISTRIBUTION_REPOSITORY";
 export const HOLDER_SNAPSHOT_PROVIDER = "HOLDER_SNAPSHOT_PROVIDER";
@@ -356,6 +366,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     PublicController,
     OnboardingController,
     PortfolioController,
+    FundingController,
   ],
   providers: [
     PrismaService,
@@ -1374,6 +1385,77 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         evidence: EvidenceStore,
       ) => new StartOnboarding(investors, applications, ids, clock, evidence),
       inject: [INVESTOR_REPOSITORY, ONBOARDING_REPOSITORY, ID_GENERATOR, CLOCK, EVIDENCE_STORE],
+    },
+    {
+      provide: FUNDING_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaFundingRepository(prisma),
+      inject: [SCOPED_PRISMA],
+    },
+    {
+      // OD-6: where an investor is told to send their money. These are the
+      // PLATFORM'S OWN BANK DETAILS and are deployment configuration — this
+      // codebase knows no real account. Unset shows placeholders that say so
+      // plainly rather than inventing an account number.
+      provide: PAYMENT_INSTRUCTIONS,
+      useFactory: (): PaymentInstructions => {
+        const configured =
+          process.env.FUNDING_BANK_NAME &&
+          process.env.FUNDING_ACCOUNT_HOLDER &&
+          process.env.FUNDING_ACCOUNT_NUMBER;
+        if (!configured) {
+          new Logger("AppModule").warn(
+            "FUNDING_* bank details are not set — funding instructions show placeholders and no transfer can actually be made",
+          );
+        }
+        return {
+          bankName: process.env.FUNDING_BANK_NAME ?? "NOT CONFIGURED",
+          accountHolder: process.env.FUNDING_ACCOUNT_HOLDER ?? "NOT CONFIGURED",
+          accountNumber: process.env.FUNDING_ACCOUNT_NUMBER ?? "NOT CONFIGURED",
+          notice:
+            process.env.FUNDING_NOTICE ??
+            "Quote the reference exactly as shown; a transfer without it cannot be matched to your account.",
+        };
+      },
+    },
+    {
+      provide: RequestFunding,
+      useFactory: (
+        investors: InvestorRepository,
+        funding: FundingRepository,
+        ids: IdGenerator,
+        clock: Clock,
+        instructions: PaymentInstructions,
+      ) => new RequestFunding(investors, funding, ids, clock, instructions),
+      inject: [INVESTOR_REPOSITORY, FUNDING_REPOSITORY, ID_GENERATOR, CLOCK, PAYMENT_INSTRUCTIONS],
+    },
+    {
+      // Confirming a deposit credits the ledger through the SAME maker-checker
+      // use case as a direct credit, so the approval threshold applies here too.
+      provide: ConfirmFunding,
+      useFactory: (funding: FundingRepository, credit: CreditInvestorLedger, clock: Clock) =>
+        new ConfirmFunding(funding, credit, clock),
+      inject: [FUNDING_REPOSITORY, CreditInvestorLedger, CLOCK],
+    },
+    {
+      provide: RejectFunding,
+      useFactory: (funding: FundingRepository, clock: Clock) => new RejectFunding(funding, clock),
+      inject: [FUNDING_REPOSITORY, CLOCK],
+    },
+    {
+      provide: CancelFunding,
+      useFactory: (funding: FundingRepository, clock: Clock) => new CancelFunding(funding, clock),
+      inject: [FUNDING_REPOSITORY, CLOCK],
+    },
+    {
+      provide: ListMyFunding,
+      useFactory: (funding: FundingRepository) => new ListMyFunding(funding),
+      inject: [FUNDING_REPOSITORY],
+    },
+    {
+      provide: ListPendingFunding,
+      useFactory: (funding: FundingRepository, investors: InvestorRepository) =>
+        new ListPendingFunding(funding, investors),
+      inject: [FUNDING_REPOSITORY, INVESTOR_REPOSITORY],
     },
     {
       // 2.5: composes the existing sales read model with paid distributions —
