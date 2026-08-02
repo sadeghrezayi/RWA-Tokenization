@@ -310,6 +310,31 @@ export interface Dictionary {
   portfolioNoIncome: string;
   portfolioPaidAt: string;
   menuLabel: string;
+  fundingNav: string;
+  fundingTitle: string;
+  fundingSubtitle: string;
+  fundingAvailableLabel: string;
+  fundingAvailableHint: string;
+  fundingHeldLabel: string;
+  fundingHeldHint: string;
+  fundingAmountLabel: string;
+  fundingAmountHint: string;
+  fundingRequestButton: string;
+  fundingInstructionsTitle: string;
+  fundingNotCreditedYet: string;
+  fundingNotConfigured: string;
+  fundingReferenceLabel: string;
+  fundingBankLabel: string;
+  fundingAccountHolderLabel: string;
+  fundingAccountNumberLabel: string;
+  fundingHistoryTitle: string;
+  fundingNoHistory: string;
+  fundingRequestedLabel: string;
+  fundingDeclaredLabel: string;
+  fundingReceivedLabel: string;
+  fundingStatusLabel: string;
+  fundingCancelButton: string;
+  fundingStatus: Record<"pending" | "confirmed" | "rejected" | "cancelled", string>;
   signedInAs: string;
   investorPortalTitle: string;
   backToAssets: string;
@@ -704,6 +729,38 @@ export const dictionaries: Record<Locale, Dictionary> = {
     portfolioNoIncome: "No income has been paid to you yet.",
     portfolioPaidAt: "Paid",
     menuLabel: "Menu",
+    fundingNav: "Funds",
+    fundingTitle: "Your funds",
+    fundingSubtitle: "Add money by bank transfer before you invest.",
+    fundingAvailableLabel: "Available",
+    fundingAvailableHint: "Ready to invest",
+    fundingHeldLabel: "Committed",
+    fundingHeldHint: "Held against open subscriptions",
+    fundingAmountLabel: "Amount to transfer",
+    fundingAmountHint: "In Rial, whole numbers only.",
+    fundingRequestButton: "Get payment details",
+    fundingInstructionsTitle: "Make the transfer",
+    fundingNotCreditedYet:
+      "Nothing has been credited yet. Transfer this amount quoting the reference below; your balance updates once our team matches it to a bank credit, which can take a working day.",
+    fundingNotConfigured:
+      "This platform cannot accept transfers yet — no bank account has been configured. Please contact us before sending any money.",
+    fundingReferenceLabel: "Reference",
+    fundingBankLabel: "Bank",
+    fundingAccountHolderLabel: "Account holder",
+    fundingAccountNumberLabel: "Account number",
+    fundingHistoryTitle: "Funding history",
+    fundingNoHistory: "No funding requests yet.",
+    fundingRequestedLabel: "Requested",
+    fundingDeclaredLabel: "Declared",
+    fundingReceivedLabel: "Received",
+    fundingStatusLabel: "Status",
+    fundingCancelButton: "Cancel",
+    fundingStatus: {
+      pending: "Awaiting your transfer",
+      confirmed: "Confirmed",
+      rejected: "Rejected",
+      cancelled: "Cancelled",
+    },
     signedInAs: "Signed in as",
     investorPortalTitle: "Investor Portal",
     backToAssets: "← Back to assets",

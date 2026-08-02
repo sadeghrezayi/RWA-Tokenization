@@ -438,6 +438,16 @@ export interface ApiClient {
     symbol: string,
   ): Promise<{ tokenAddress: string }>;
   ledgerMe(token: string): Promise<LedgerDto>;
+  requestFunding(csrfToken: string, amountRial: string): Promise<FundingOpenedDto>;
+  myFunding(): Promise<FundingRequestDto[]>;
+  cancelFunding(csrfToken: string, id: string): Promise<FundingRequestDto>;
+  pendingFunding(): Promise<PendingFundingDto[]>;
+  confirmFunding(
+    csrfToken: string,
+    id: string,
+    receivedRial: string,
+  ): Promise<{ request: FundingRequestDto; creditStatus: { status: string } }>;
+  rejectFunding(csrfToken: string, id: string, reason: string): Promise<FundingRequestDto>;
   // T1/T3: a credit at/above the approval threshold returns pending_approval
   // (parked for a second officer) instead of applying immediately.
   creditLedger(
@@ -703,6 +713,40 @@ export interface PortfolioDto {
   subscriptions: SubscriptionHistoryDto[];
 }
 
+// 2.4 / OD-6: money in. The investor declares a transfer and quotes the
+// reference; treasury confirms what actually arrived, which is what is credited.
+export type FundingStatusDto = "pending" | "confirmed" | "rejected" | "cancelled";
+
+export interface FundingRequestDto {
+  id: string;
+  status: FundingStatusDto;
+  amountRial: string;
+  reference: string;
+  requestedAt: string;
+  settledAt?: string;
+  settledAmountRial?: string;
+  rejectionReason?: string;
+}
+
+// The platform's own bank account, from deployment configuration — the values
+// read "NOT CONFIGURED" until a deployment supplies them.
+export interface PaymentInstructionsDto {
+  bankName: string;
+  accountHolder: string;
+  accountNumber: string;
+  notice: string;
+}
+
+export interface FundingOpenedDto {
+  request: FundingRequestDto;
+  instructions: PaymentInstructionsDto;
+}
+
+export interface PendingFundingDto extends FundingRequestDto {
+  investorId: string;
+  investorEmail: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -887,6 +931,33 @@ export const createApiClient = (
         }),
       ),
     ledgerMe: (token) => json(call("/ledger/me", { token })),
+    requestFunding: (csrfToken, amountRial) =>
+      json(call("/funding/me", { method: "POST", token: csrfToken, body: { amountRial } })),
+    myFunding: () => json(call("/funding/me")),
+    cancelFunding: (csrfToken, id) =>
+      json(
+        call(`/funding/me/${encodeURIComponent(id)}/cancel`, {
+          method: "POST",
+          token: csrfToken,
+        }),
+      ),
+    pendingFunding: () => json(call("/funding/pending")),
+    confirmFunding: (csrfToken, id, receivedRial) =>
+      json(
+        call(`/funding/${encodeURIComponent(id)}/confirm`, {
+          method: "POST",
+          token: csrfToken,
+          body: { receivedRial },
+        }),
+      ),
+    rejectFunding: (csrfToken, id, reason) =>
+      json(
+        call(`/funding/${encodeURIComponent(id)}/reject`, {
+          method: "POST",
+          token: csrfToken,
+          body: { reason },
+        }),
+      ),
     creditLedger: async (officerToken, investorId, amountRial) => {
       const res = await call(`/ledger/${investorId}/credit`, {
         method: "POST",
