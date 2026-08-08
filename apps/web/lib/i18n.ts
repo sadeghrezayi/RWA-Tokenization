@@ -335,6 +335,24 @@ export interface Dictionary {
   fundingStatusLabel: string;
   fundingCancelButton: string;
   fundingStatus: Record<"pending" | "confirmed" | "rejected" | "cancelled", string>;
+  fundingQueueNav: string;
+  fundingQueueTitle: string;
+  fundingQueueSubtitle: string;
+  fundingQueueEmpty: string;
+  fundingQueueConfirmButton: string;
+  fundingQueueRejectButton: string;
+  fundingQueueConfirmTitle: string;
+  fundingQueueConfirmHelp: string;
+  fundingQueueReceivedLabel: string;
+  fundingQueueReceivedHint: string;
+  fundingQueueCreditButton: string;
+  fundingQueueRejectTitle: string;
+  fundingQueueRejectHelp: string;
+  fundingQueueReasonLabel: string;
+  fundingQueueSendRejectionButton: string;
+  fundingQueueAmountInvalid: string;
+  fundingQueueReasonRequired: string;
+  fundingQueueParked: string;
   signedInAs: string;
   investorPortalTitle: string;
   backToAssets: string;
@@ -761,6 +779,26 @@ export const dictionaries: Record<Locale, Dictionary> = {
       rejected: "Rejected",
       cancelled: "Cancelled",
     },
+    fundingQueueNav: "Deposits",
+    fundingQueueTitle: "Deposits awaiting confirmation",
+    fundingQueueSubtitle: "Match each reference against the bank statement before confirming.",
+    fundingQueueEmpty: "Nothing waiting — every declared transfer has been settled.",
+    fundingQueueConfirmButton: "Confirm",
+    fundingQueueRejectButton: "Reject",
+    fundingQueueConfirmTitle: "Confirm a deposit",
+    fundingQueueConfirmHelp: "Confirming credits the investor's balance.",
+    fundingQueueReceivedLabel: "Amount received",
+    fundingQueueReceivedHint:
+      "What actually arrived on the statement — correct it if it differs from what was declared.",
+    fundingQueueCreditButton: "Credit the investor",
+    fundingQueueRejectTitle: "Reject a deposit",
+    fundingQueueRejectHelp: "The investor sees this reason.",
+    fundingQueueReasonLabel: "Reason",
+    fundingQueueSendRejectionButton: "Send rejection",
+    fundingQueueAmountInvalid: "Enter the amount received as a positive whole number.",
+    fundingQueueReasonRequired: "Say why this deposit is being rejected.",
+    fundingQueueParked:
+      "Recorded. This credit is above the approval threshold, so it needs a second approval before the investor's balance changes.",
     signedInAs: "Signed in as",
     investorPortalTitle: "Investor Portal",
     backToAssets: "← Back to assets",

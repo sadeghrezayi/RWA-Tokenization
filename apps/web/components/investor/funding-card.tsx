@@ -213,7 +213,7 @@ export const FundingCard = ({
 
       <Card title={t.fundingHistoryTitle}>
         {history.length === 0 ? (
-          <EmptyState icon="₪">{t.fundingNoHistory}</EmptyState>
+          <EmptyState icon="◇">{t.fundingNoHistory}</EmptyState>
         ) : (
           <div className="table-wrap">
             <table className="table">

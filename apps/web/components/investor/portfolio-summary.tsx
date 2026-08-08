@@ -161,7 +161,7 @@ export const PortfolioSummary = ({ locale, api }: { locale: Locale; api: ApiClie
 
       <Card title={t.portfolioIncomeTitle} subtitle={t.portfolioIncomeSubtitle}>
         {portfolio.income.length === 0 ? (
-          <EmptyState icon="₪">{t.portfolioNoIncome}</EmptyState>
+          <EmptyState icon="◇">{t.portfolioNoIncome}</EmptyState>
         ) : (
           <div className="table-wrap">
             <table className="table">

@@ -53,7 +53,7 @@ export const InvestorShell = ({
   const items = [
     { href: `${base}/portfolio`, label: t.portfolioNav, icon: "◫" },
     { href: `${base}/offerings`, label: t.offeringsNav, icon: "◈" },
-    { href: `${base}/funds`, label: t.fundingNav, icon: "₪" },
+    { href: `${base}/funds`, label: t.fundingNav, icon: "⊕" },
     { href: `${base}/onboarding`, label: t.onboardingNav, icon: "◔" },
     { href: `${base}/profile`, label: t.profileNav, icon: "◑" },
   ];

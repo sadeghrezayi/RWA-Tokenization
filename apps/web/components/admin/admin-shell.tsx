@@ -86,6 +86,14 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
           permission: PERMISSIONS.KYC_REVIEW,
         },
         {
+          // Confirming a deposit IS crediting the ledger, so it is gated on the
+          // same permission as a direct credit.
+          href: `${base}/deposits`,
+          label: t.fundingQueueNav,
+          icon: "⊕",
+          permission: PERMISSIONS.LEDGER_CREDIT,
+        },
+        {
           href: `${base}/investors`,
           label: t.investorsTitle,
           icon: "◎",

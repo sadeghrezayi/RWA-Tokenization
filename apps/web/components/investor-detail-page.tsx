@@ -178,7 +178,7 @@ export const InvestorDetailPage = ({
         <div className="stack">
           <p className="stat__label">{t.subscriptionsLabel}</p>
           {detail.sales.subscriptions.length === 0 ? (
-            <EmptyState icon="₪">{t.noActivity}</EmptyState>
+            <EmptyState icon="◇">{t.noActivity}</EmptyState>
           ) : (
             <div className="table-wrap">
               <table className="table">
