@@ -196,7 +196,7 @@ const TransferModal = ({
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>
-            Cancel
+            {t.cancelButton}
           </Button>
           <Button
             type="button"
@@ -258,7 +258,7 @@ const RedeemModal = ({
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>
-            Cancel
+            {t.cancelButton}
           </Button>
           <Button
             type="button"

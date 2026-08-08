@@ -77,6 +77,7 @@ import {
   InvalidStageError,
   InvalidTagError,
 } from "../../domain/crm/errors.js";
+import { CorruptWalletDirectoryError } from "../../domain/registry/wallet-address.js";
 import {
   CorruptEventStreamError,
   InvalidRegistryEventError,
@@ -196,6 +197,9 @@ const statusFor = (exception: unknown): number => {
   // 500) so the operator sees exactly why the export is refused (NFR-2).
   if (exception instanceof AssetNotTokenizedForRegistryError) return 409;
   if (exception instanceof CorruptEventStreamError) return 409;
+  // Same posture for the wallet directory: an unusable custodial address is
+  // named in a 409, never a blank 500 nobody can trace.
+  if (exception instanceof CorruptWalletDirectoryError) return 409;
   if (exception instanceof InvalidRegistryEventError) return 409;
   if (exception instanceof InvalidStageError) return 400;
   if (exception instanceof InvalidTagError) return 400;

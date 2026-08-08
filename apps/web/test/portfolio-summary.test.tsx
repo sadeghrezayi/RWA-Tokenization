@@ -47,6 +47,14 @@ const renderSummary = (overrides: Partial<ApiClient>) =>
   render(<PortfolioSummary locale="en" api={stubApi(overrides)} />);
 
 describe("PortfolioSummary", () => {
+  it("lets the holder open a holding to see the position behind it", async () => {
+    // A detail page nobody can reach is a dead feature.
+    renderSummary({ getPortfolio: vi.fn().mockResolvedValue(portfolio()) });
+
+    const link = await screen.findByRole("link", { name: /Vanak Tower SPV/ });
+    expect(link).toHaveAttribute("href", "/en/portfolio/asset-1");
+  });
+
   it("shows what was invested, what it is worth and what has been received", async () => {
     renderSummary({ getPortfolio: vi.fn().mockResolvedValue(portfolio()) });
 

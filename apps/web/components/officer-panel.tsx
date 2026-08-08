@@ -159,7 +159,7 @@ const RejectModal = ({
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>
-            Cancel
+            {t.cancelButton}
           </Button>
           <Button
             variant="danger"

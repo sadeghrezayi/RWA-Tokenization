@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { ApiClient, PortfolioDto } from "../../lib/api";
 import { formatDate, formatRial, formatTokens } from "../../lib/format";
@@ -132,7 +133,11 @@ export const PortfolioSummary = ({ locale, api }: { locale: Locale; api: ApiClie
                   {portfolio.holdings.map((holding) => (
                     <tr key={holding.assetId} data-testid={`portfolio-${holding.assetId}`}>
                       <td>
-                        <strong>{holding.assetName}</strong>
+                        {/* The name is the way into the position: everything
+                            this holding has done, on one page. */}
+                        <Link href={`/${locale}/portfolio/${holding.assetId}`}>
+                          <strong>{holding.assetName}</strong>
+                        </Link>
                       </td>
                       <td className="table__num num">{formatTokens(holding.tokens)}</td>
                       <td className="table__num num">

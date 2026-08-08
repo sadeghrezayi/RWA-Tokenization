@@ -312,6 +312,7 @@ export interface ValuedHoldingDto {
 
 export interface SubscriptionHistoryDto {
   offeringId: string;
+  assetId: string;
   assetName: string;
   state: string;
   requested: string;

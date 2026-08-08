@@ -1,6 +1,7 @@
 import { Contract, JsonRpcProvider } from "ethers";
 import type { PrismaClient } from "@prisma/client";
 import type { HolderShare } from "../../domain/distributions/distribution.js";
+import { assertCustodialAddress } from "../../domain/registry/wallet-address.js";
 import type { HolderSnapshotProvider } from "../../application/distributions/ports.js";
 
 const BALANCE_ABI = ["function balanceOf(address) view returns (uint256)"];
@@ -26,7 +27,11 @@ export class TrexHolderSnapshotProvider implements HolderSnapshotProvider {
       if (wallet.address.startsWith("pending:")) {
         continue;
       }
-      const tokens = await token.balanceOf(wallet.address);
+      // A row the chain cannot be asked about is refused by name rather than
+      // skipped: a dropped wallet reads as "owns nothing" and under-pays.
+      const tokens = await token.balanceOf(
+        assertCustodialAddress(wallet.address, wallet.investorId),
+      );
       if (tokens > 0n) {
         shares.push({ investorId: wallet.investorId, tokens });
       }

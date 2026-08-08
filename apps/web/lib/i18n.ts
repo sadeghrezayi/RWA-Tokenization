@@ -159,6 +159,14 @@ export interface Dictionary {
   checkoutBalanceUnknown: string;
   checkoutAddFunds: string;
   checkoutHoldNotice: string;
+  positionTokensLabel: string;
+  positionValueLabel: string;
+  positionInvestedLabel: string;
+  positionIncomeLabel: string;
+  positionNone: string;
+  positionHistoryTitle: string;
+  positionHistorySubtitle: string;
+  positionBack: string;
   createOfferingButton: string;
   openOfferingButton: string;
   closeOfferingButton: string;
@@ -601,6 +609,14 @@ export const dictionaries: Record<Locale, Dictionary> = {
     checkoutAddFunds: "Add funds",
     checkoutHoldNotice:
       "Confirming holds this amount in escrow until the offering closes. Unallocated funds are returned.",
+    positionTokensLabel: "Tokens held",
+    positionValueLabel: "Value of this holding",
+    positionInvestedLabel: "Invested in this asset",
+    positionIncomeLabel: "Income from this asset",
+    positionNone: "You have no position in this asset.",
+    positionHistoryTitle: "How this position was built",
+    positionHistorySubtitle: "Every offering you subscribed to for this asset.",
+    positionBack: "Back to portfolio",
     createOfferingButton: "Create offering",
     openOfferingButton: "Open",
     closeOfferingButton: "Close",

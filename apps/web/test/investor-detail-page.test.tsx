@@ -70,6 +70,7 @@ const detail: InvestorDetailDto = {
     subscriptions: [
       {
         offeringId: "off-1",
+        assetId: "asset-1",
         assetName: "Vanak Tower SPV",
         state: "closed_success",
         requested: "60",

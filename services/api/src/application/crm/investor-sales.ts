@@ -11,6 +11,9 @@ import type { GetMyHoldings } from "../transfers/get-holdings.js";
 // honestly flagged stale when the attestation window has passed (FR-OR-3).
 export interface SubscriptionHistoryItem {
   offeringId: string;
+  // Two assets can legitimately share a display name, so the id — not the
+  // name — is what a per-asset view groups by.
+  assetId: string;
   assetName: string;
   state: string;
   requested: string;
@@ -78,6 +81,7 @@ export class GetInvestorSales {
       totalInvestedRial += allocation?.costRial ?? 0n;
       subscriptions.push({
         offeringId: offering.id,
+        assetId: offering.assetId,
         assetName: await assetName(offering.assetId),
         state: offering.state,
         requested: String(allocation?.requested ?? subscription?.tokens ?? 0n),

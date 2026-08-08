@@ -156,6 +156,15 @@ describe("GetMyPortfolio", () => {
     });
   });
 
+  it("identifies which asset each subscription was for, not just its name", async () => {
+    // 2.5c: a position page has to gather everything for ONE asset. Two assets
+    // can legitimately share a display name, so the name is a label — the id
+    // is the thing you group by.
+    const view = await portfolio.execute({ investorId: "sara" });
+
+    expect(view.subscriptions[0]?.assetId).toBe("asset-1");
+  });
+
   it("counts only income that was actually paid, not merely declared", async () => {
     // A declared distribution is a promise; it is not money the holder has.
     await distributions.save(
