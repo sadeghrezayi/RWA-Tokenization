@@ -108,6 +108,22 @@ describe("Registry & Audit API (e2e, real Postgres, fake chain)", () => {
   });
 
   afterAll(async () => {
+    // These investors carry deliberately fake custodial addresses. Left behind,
+    // they are not merely clutter: a holder snapshot reads every wallet on
+    // record, so one unusable address refuses every later distribution on this
+    // database (see CorruptWalletDirectoryError).
+    for (const id of [aliceId, bobId]) {
+      await prisma.investorWallet.deleteMany({ where: { investorId: id } });
+      await prisma.onchainIdentity.deleteMany({ where: { investorId: id } });
+      await prisma.ledgerEntry.deleteMany({ where: { investorId: id } });
+      await prisma.ledgerAccount.deleteMany({ where: { investorId: id } });
+      await prisma.notification.deleteMany({ where: { recipientId: id } });
+      await prisma.emailVerificationToken.deleteMany({ where: { investorId: id } });
+      await prisma.investor.deleteMany({ where: { id } });
+    }
+    for (const email of ["reg.alice@example.com", "reg.bob@example.com"]) {
+      await prisma.loginAttempt.deleteMany({ where: { key: email } });
+    }
     await app.close();
   });
 
