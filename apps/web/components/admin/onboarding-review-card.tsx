@@ -313,7 +313,7 @@ export const OnboardingReviewCard = ({
                 setAsking(false);
               }}
             >
-              {t.onboardingReviewCancel}
+              {t.cancelButton}
             </Button>
             <Button
               type="button"

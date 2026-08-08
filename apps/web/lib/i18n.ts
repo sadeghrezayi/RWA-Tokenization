@@ -149,6 +149,16 @@ export interface Dictionary {
   subscribeTokensLabel: string;
   confirmSubscribe: string;
   subscribeSuccess: string;
+  cancelButton: string;
+  checkoutLimitsLabel: string;
+  checkoutCostLabel: string;
+  checkoutRemainingLabel: string;
+  checkoutTokensInvalid: string;
+  checkoutOutsideLimits: string;
+  checkoutShortBy: string;
+  checkoutBalanceUnknown: string;
+  checkoutAddFunds: string;
+  checkoutHoldNotice: string;
   createOfferingButton: string;
   openOfferingButton: string;
   closeOfferingButton: string;
@@ -289,7 +299,6 @@ export interface Dictionary {
   onboardingReviewNeedsReason: string;
   onboardingReviewOpenFile: string;
   onboardingReviewLoading: string;
-  onboardingReviewCancel: string;
   onboardingReviewUndisplayable: string;
   onboardingReviewAccepted: string;
   onboardingReviewDeclined: string;
@@ -580,6 +589,18 @@ export const dictionaries: Record<Locale, Dictionary> = {
     subscribeTokensLabel: "Number of tokens",
     confirmSubscribe: "Confirm subscription",
     subscribeSuccess: "Subscription submitted.",
+    cancelButton: "Cancel",
+    checkoutLimitsLabel: "Per investor",
+    checkoutCostLabel: "Order total",
+    checkoutRemainingLabel: "Left after this",
+    checkoutTokensInvalid: "Enter the number of tokens as a positive whole number.",
+    checkoutOutsideLimits: "Outside this offering's per-investor limits:",
+    checkoutShortBy: "Not enough available — short by",
+    checkoutBalanceUnknown:
+      "Your available balance could not be read, so this order cannot be checked yet.",
+    checkoutAddFunds: "Add funds",
+    checkoutHoldNotice:
+      "Confirming holds this amount in escrow until the offering closes. Unallocated funds are returned.",
     createOfferingButton: "Create offering",
     openOfferingButton: "Open",
     closeOfferingButton: "Close",
@@ -723,7 +744,6 @@ export const dictionaries: Record<Locale, Dictionary> = {
     onboardingReviewNeedsReason: "Name at least one step and say what needs changing.",
     onboardingReviewOpenFile: "Review",
     onboardingReviewLoading: "Loading…",
-    onboardingReviewCancel: "Cancel",
     onboardingReviewUndisplayable:
       "This document could not be displayed — it may be corrupt or in an unexpected format.",
     onboardingReviewAccepted: "Accepted",

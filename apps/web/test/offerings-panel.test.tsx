@@ -110,3 +110,118 @@ describe("OfferingsPanel (investor)", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("insufficient ledger balance");
   });
 });
+
+// 2.4e / OD-6: checkout. Subscribing spends real money, so the screen has to
+// answer "what will this cost me, and can I afford it?" BEFORE the holder
+// commits — and when they cannot afford it, say by how much and where to fix
+// it, rather than letting the server refuse after the fact.
+describe("OfferingsPanel checkout", () => {
+  const openModal = async () => {
+    await userEvent.click(await screen.findByRole("button", { name: "Subscribe" }));
+  };
+
+  it("prices the order as the holder types, before anything is committed", async () => {
+    const api = apiWith({ listOfferings: vi.fn().mockResolvedValue([offering({})]) });
+    render(<OfferingsPanel locale="en" api={api} token="tok" />);
+
+    await openModal();
+    await userEvent.type(screen.getByLabelText("Number of tokens"), "10");
+
+    // 10 tokens at 1,000 ﷼.
+    expect(await screen.findByTestId("checkout-cost")).toHaveTextContent("10,000 ﷼");
+  });
+
+  it("shows what is left afterwards, so the number is not an abstraction", async () => {
+    const api = apiWith({
+      ledgerMe: vi.fn().mockResolvedValue({ balanceRial: "50000", heldRial: "0" }),
+      listOfferings: vi.fn().mockResolvedValue([offering({})]),
+    });
+    render(<OfferingsPanel locale="en" api={api} token="tok" />);
+
+    await openModal();
+    await userEvent.type(screen.getByLabelText("Number of tokens"), "10");
+
+    expect(await screen.findByTestId("checkout-remaining")).toHaveTextContent("40,000 ﷼");
+  });
+
+  it("names the shortfall and never sends an order the balance cannot cover", async () => {
+    const subscribeOffering = vi.fn();
+    const api = apiWith({
+      ledgerMe: vi.fn().mockResolvedValue({ balanceRial: "5000", heldRial: "0" }),
+      listOfferings: vi.fn().mockResolvedValue([offering({})]),
+      subscribeOffering,
+    });
+    render(<OfferingsPanel locale="en" api={api} token="tok" />);
+
+    await openModal();
+    await userEvent.type(screen.getByLabelText("Number of tokens"), "10");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm subscription" }));
+
+    // 10,000 ﷼ needed against 5,000 ﷼ available: the holder is told the exact gap.
+    expect(await screen.findByRole("alert")).toHaveTextContent("5,000 ﷼");
+    expect(subscribeOffering).not.toHaveBeenCalled();
+  });
+
+  it("routes a short holder to the funding screen instead of a dead end", async () => {
+    const api = apiWith({
+      ledgerMe: vi.fn().mockResolvedValue({ balanceRial: "5000", heldRial: "0" }),
+      listOfferings: vi.fn().mockResolvedValue([offering({})]),
+    });
+    render(<OfferingsPanel locale="en" api={api} token="tok" />);
+
+    await openModal();
+    await userEvent.type(screen.getByLabelText("Number of tokens"), "10");
+
+    const link = await screen.findByRole("link", { name: /add funds/i });
+    expect(link).toHaveAttribute("href", "/en/funds");
+  });
+
+  it("lets an affordable order through untouched", async () => {
+    const subscribeOffering = vi.fn().mockResolvedValue(undefined);
+    const api = apiWith({
+      ledgerMe: vi.fn().mockResolvedValue({ balanceRial: "10000", heldRial: "0" }),
+      listOfferings: vi.fn().mockResolvedValue([offering({})]),
+      subscribeOffering,
+    });
+    render(<OfferingsPanel locale="en" api={api} token="tok" />);
+
+    await openModal();
+    // Exactly affordable — the guard must not be off by one Rial.
+    await userEvent.type(screen.getByLabelText("Number of tokens"), "10");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm subscription" }));
+
+    await waitFor(() => {
+      expect(subscribeOffering).toHaveBeenCalledWith("tok", "off-1", "10");
+    });
+  });
+
+  it("refuses an order outside the per-investor limits without calling the server", async () => {
+    const subscribeOffering = vi.fn();
+    const api = apiWith({
+      listOfferings: vi.fn().mockResolvedValue([offering({})]),
+      subscribeOffering,
+    });
+    render(<OfferingsPanel locale="en" api={api} token="tok" />);
+
+    await openModal();
+    // The offering takes 5–80 tokens per investor.
+    await userEvent.type(screen.getByLabelText("Number of tokens"), "2");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm subscription" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("5");
+    expect(subscribeOffering).not.toHaveBeenCalled();
+  });
+
+  it("never renders a balance it could not read as zero", async () => {
+    // Telling a holder they have 0 ﷼ when the ledger is simply unreachable is
+    // the worst possible lie this screen can tell.
+    const api = apiWith({
+      ledgerMe: vi.fn().mockRejectedValue(new Error("ledger unavailable")),
+      listOfferings: vi.fn().mockResolvedValue([offering({})]),
+    });
+    render(<OfferingsPanel locale="en" api={api} token="tok" />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("ledger unavailable");
+    expect(screen.queryByText("0 ﷼")).not.toBeInTheDocument();
+  });
+});

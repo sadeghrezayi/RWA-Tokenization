@@ -19,6 +19,18 @@ export interface OfferingsPanelProps {
   token: string;
 }
 
+// Shown wherever a figure is not known yet — distinct from a figure that is
+// genuinely zero.
+const UNKNOWN = "—";
+
+// A token count is only meaningful as a whole positive number; anything else
+// is a typo, not an order.
+const parseTokens = (raw: string): bigint | undefined => {
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed) || BigInt(trimmed) === 0n) return undefined;
+  return BigInt(trimmed);
+};
+
 // FR-PT-1 subset: an investor sees their settlement balance, the open
 // offerings, and their own subscription/allocation — never other holders'.
 export const OfferingsPanel = ({ locale, api, token }: OfferingsPanelProps) => {
@@ -44,10 +56,12 @@ export const OfferingsPanel = ({ locale, api, token }: OfferingsPanelProps) => {
   return (
     <div className="stack">
       <div className="grid grid--2">
+        {/* A balance that could not be read is shown as unknown, never as zero:
+            "0 ﷼" would tell a holder their money is gone. */}
         <Stat
           label={t.availableLabel}
-          value={formatRial(ledger?.balanceRial ?? "0")}
-          hint={`${t.heldLabel}: ${formatRial(ledger?.heldRial ?? "0")}`}
+          value={ledger ? formatRial(ledger.balanceRial) : UNKNOWN}
+          hint={`${t.heldLabel}: ${ledger ? formatRial(ledger.heldRial) : UNKNOWN}`}
         />
       </div>
 
@@ -124,6 +138,7 @@ export const OfferingsPanel = ({ locale, api, token }: OfferingsPanelProps) => {
       <SubscribeModal
         offering={subscribeFor}
         locale={locale}
+        {...(ledger !== undefined ? { ledger } : {})}
         onClose={() => {
           setSubscribeFor(undefined);
         }}
@@ -143,14 +158,20 @@ export const OfferingsPanel = ({ locale, api, token }: OfferingsPanelProps) => {
   );
 };
 
+// 2.4e / OD-6: the checkout step. Subscribing spends real money, so this
+// answers "what will this cost me, and can I afford it?" while the holder is
+// still typing — and when they cannot afford it, it names the gap and offers
+// the way to close it instead of letting the server refuse after the fact.
 const SubscribeModal = ({
   offering,
   locale,
+  ledger,
   onClose,
   onConfirm,
 }: {
   offering: OfferingViewDto | undefined;
   locale: Locale;
+  ledger?: LedgerDto;
   onClose: () => void;
   onConfirm: (tokens: string) => Promise<string | undefined>;
 }) => {
@@ -159,8 +180,35 @@ const SubscribeModal = ({
   const [error, setError] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 
+  const ordered = parseTokens(tokens);
+  const cost = offering && ordered !== undefined ? ordered * BigInt(offering.priceRial) : undefined;
+  const balance = ledger !== undefined ? BigInt(ledger.balanceRial) : undefined;
+  const shortfall =
+    cost !== undefined && balance !== undefined && cost > balance ? cost - balance : undefined;
+  const remaining =
+    cost !== undefined && balance !== undefined && cost <= balance ? balance - cost : undefined;
+
+  // Everything that can be refused without a round trip is refused here: a
+  // rejected order is a wasted hold attempt on a real ledger.
+  const refusal = (): string | undefined => {
+    if (!offering) return t.checkoutTokensInvalid;
+    if (ordered === undefined) return t.checkoutTokensInvalid;
+    if (ordered < BigInt(offering.minPerInvestor) || ordered > BigInt(offering.maxPerInvestor)) {
+      return `${t.checkoutOutsideLimits} ${formatTokens(offering.minPerInvestor)}–${formatTokens(
+        offering.maxPerInvestor,
+      )}`;
+    }
+    if (balance === undefined) return t.checkoutBalanceUnknown;
+    if (shortfall !== undefined) return `${t.checkoutShortBy} ${formatRial(shortfall.toString())}`;
+    return undefined;
+  };
+
   const submit = () => {
-    if (tokens.trim() === "") return;
+    const refused = refusal();
+    if (refused !== undefined) {
+      setError(refused);
+      return;
+    }
     setBusy(true);
     setError(undefined);
     void onConfirm(tokens.trim()).then((err) => {
@@ -178,7 +226,7 @@ const SubscribeModal = ({
       footer={
         <>
           <Button variant="secondary" type="button" onClick={onClose}>
-            Cancel
+            {t.cancelButton}
           </Button>
           <Button type="button" loading={busy} onClick={submit}>
             {t.confirmSubscribe}
@@ -186,27 +234,58 @@ const SubscribeModal = ({
         </>
       }
     >
-      {offering && (
-        <p className="text-sm muted">
-          {t.priceLabel}: {formatRial(offering.priceRial)} / token · {t.availableLabel}:{" "}
-          {formatTokens(offering.minPerInvestor)}–{formatTokens(offering.maxPerInvestor)} tokens
-        </p>
-      )}
-      <Field
-        id="subscribe-tokens"
-        label={t.subscribeTokensLabel}
-        type="number"
-        min={1}
-        value={tokens}
-        onChange={(e) => {
-          setTokens(e.target.value);
-        }}
-      />
-      {error !== undefined && (
-        <p className="field__error" role="alert">
-          {error}
-        </p>
-      )}
+      <div className="stack">
+        {offering && (
+          <p className="text-sm muted">
+            {t.priceLabel}: {formatRial(offering.priceRial)} / token · {t.checkoutLimitsLabel}:{" "}
+            {formatTokens(offering.minPerInvestor)}–{formatTokens(offering.maxPerInvestor)} tokens
+          </p>
+        )}
+        <Field
+          id="subscribe-tokens"
+          label={t.subscribeTokensLabel}
+          type="number"
+          min={1}
+          value={tokens}
+          onChange={(e) => {
+            setTokens(e.target.value);
+          }}
+        />
+
+        <dl className="terms">
+          <div>
+            <dt>{t.checkoutCostLabel}</dt>
+            <dd className="num" data-testid="checkout-cost">
+              <strong>{cost !== undefined ? formatRial(cost.toString()) : UNKNOWN}</strong>
+            </dd>
+          </div>
+          <div>
+            <dt>{t.availableLabel}</dt>
+            <dd className="num">{ledger ? formatRial(ledger.balanceRial) : UNKNOWN}</dd>
+          </div>
+          <div>
+            <dt>{t.checkoutRemainingLabel}</dt>
+            <dd className="num" data-testid="checkout-remaining">
+              {remaining !== undefined ? formatRial(remaining.toString()) : UNKNOWN}
+            </dd>
+          </div>
+        </dl>
+
+        {shortfall !== undefined && (
+          <p className="callout callout--warning" role="status">
+            {t.checkoutShortBy} {formatRial(shortfall.toString())}.{" "}
+            <a href={`/${locale}/funds`}>{t.checkoutAddFunds}</a>
+          </p>
+        )}
+
+        <p className="muted text-sm">{t.checkoutHoldNotice}</p>
+
+        {error !== undefined && (
+          <p className="field__error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
     </Modal>
   );
 };

@@ -214,7 +214,7 @@ export const FundingQueueCard = ({
                 setConfirming(undefined);
               }}
             >
-              {t.onboardingReviewCancel}
+              {t.cancelButton}
             </Button>
             <Button
               type="button"
@@ -266,7 +266,7 @@ export const FundingQueueCard = ({
                 setRejecting(undefined);
               }}
             >
-              {t.onboardingReviewCancel}
+              {t.cancelButton}
             </Button>
             <Button
               type="button"
