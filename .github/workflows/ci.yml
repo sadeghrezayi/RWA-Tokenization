@@ -130,9 +130,16 @@ jobs:
         env:
           WEB_ORIGIN: http://localhost:3000
           AUTH_TOKEN_SECRET: ci-layout-secret
+          # Both sides of the ISR purge: without it a freshly published
+          # offering stays out of the public catalog for the whole revalidate
+          # window, and the exit journey cannot see what it just published.
+          REVALIDATE_SECRET: ci-revalidate-secret
+          FUNDING_BANK_NAME: CI Test Bank
+          FUNDING_ACCOUNT_HOLDER: Tokenization Platform (CI)
+          FUNDING_ACCOUNT_NUMBER: IR000000000000000000000001
         run: |
           node services/api/dist/main.js > /tmp/api.log 2>&1 &
-          pnpm --filter @tokenization/web exec next start -p 3000 > /tmp/web.log 2>&1 &
+          REVALIDATE_SECRET=ci-revalidate-secret pnpm --filter @tokenization/web exec next start -p 3000 > /tmp/web.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf -o /dev/null http://127.0.0.1:3001/public/offerings \
                && curl -sf -o /dev/null http://127.0.0.1:3000/en; then break; fi
@@ -141,7 +148,7 @@ jobs:
           curl -sf -o /dev/null http://127.0.0.1:3001/public/offerings || { echo "api did not start"; cat /tmp/api.log; exit 1; }
           curl -sf -o /dev/null http://127.0.0.1:3000/en || { echo "web did not start"; cat /tmp/web.log; exit 1; }
 
-      - name: Layout regression (mobile + desktop)
+      - name: Layout regression + Phase-2 exit journey
         env:
           # Empty channel => use Playwright's own Chromium, not a system Chrome.
           PLAYWRIGHT_CHANNEL: ""

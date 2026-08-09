@@ -1,4 +1,5 @@
-import { Contract, HDNodeWallet, JsonRpcProvider, NonceManager } from "ethers";
+import { Contract, HDNodeWallet, NonceManager } from "ethers";
+import { operatorSigner } from "./custodial-wallets.js";
 import type { ContractTransactionResponse } from "ethers";
 import type { PrismaClient } from "@prisma/client";
 import type { AssetTokenIssuer } from "../../application/offerings/ports.js";
@@ -105,10 +106,9 @@ export class TrexAssetTokenIssuer implements AssetTokenIssuer {
     return address;
   }
 
+  // The process-wide operator signer: a private NonceManager here would race
+  // every other adapter for the same account's nonce.
   private operator(): NonceManager {
-    const provider = new JsonRpcProvider(this.config.rpcUrl);
-    return new NonceManager(
-      HDNodeWallet.fromPhrase(this.config.operatorMnemonic).connect(provider),
-    );
+    return operatorSigner(this.config.rpcUrl, this.config.operatorMnemonic);
   }
 }

@@ -1,4 +1,4 @@
-import { Catch, HttpException } from "@nestjs/common";
+import { Catch, HttpException, Logger, Optional } from "@nestjs/common";
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
 import {
   AccountLockedError,
@@ -116,8 +116,17 @@ interface MinimalResponse {
   setHeader(name: string, value: string): void;
 }
 
+// Just enough of a logger to be substitutable in a test.
+interface ErrorLog {
+  error(message: string, stack?: string): void;
+}
+
 @Catch()
 export class DomainErrorFilter implements ExceptionFilter {
+  // @Optional so Nest does not try to resolve a provider for it; the
+  // default is what runs in the application, the substitute in tests.
+  constructor(@Optional() private readonly log: ErrorLog = new Logger(DomainErrorFilter.name)) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<MinimalResponse>();
 
@@ -132,6 +141,15 @@ export class DomainErrorFilter implements ExceptionFilter {
     }
 
     const status = statusFor(exception);
+    if (status === 500) {
+      // The client learns nothing (an unmapped failure may carry internals),
+      // but an operator must be able to find out what actually broke — a 500
+      // with no trace anywhere is undiagnosable.
+      this.log.error(
+        exception instanceof Error ? exception.message : String(exception),
+        exception instanceof Error ? exception.stack : undefined,
+      );
+    }
     const message =
       status === 500
         ? "internal server error"

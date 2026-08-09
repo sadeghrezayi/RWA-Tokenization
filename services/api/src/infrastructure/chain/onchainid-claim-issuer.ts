@@ -10,6 +10,7 @@ import {
   keccak256,
   toUtf8Bytes,
 } from "ethers";
+import { operatorSigner } from "./custodial-wallets.js";
 import type { ContractTransactionResponse } from "ethers";
 import identityArtifact from "@onchain-id/solidity/artifacts/contracts/Identity.sol/Identity.json";
 import type { PrismaClient } from "@prisma/client";
@@ -54,7 +55,8 @@ export class OnchainidClaimIssuer implements ClaimIssuer {
   ) {
     const provider = new JsonRpcProvider(config.rpcUrl);
     this.signer = HDNodeWallet.fromPhrase(config.operatorMnemonic).connect(provider);
-    this.txSigner = new NonceManager(this.signer);
+    // Shared across adapters: see operatorSigner.
+    this.txSigner = operatorSigner(config.rpcUrl, config.operatorMnemonic);
   }
 
   async issueKycApprovedClaim(investorId: string): Promise<void> {

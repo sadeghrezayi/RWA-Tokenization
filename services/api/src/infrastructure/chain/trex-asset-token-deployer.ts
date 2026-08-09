@@ -1,11 +1,5 @@
-import {
-  Contract,
-  ContractFactory,
-  HDNodeWallet,
-  JsonRpcProvider,
-  NonceManager,
-  ZeroAddress,
-} from "ethers";
+import { Contract, ContractFactory, ZeroAddress } from "ethers";
+import { operatorSigner } from "./custodial-wallets.js";
 import type { ContractTransactionResponse, InterfaceAbi, Signer } from "ethers";
 import ctrArtifact from "@tokenysolutions/t-rex/artifacts/contracts/registry/implementation/ClaimTopicsRegistry.sol/ClaimTopicsRegistry.json";
 import tirArtifact from "@tokenysolutions/t-rex/artifacts/contracts/registry/implementation/TrustedIssuersRegistry.sol/TrustedIssuersRegistry.json";
@@ -34,10 +28,8 @@ export class TrexAssetTokenDeployer implements AssetTokenDeployer {
     name: string;
     symbol: string;
   }): Promise<{ tokenAddress: string }> {
-    const provider = new JsonRpcProvider(this.config.rpcUrl);
-    const operator = new NonceManager(
-      HDNodeWallet.fromPhrase(this.config.operatorMnemonic).connect(provider),
-    );
+    // Shared across adapters: see operatorSigner.
+    const operator = operatorSigner(this.config.rpcUrl, this.config.operatorMnemonic);
     const operatorAddress = await operator.getAddress();
 
     const claimTopics = await this.deploy(ctrArtifact, operator);

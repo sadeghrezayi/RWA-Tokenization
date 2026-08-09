@@ -23,8 +23,27 @@ export type RegistryContract = Contract & {
   ): Promise<ContractTransactionResponse>;
 };
 
-export const operatorSigner = (rpcUrl: string, mnemonic: string): NonceManager =>
-  new NonceManager(HDNodeWallet.fromPhrase(mnemonic).connect(new JsonRpcProvider(rpcUrl)));
+// ONE signer per account for the life of the process, shared by every adapter.
+//
+// A NonceManager tracks the next nonce itself. Two managers over the same
+// account both read "next = N" and both send N, and the loser is rejected with
+// "nonce has already been used" — an opaque 500 for whoever asked. That is not
+// a test-only hazard: approving a KYC while an asset is being tokenized is two
+// ordinary staff actions at the same moment.
+const operatorSigners = new Map<string, NonceManager>();
+
+export const operatorSigner = (rpcUrl: string, mnemonic: string): NonceManager => {
+  const key = `${rpcUrl}|${mnemonic}`;
+  const existing = operatorSigners.get(key);
+  if (existing !== undefined) {
+    return existing;
+  }
+  const signer = new NonceManager(
+    HDNodeWallet.fromPhrase(mnemonic).connect(new JsonRpcProvider(rpcUrl)),
+  );
+  operatorSigners.set(key, signer);
+  return signer;
+};
 
 // The derived signing key for an investor's custodial wallet (platform-held).
 export const investorSigner = (
