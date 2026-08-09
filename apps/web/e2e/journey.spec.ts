@@ -223,4 +223,65 @@ test.describe("Phase 2 exit journey", () => {
     await expect(page.getByText("40,000,000 ﷼").first()).toBeVisible();
     await expect(page.getByText(/Held in escrow: 0/)).toBeVisible();
   });
+
+  test("an over-subscribed offering scales everyone down and refunds the rest", async ({
+    page,
+    playwright,
+  }) => {
+    // The case a holder is most likely to misread: they asked for 8 tokens and
+    // got 4. The pro-rata maths is unit-tested; what was never checked is
+    // whether the SCREEN tells them what happened to the other half of their
+    // money.
+    const officer = await asOfficer(playwright);
+    const assetName = `Oversubscribed SPV ${String(Date.now())}`;
+    const assetId = await seedTokenizedAsset(officer, assetName);
+
+    const holders = [];
+    for (const prefix of ["prorata-a", "prorata-b"]) {
+      const email = uniqueEmail(prefix);
+      const password = "Passw0rd-prorata-1";
+      const holder = await registerInvestorVia(playwright, email, password);
+      await submitOnboarding(holder);
+      await approveKyc(officer, await investorIdOf(holder));
+      await fundInvestor(holder, officer, DEPOSIT);
+      holders.push({ email, password, holder });
+    }
+
+    // Supply 8, two holders asking for 8 each: each can be given half.
+    const offeringId = await seedOpenOffering(officer, {
+      assetId,
+      supply: "8",
+      priceRial: PRICE,
+      minPerInvestor: "1",
+      maxPerInvestor: "8",
+      minimumRaise: "1",
+      closesInSeconds: 10,
+    });
+    for (const { holder } of holders) {
+      await subscribe(holder, offeringId, "8");
+    }
+
+    const closed = await closeWhenWindowEnds(officer, offeringId);
+    expect(closed.state).toBe("closed_success");
+
+    const first = holders[0];
+    expect(first).toBeDefined();
+    if (!first) return;
+
+    await page.goto("/en/portfolio");
+    await signIn(page, first.email, first.password);
+    await page.getByRole("link", { name: new RegExp(assetName) }).click();
+
+    // Asked for 8, allocated 4: the position states both, and the 20,000,000 ﷼
+    // that did not buy anything is named as a refund rather than vanishing.
+    // Per cell, not "somewhere in the row": a loose match here would pass on a
+    // stray digit and prove nothing.
+    // Columns: when | status | requested | allocated | cost | refund.
+    const cells = page.getByTestId(`subscription-${offeringId}`).getByRole("cell");
+    await expect(cells.nth(2)).toHaveText("8");
+    await expect(cells.nth(3)).toHaveText("4");
+    await expect(cells.nth(4)).toContainText("20,000,000");
+    await expect(cells.nth(5)).toContainText("20,000,000");
+    await expect(page.getByTestId("position-tokens")).toContainText("4");
+  });
 });
