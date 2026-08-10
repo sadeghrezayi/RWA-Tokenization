@@ -21,13 +21,22 @@ export class DossierDocument {
     public readonly title: string,
     public readonly cid: string,
     public readonly sha256: string,
+    // Hidden from holders unless an operator deliberately reveals it. The
+    // dossier is assembled for the operator and the regulator; what an investor
+    // is GIVEN is a separate, deliberate decision.
+    public readonly investorVisible = false,
   ) {}
+
+  withInvestorVisibility(visible: boolean): DossierDocument {
+    return new DossierDocument(this.kind, this.title, this.cid, this.sha256, visible);
+  }
 
   static of(fields: {
     kind: DossierDocumentKind;
     title: string;
     cid: string;
     sha256: string;
+    investorVisible?: boolean;
   }): DossierDocument {
     if (fields.title.trim() === "") {
       throw new InvalidDossierDocumentError("a dossier document needs a non-empty title");
@@ -40,7 +49,13 @@ export class DossierDocument {
         "a dossier document needs a lowercase hex sha256 digest",
       );
     }
-    return new DossierDocument(fields.kind, fields.title, fields.cid, fields.sha256);
+    return new DossierDocument(
+      fields.kind,
+      fields.title,
+      fields.cid,
+      fields.sha256,
+      fields.investorVisible ?? false,
+    );
   }
 }
 
@@ -66,5 +81,33 @@ export class LegalDossier {
   missingKinds(): DossierDocumentKind[] {
     const present = new Set(this.documents.map((d) => d.kind));
     return REQUIRED_DOSSIER_KINDS.filter((kind) => !present.has(kind));
+  }
+
+  // Disclosure is per document kind and reversible in both directions. It has
+  // no bearing on completeness: a dossier is complete because the documents
+  // exist, not because anyone can read them.
+  revealToInvestors(kind: DossierDocumentKind): LegalDossier {
+    return this.setVisibility(kind, true);
+  }
+
+  hideFromInvestors(kind: DossierDocumentKind): LegalDossier {
+    return this.setVisibility(kind, false);
+  }
+
+  investorVisibleDocuments(): readonly DossierDocument[] {
+    return this.documents.filter((document) => document.investorVisible);
+  }
+
+  private setVisibility(kind: DossierDocumentKind, visible: boolean): LegalDossier {
+    if (!this.documents.some((document) => document.kind === kind)) {
+      // Doing nothing quietly would let an operator believe they had published
+      // something they had not.
+      throw new InvalidDossierDocumentError(`the dossier holds no ${kind} document`);
+    }
+    return new LegalDossier(
+      this.documents.map((document) =>
+        document.kind === kind ? document.withInvestorVisibility(visible) : document,
+      ),
+    );
   }
 }

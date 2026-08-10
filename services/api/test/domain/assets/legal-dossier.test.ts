@@ -12,6 +12,50 @@ const doc = (kind: (typeof REQUIRED_DOSSIER_KINDS)[number], title = "Doc") =>
   DossierDocument.of({ kind, title, cid: `Qm${kind}`, sha256: SHA });
 
 // FR-AO-1 + FR-AO-3: the dossier is complete only with every required document kind.
+// A holder may be shown SOME of the dossier, never all of it by default: it was
+// assembled for the operator and the regulator, and counsel sign-offs and
+// custody agreements routinely carry third-party commercial terms.
+describe("investor visibility", () => {
+  it("hides every document from investors until someone says otherwise", () => {
+    const document = doc("valuation_report");
+    expect(document.investorVisible).toBe(false);
+  });
+
+  it("reveals a named document without touching the others", () => {
+    const dossier = LegalDossier.empty()
+      .add(doc("valuation_report"))
+      .add(doc("counsel_signoff"))
+      .revealToInvestors("valuation_report");
+
+    expect(dossier.investorVisibleDocuments().map((d) => d.kind)).toEqual(["valuation_report"]);
+  });
+
+  it("hides a document again — a disclosure decision has to be reversible", () => {
+    const dossier = LegalDossier.empty()
+      .add(doc("valuation_report"))
+      .revealToInvestors("valuation_report")
+      .hideFromInvestors("valuation_report");
+
+    expect(dossier.investorVisibleDocuments()).toEqual([]);
+  });
+
+  it("refuses to reveal a kind the dossier does not hold", () => {
+    // Silently doing nothing would let an operator believe they had published
+    // something they had not.
+    expect(() => LegalDossier.empty().revealToInvestors("valuation_report")).toThrow(
+      InvalidDossierDocumentError,
+    );
+  });
+
+  it("leaves completeness alone — visibility is not a dossier requirement", () => {
+    const complete = REQUIRED_DOSSIER_KINDS.reduce(
+      (dossier, kind) => dossier.add(doc(kind)),
+      LegalDossier.empty(),
+    );
+    expect(complete.revealToInvestors("counsel_signoff").isComplete()).toBe(true);
+  });
+});
+
 describe("LegalDossier", () => {
   it("starts_empty_and_incomplete_with_all_kinds_missing", () => {
     const dossier = LegalDossier.empty();

@@ -44,6 +44,7 @@ export class PrismaAssetRepository implements AssetRepository {
       title: d.title,
       cid: d.cid,
       sha256: d.sha256,
+      investorVisible: d.investorVisible,
     }));
     // Full-state save: replace the document set atomically with the asset row.
     // Tenant-safe pattern (no upsert): probe, then create or updateMany.
@@ -117,6 +118,7 @@ const toDomain = (row: AssetRow & { documents: DocRow[] }): Asset =>
           title: d.title,
           cid: d.cid,
           sha256: d.sha256,
+          investorVisible: d.investorVisible,
         }),
       ),
     ),

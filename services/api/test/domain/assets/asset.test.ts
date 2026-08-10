@@ -34,6 +34,40 @@ const readyForApproval = () => {
   return CHECKLIST_ITEMS.reduce((acc, item) => acc.confirmChecklistItem(item), asset);
 };
 
+// Disclosure outlives the freeze. A dossier's CONTENTS are fixed at approval —
+// nobody rewrites the evidence a token was issued against — but deciding what a
+// holder may read has to stay possible, because holders only exist after
+// tokenization.
+describe("Asset document disclosure", () => {
+  it("lets an operator reveal a document on a tokenized asset", () => {
+    const tokenized = readyForApproval().approve().markTokenized("0xToken1");
+
+    const revealed = tokenized.setDocumentVisibility("valuation_report", true);
+
+    expect(revealed.dossier.investorVisibleDocuments().map((d) => d.kind)).toEqual([
+      "valuation_report",
+    ]);
+    expect(revealed.state).toBe("tokenized");
+  });
+
+  it("still refuses to ATTACH a document after approval", () => {
+    // The distinction this pair exists to protect: contents frozen, disclosure not.
+    const tokenized = readyForApproval().approve().markTokenized("0xToken1");
+
+    expect(() => tokenized.attachDocument(doc("valuation_report"))).toThrow(DossierFrozenError);
+  });
+
+  it("can take a disclosure back", () => {
+    const tokenized = readyForApproval().approve().markTokenized("0xToken1");
+
+    const hidden = tokenized
+      .setDocumentVisibility("valuation_report", true)
+      .setDocumentVisibility("valuation_report", false);
+
+    expect(hidden.dossier.investorVisibleDocuments()).toEqual([]);
+  });
+});
+
 describe("Asset lifecycle (FR-AO-5)", () => {
   it("is_proposed_on_creation", () => {
     const asset = propose();

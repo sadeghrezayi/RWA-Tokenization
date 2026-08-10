@@ -275,16 +275,19 @@ model Asset {
 }
 
 model AssetDocument {
-  id        String   @id @default(uuid())
-  tenantId  String   @default("default") @map("tenant_id")
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  assetId   String   @map("asset_id")
-  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  kind      String
-  title     String
-  cid       String
-  sha256    String
-  createdAt DateTime @default(now()) @map("created_at")
+  id              String   @id @default(uuid())
+  tenantId        String   @default("default") @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  assetId         String   @map("asset_id")
+  asset           Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  kind            String
+  title           String
+  cid             String
+  sha256          String
+  // Disclosure is opt-in: a document is invisible to holders until an operator
+  // deliberately reveals it (2.5d).
+  investorVisible Boolean  @default(false) @map("investor_visible")
+  createdAt       DateTime @default(now()) @map("created_at")
 
   @@index([tenantId])
   @@map("asset_documents")

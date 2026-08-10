@@ -84,6 +84,31 @@ export const assetRepositoryContract = (
       expect(found?.tokenAddress).toBe("0xAbCd000000000000000000000000000000000001");
     });
 
+    it("remembers which documents were revealed to investors", async () => {
+      // A disclosure that does not survive a reload is worse than none: the
+      // operator believes holders can read something they cannot.
+      const asset = structuredAsset("asset-disclosed").setDocumentVisibility(
+        "ownership_evidence",
+        true,
+      );
+      await repo.save(asset);
+
+      const loaded = await repo.findById("asset-disclosed");
+
+      expect(loaded?.dossier.investorVisibleDocuments().map((d) => d.kind)).toEqual([
+        "ownership_evidence",
+      ]);
+    });
+
+    it("keeps documents hidden by default across a round trip", async () => {
+      await repo.save(structuredAsset("asset-private"));
+
+      const loaded = await repo.findById("asset-private");
+
+      expect(loaded?.dossier.documents).toHaveLength(1);
+      expect(loaded?.dossier.investorVisibleDocuments()).toEqual([]);
+    });
+
     it("lists_all_saved_assets", async () => {
       await repo.save(Asset.propose("asset-1", "One", "asset_backed"));
       await repo.save(Asset.propose("asset-2", "Two", "asset_backed"));

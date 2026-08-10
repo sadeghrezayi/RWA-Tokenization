@@ -1,5 +1,5 @@
 import type { CustodyArrangement } from "./custody-arrangement.js";
-import type { DossierDocument } from "./legal-dossier.js";
+import type { DossierDocument, DossierDocumentKind } from "./legal-dossier.js";
 import { LegalDossier } from "./legal-dossier.js";
 import type { ChecklistItem } from "./onboarding-checklist.js";
 import { OnboardingChecklist } from "./onboarding-checklist.js";
@@ -75,6 +75,17 @@ export class Asset {
   attachDocument(document: DossierDocument): Asset {
     this.assertDossierEditable("attach a document to");
     return this.with({ dossier: this.dossier.add(document) });
+  }
+
+  // Deliberately NOT behind assertDossierEditable: the documents themselves are
+  // frozen at approval, but who may read them is a disclosure decision that has
+  // to stay open — holders only exist once the asset is tokenized.
+  setDocumentVisibility(kind: DossierDocumentKind, visible: boolean): Asset {
+    return this.with({
+      dossier: visible
+        ? this.dossier.revealToInvestors(kind)
+        : this.dossier.hideFromInvestors(kind),
+    });
   }
 
   recordCustody(custody: CustodyArrangement): Asset {

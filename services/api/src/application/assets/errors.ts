@@ -17,3 +17,9 @@ export class InvalidTokenSymbolError extends ApplicationError {
     super("a token symbol must be 2-11 uppercase letters or digits");
   }
 }
+
+export class NoPositionInAssetError extends ApplicationError {
+  constructor(assetId: string) {
+    super(`you hold no position in asset "${assetId}"`);
+  }
+}
