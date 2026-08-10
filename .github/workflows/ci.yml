@@ -148,6 +148,9 @@ jobs:
           curl -sf -o /dev/null http://127.0.0.1:3001/public/offerings || { echo "api did not start"; cat /tmp/api.log; exit 1; }
           curl -sf -o /dev/null http://127.0.0.1:3000/en || { echo "web did not start"; cat /tmp/web.log; exit 1; }
 
+      # When a browser test fails, the reason is usually in the API's log — and
+      # job logs need admin rights to read, while the step summary does not.
+      # Putting the tail here makes a CI-only failure diagnosable at all.
       - name: Layout regression + Phase-2 exit journey
         env:
           # Empty channel => use Playwright's own Chromium, not a system Chrome.
@@ -155,3 +158,17 @@ jobs:
           WEB_BASE_URL: http://localhost:3000
           API_BASE_URL: http://localhost:3001
         run: pnpm --filter @tokenization/web test:layout
+
+      - name: Surface the API log when the browser tests fail
+        if: failure()
+        run: |
+          {
+            echo '### API log (last 120 lines)'
+            echo '```'
+            tail -n 120 /tmp/api.log || echo 'no api log'
+            echo '```'
+            echo '### Web log (last 40 lines)'
+            echo '```'
+            tail -n 40 /tmp/web.log || echo 'no web log'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

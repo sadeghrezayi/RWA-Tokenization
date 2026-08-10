@@ -23,13 +23,6 @@ export type RegistryContract = Contract & {
   ): Promise<ContractTransactionResponse>;
 };
 
-// ONE signer per account for the life of the process, shared by every adapter.
-//
-// A NonceManager tracks the next nonce itself. Two managers over the same
-// account both read "next = N" and both send N, and the loser is rejected with
-// "nonce has already been used" — an opaque 500 for whoever asked. That is not
-// a test-only hazard: approving a KYC while an asset is being tokenized is two
-// ordinary staff actions at the same moment.
 // A FRESH manager per call, deliberately.
 //
 // Sharing one NonceManager per account looks obviously better — it stops two
