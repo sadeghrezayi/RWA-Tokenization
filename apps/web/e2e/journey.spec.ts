@@ -186,6 +186,27 @@ test.describe("Phase 2 exit journey", () => {
       await expect(page.getByTestId("position-invested")).toContainText("10,000,000");
     });
 
+    await test.step("a document an officer publishes reaches the holder", async () => {
+      // The seam this guards: the admin toggle and the holder's documents list
+      // are tested separately on both sides, so only a run through BOTH
+      // browsers proves they meet.
+      await expect(page.getByText(/no documents have been published/i)).toBeVisible();
+
+      await officerPage.goto(`/en/admin/assets/${assetId}`);
+      const row = officerPage.getByRole("row", { name: /valuation_report/ });
+      await expect(row.getByText(/hidden from holders/i)).toBeVisible();
+      await row.getByRole("button", { name: /show to holders/i }).click();
+      await expect(row.getByText(/visible to holders/i)).toBeVisible();
+
+      await page.reload();
+      const documents = page.getByRole("listitem").filter({ hasText: "valuation_report" });
+      await expect(documents).toBeVisible();
+      // Only the published one: the other five dossier documents stay invisible.
+      await expect(page.getByRole("listitem").filter({ hasText: "counsel_signoff" })).toHaveCount(
+        0,
+      );
+    });
+
     await officerContext.close();
   });
 
