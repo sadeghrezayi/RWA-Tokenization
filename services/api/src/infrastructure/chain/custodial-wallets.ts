@@ -30,20 +30,21 @@ export type RegistryContract = Contract & {
 // "nonce has already been used" — an opaque 500 for whoever asked. That is not
 // a test-only hazard: approving a KYC while an asset is being tokenized is two
 // ordinary staff actions at the same moment.
-const operatorSigners = new Map<string, NonceManager>();
-
-export const operatorSigner = (rpcUrl: string, mnemonic: string): NonceManager => {
-  const key = `${rpcUrl}|${mnemonic}`;
-  const existing = operatorSigners.get(key);
-  if (existing !== undefined) {
-    return existing;
-  }
-  const signer = new NonceManager(
-    HDNodeWallet.fromPhrase(mnemonic).connect(new JsonRpcProvider(rpcUrl)),
-  );
-  operatorSigners.set(key, signer);
-  return signer;
-};
+// A FRESH manager per call, deliberately.
+//
+// Sharing one NonceManager per account looks obviously better — it stops two
+// concurrent callers allocating the same nonce (see the KNOWN LIMITATION in
+// docs/open-product-decisions.md). It was tried and reverted: a NonceManager
+// allocates optimistically, so any send that does not reach the chain leaves a
+// gap, and every later transaction from that account queues behind it forever.
+// Measured across full integration runs: shared → a random chain suite hung for
+// 900s; shared with reset-on-failure → a setup hook timed out; per-call → clean.
+// A per-call manager re-reads the chain nonce, so it cannot drift.
+//
+// The right fix is a serialised send queue per account (one in flight at a
+// time, nonce read fresh); that is its own slice, not a one-line change.
+export const operatorSigner = (rpcUrl: string, mnemonic: string): NonceManager =>
+  new NonceManager(HDNodeWallet.fromPhrase(mnemonic).connect(new JsonRpcProvider(rpcUrl)));
 
 // The derived signing key for an investor's custodial wallet (platform-held).
 export const investorSigner = (

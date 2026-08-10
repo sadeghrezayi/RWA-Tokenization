@@ -73,6 +73,23 @@ describe("PrismaOutboxStore (integration, real Postgres)", () => {
     expect(await store.claimDue(soon(3_600_000), 10)).toHaveLength(0);
   });
 
+  it("never hands the same message to two workers claiming at once", async () => {
+    // Two drainers racing over a queue larger than either limit. Between them
+    // they may claim at most 4, and no id twice — the property the CTE form
+    // exists to guarantee. (An IN-subquery plan can exceed its LIMIT, which is
+    // how this surfaced in CI as a claim of 2 returning 3.)
+    for (let n = 0; n < 8; n += 1) {
+      await store.enqueue({ type: "test.race", payload: { n } });
+    }
+
+    const [a, b] = await Promise.all([store.claimDue(soon(), 2), store.claimDue(soon(), 2)]);
+
+    expect(a.length).toBeLessThanOrEqual(2);
+    expect(b.length).toBeLessThanOrEqual(2);
+    const ids = [...a, ...b].map((message) => message.id);
+    expect(new Set(ids).size, "the same message was claimed twice").toBe(ids.length);
+  });
+
   it("respects the claim limit, leaving the rest for the next claim", async () => {
     await store.enqueue({ type: "test.e", payload: { n: 1 } });
     await store.enqueue({ type: "test.e", payload: { n: 2 } });

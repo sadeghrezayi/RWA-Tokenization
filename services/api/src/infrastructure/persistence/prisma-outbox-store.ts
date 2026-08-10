@@ -41,18 +41,28 @@ export class PrismaOutboxStore implements OutboxStore {
   // attempts and hides each row for the visibility window, all in one statement
   // so concurrent drainers never take the same row.
   async claimDue(now: Date, limit: number): Promise<OutboxMessage[]> {
+    // The candidate set is picked ONCE, in a CTE, and joined to.
+    //
+    // The obvious form — UPDATE ... WHERE id IN (SELECT ... LIMIT n) — does not
+    // guarantee the limit: Postgres may plan the subquery as a semi-join and
+    // re-execute it per candidate row, so an UPDATE limited to n can touch more
+    // than n rows. It over-claimed in CI (a claim limited to 2 returned 3).
+    // Over-claiming breaks the drain's batch budget and, with two workers,
+    // hands the same work to both.
     const rows = await this.prisma.$queryRaw<ClaimedRow[]>(Prisma.sql`
-      UPDATE "outbox_messages" AS m
-      SET "attempts" = m."attempts" + 1,
-          "available_at" = ${now} + (${VISIBILITY_SECONDS} * interval '1 second'),
-          "updated_at" = now()
-      WHERE m."id" IN (
+      WITH due AS (
         SELECT c."id" FROM "outbox_messages" AS c
         WHERE c."status" = 'pending' AND c."available_at" <= ${now}
         ORDER BY c."available_at" ASC
         FOR UPDATE SKIP LOCKED
         LIMIT ${limit}
       )
+      UPDATE "outbox_messages" AS m
+      SET "attempts" = m."attempts" + 1,
+          "available_at" = ${now} + (${VISIBILITY_SECONDS} * interval '1 second'),
+          "updated_at" = now()
+      FROM due
+      WHERE m."id" = due."id"
       RETURNING m."id", m."type", m."payload", m."status", m."attempts",
                 m."available_at" AS "availableAt", m."last_error" AS "lastError",
                 m."created_at" AS "createdAt";
