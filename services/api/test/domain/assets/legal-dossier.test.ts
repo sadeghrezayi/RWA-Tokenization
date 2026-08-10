@@ -4,7 +4,10 @@ import {
   LegalDossier,
   REQUIRED_DOSSIER_KINDS,
 } from "../../../src/domain/assets/legal-dossier.js";
-import { InvalidDossierDocumentError } from "../../../src/domain/assets/errors.js";
+import {
+  DocumentNotInDossierError,
+  InvalidDossierDocumentError,
+} from "../../../src/domain/assets/errors.js";
 
 const SHA = "a".repeat(64);
 
@@ -43,7 +46,7 @@ describe("investor visibility", () => {
     // Silently doing nothing would let an operator believe they had published
     // something they had not.
     expect(() => LegalDossier.empty().revealToInvestors("valuation_report")).toThrow(
-      InvalidDossierDocumentError,
+      DocumentNotInDossierError,
     );
   });
 

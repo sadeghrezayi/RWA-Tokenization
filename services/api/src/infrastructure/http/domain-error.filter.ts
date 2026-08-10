@@ -23,9 +23,11 @@ import {
   AssetNotFoundError,
   EmptyDocumentError,
   InvalidTokenSymbolError,
+  NoPositionInAssetError,
 } from "../../application/assets/errors.js";
 import {
   ChecklistIncompleteError,
+  DocumentNotInDossierError,
   DossierFrozenError,
   IncompleteDossierError,
   InvalidAssetTransitionError,
@@ -172,12 +174,15 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof MfaNotEnrolledError) return 409;
   if (exception instanceof InvestorNotFoundError) return 404;
   if (exception instanceof AssetNotFoundError) return 404;
+  // Not 404: the asset plainly exists, the holder simply has no claim on it.
+  if (exception instanceof NoPositionInAssetError) return 403;
   if (exception instanceof EmailAlreadyRegisteredError) return 409;
   if (exception instanceof InvalidKycTransitionError) return 409;
   // Asset state-machine and approval-gate violations are conflicts with
   // current state (FR-AO-4/5).
   if (exception instanceof InvalidAssetTransitionError) return 409;
   if (exception instanceof DossierFrozenError) return 409;
+  if (exception instanceof DocumentNotInDossierError) return 409;
   if (exception instanceof IncompleteDossierError) return 409;
   if (exception instanceof ChecklistIncompleteError) return 409;
   if (exception instanceof InvalidEmailError) return 400;

@@ -13,3 +13,11 @@ export class InvalidDossierDocumentError extends DomainError {}
 export class InvalidCustodyArrangementError extends DomainError {}
 
 export class InvalidTokenAddressError extends DomainError {}
+
+// Distinct from InvalidDossierDocumentError (malformed input, 400): the request
+// is well formed, it just conflicts with what the dossier currently holds.
+export class DocumentNotInDossierError extends DomainError {
+  constructor(kind: string) {
+    super(`the dossier holds no ${kind} document`);
+  }
+}

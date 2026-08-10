@@ -47,6 +47,8 @@ import type {
 import { PrismaStaffUserRepository } from "./infrastructure/persistence/prisma-staff-user-repository.js";
 import { StaffBootstrap } from "./infrastructure/auth/staff-bootstrap.js";
 import { ApproveAsset } from "./application/assets/approve-asset.js";
+import { SetDocumentVisibility } from "./application/assets/set-document-visibility.js";
+import { GetMyAssetDocuments } from "./application/assets/get-my-asset-documents.js";
 import { AttachDossierDocument } from "./application/assets/attach-dossier-document.js";
 import { ConfirmChecklistItem } from "./application/assets/confirm-checklist-item.js";
 import { GetAsset, ListAssets } from "./application/assets/get-asset.js";
@@ -1456,6 +1458,35 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       useFactory: (funding: FundingRepository, investors: InvestorRepository) =>
         new ListPendingFunding(funding, investors),
       inject: [FUNDING_REPOSITORY, INVESTOR_REPOSITORY],
+    },
+    {
+      // 2.5d: the operator's disclosure switch, and the holder's view of it.
+      provide: SetDocumentVisibility,
+      useFactory: (assets: AssetRepository, events: AssetEventLog) =>
+        new SetDocumentVisibility(assets, events),
+      inject: [ASSET_REPOSITORY, ASSET_EVENT_LOG],
+    },
+    {
+      provide: GetMyAssetDocuments,
+      useFactory: (assets: AssetRepository, sales: GetInvestorSales) =>
+        new GetMyAssetDocuments(assets, {
+          // "Has a position" means holding tokens today OR having subscribed —
+          // a holder who was allocated in a closed offering has earned the
+          // documents just as much as one who still holds. Reuses the sales
+          // read model rather than inventing a second definition.
+          execute: async (input: { investorId: string }) => {
+            const view = await sales.execute({ investorId: input.investorId });
+            return {
+              assetIds: [
+                ...new Set([
+                  ...view.holdings.map((holding) => holding.assetId),
+                  ...view.subscriptions.map((subscription) => subscription.assetId),
+                ]),
+              ],
+            };
+          },
+        }),
+      inject: [ASSET_REPOSITORY, GetInvestorSales],
     },
     {
       // 2.5: composes the existing sales read model with paid distributions —

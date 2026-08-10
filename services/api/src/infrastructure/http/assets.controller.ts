@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
 import { ApproveAsset } from "../../application/assets/approve-asset.js";
+import { SetDocumentVisibility } from "../../application/assets/set-document-visibility.js";
 import { TokenizeAsset } from "../../application/assets/tokenize-asset.js";
 import { AttachDossierDocument } from "../../application/assets/attach-dossier-document.js";
 import { ConfirmChecklistItem } from "../../application/assets/confirm-checklist-item.js";
@@ -53,6 +54,7 @@ export class AssetsController {
     private readonly recordCustody: RecordCustody,
     private readonly confirmChecklistItem: ConfirmChecklistItem,
     private readonly approveAsset: ApproveAsset,
+    private readonly setDocumentVisibility: SetDocumentVisibility,
     private readonly tokenizeAsset: TokenizeAsset,
     private readonly getAsset: GetAsset,
     private readonly listAssets: ListAssets,
@@ -96,6 +98,28 @@ export class AssetsController {
       kind: asDocumentKind(requireString(body, "kind")),
       title: requireString(body, "title"),
       contentBase64: requireString(body, "contentBase64"),
+      actor: actorOf(principal),
+    });
+  }
+
+  // 2.5d: the disclosure switch. Deliberately separate from attaching a
+  // document — the contents are frozen after approval, the decision is not.
+  @Post(":id/documents/:kind/visibility")
+  @HttpCode(204)
+  visibility(
+    @Param("id") id: string,
+    @Param("kind") kind: string,
+    @Body() body: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<void> {
+    const visible = (body as { visible?: unknown } | null | undefined)?.visible;
+    if (typeof visible !== "boolean") {
+      throw new BadRequestException('"visible" is required and must be a boolean');
+    }
+    return this.setDocumentVisibility.execute({
+      assetId: id,
+      kind: asDocumentKind(kind),
+      visible,
       actor: actorOf(principal),
     });
   }

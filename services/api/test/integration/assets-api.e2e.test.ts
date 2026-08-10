@@ -69,6 +69,98 @@ describe("Assets API (e2e, real Postgres, fake document store)", () => {
     return (res.body as { assetId: string }).assetId;
   };
 
+  // 2.5d: an operator decides, one document at a time, what a HOLDER may read.
+  // The rules that matter here are who may flip the switch and who may read the
+  // result.
+  describe("investor document disclosure", () => {
+    const attach = async (assetId: string) => {
+      await request(server).post(`/assets/${assetId}/start-structuring`).set(auth(officerToken));
+      await request(server)
+        .post(`/assets/${assetId}/documents`)
+        .set(auth(officerToken))
+        .send({ kind: "valuation_report", title: "Valuation report", contentBase64: CONTENT })
+        .expect(201);
+    };
+
+    it("lets an operator reveal and withdraw a document", async () => {
+      const assetId = await propose();
+      await attach(assetId);
+
+      await request(server)
+        .post(`/assets/${assetId}/documents/valuation_report/visibility`)
+        .set(auth(officerToken))
+        .send({ visible: true })
+        .expect(204);
+
+      const revealed = await request(server)
+        .get(`/assets/${assetId}`)
+        .set(auth(officerToken))
+        .expect(200);
+      expect(
+        (revealed.body as { dossier: { documents: { investorVisible: boolean }[] } }).dossier
+          .documents[0]?.investorVisible,
+      ).toBe(true);
+
+      await request(server)
+        .post(`/assets/${assetId}/documents/valuation_report/visibility`)
+        .set(auth(officerToken))
+        .send({ visible: false })
+        .expect(204);
+    });
+
+    it("keeps an investor away from the switch (403)", async () => {
+      const assetId = await propose();
+      await attach(assetId);
+
+      await request(server)
+        .post(`/assets/${assetId}/documents/valuation_report/visibility`)
+        .set(auth(investorToken))
+        .send({ visible: true })
+        .expect(403);
+    });
+
+    it("refuses to reveal a kind the dossier does not hold (409)", async () => {
+      const assetId = await propose();
+      await attach(assetId);
+
+      await request(server)
+        .post(`/assets/${assetId}/documents/counsel_signoff/visibility`)
+        .set(auth(officerToken))
+        .send({ visible: true })
+        .expect(409);
+    });
+
+    it("refuses an unknown document kind (400)", async () => {
+      const assetId = await propose();
+      await request(server)
+        .post(`/assets/${assetId}/documents/not_a_kind/visibility`)
+        .set(auth(officerToken))
+        .send({ visible: true })
+        .expect(400);
+    });
+
+    it("will not hand documents to someone with no position in the asset (403)", async () => {
+      // Holding the token earns the documents; being signed in does not.
+      const assetId = await propose();
+      await attach(assetId);
+      await request(server)
+        .post(`/assets/${assetId}/documents/valuation_report/visibility`)
+        .set(auth(officerToken))
+        .send({ visible: true })
+        .expect(204);
+
+      await request(server)
+        .get(`/portfolio/assets/${assetId}/documents`)
+        .set(auth(investorToken))
+        .expect(403);
+    });
+
+    it("requires authentication to read them at all (401)", async () => {
+      const assetId = await propose();
+      await request(server).get(`/portfolio/assets/${assetId}/documents`).expect(401);
+    });
+  });
+
   it("rejects_asset_actions_without_a_token_and_for_investors", async () => {
     await request(server).post("/assets").send({ name: "X" }).expect(401);
     await request(server).post("/assets").set(auth(investorToken)).send({ name: "X" }).expect(403);

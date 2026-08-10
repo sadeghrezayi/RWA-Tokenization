@@ -1,4 +1,4 @@
-import { InvalidDossierDocumentError } from "./errors.js";
+import { DocumentNotInDossierError, InvalidDossierDocumentError } from "./errors.js";
 
 // FR-AO-1 + FR-AO-3: the six document kinds a legal dossier must contain
 // before an asset can be approved for token configuration.
@@ -102,7 +102,7 @@ export class LegalDossier {
     if (!this.documents.some((document) => document.kind === kind)) {
       // Doing nothing quietly would let an operator believe they had published
       // something they had not.
-      throw new InvalidDossierDocumentError(`the dossier holds no ${kind} document`);
+      throw new DocumentNotInDossierError(kind);
     }
     return new LegalDossier(
       this.documents.map((document) =>

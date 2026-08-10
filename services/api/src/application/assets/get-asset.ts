@@ -15,7 +15,13 @@ export interface AssetView {
   dossier: {
     complete: boolean;
     missingKinds: DossierDocumentKind[];
-    documents: { kind: DossierDocumentKind; title: string; cid: string; sha256: string }[];
+    documents: {
+      kind: DossierDocumentKind;
+      title: string;
+      cid: string;
+      sha256: string;
+      investorVisible: boolean;
+    }[];
   };
 }
 
@@ -45,6 +51,7 @@ export const toAssetView = (asset: Asset): AssetView => ({
       title: d.title,
       cid: d.cid,
       sha256: d.sha256,
+      investorVisible: d.investorVisible,
     })),
   },
 });
