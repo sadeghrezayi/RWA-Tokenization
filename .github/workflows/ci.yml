@@ -157,6 +157,8 @@ jobs:
           PLAYWRIGHT_CHANNEL: ""
           WEB_BASE_URL: http://localhost:3000
           API_BASE_URL: http://localhost:3001
+          # Lets a failing seed step attach the server's own explanation.
+          API_LOG_PATH: /tmp/api.log
         run: pnpm --filter @tokenization/web test:layout
 
       - name: Surface the API log when the browser tests fail

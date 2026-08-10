@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect } from "@playwright/test";
 import type { APIRequestContext, APIResponse, PlaywrightWorkerArgs } from "@playwright/test";
 
@@ -98,12 +99,26 @@ export const post = async (actor: Actor, path: string, data?: unknown): Promise<
     ...(data !== undefined ? { data } : {}),
   });
 
+// A 500 deliberately says nothing to the client, and CI job logs need admin
+// rights to read — so a browser-test failure caused by a server fault is
+// otherwise undiagnosable. The API logs its cause; attaching the tail to the
+// assertion carries it into the failure annotation, which is readable.
+const apiLogTail = (): string => {
+  const path = process.env.API_LOG_PATH;
+  if (path === undefined || path === "") return "";
+  try {
+    const lines = readFileSync(path, "utf8").trimEnd().split("\n");
+    return `\n--- ${path} (last 40 lines) ---\n${lines.slice(-40).join("\n")}`;
+  } catch {
+    return `\n(could not read ${path})`;
+  }
+};
+
 const ok = async (actor: Actor, path: string, data?: unknown): Promise<APIResponse> => {
   const response = await post(actor, path, data);
-  expect(
-    response.ok(),
-    `POST ${path} failed (${String(response.status())}): ${await response.text()}`,
-  ).toBe(true);
+  const detail =
+    response.status() >= 500 ? `${await response.text()}${apiLogTail()}` : await response.text();
+  expect(response.ok(), `POST ${path} failed (${String(response.status())}): ${detail}`).toBe(true);
   return response;
 };
 
