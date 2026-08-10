@@ -18,7 +18,15 @@ const structuring: AssetViewDto = {
   dossier: {
     complete: false,
     missingKinds: ["counsel_signoff"],
-    documents: [{ kind: "ownership_evidence", title: "Deed", cid: "bafyDeed", sha256: "abc123" }],
+    documents: [
+      {
+        kind: "ownership_evidence",
+        title: "Deed",
+        cid: "bafyDeed",
+        sha256: "abc123",
+        investorVisible: false,
+      },
+    ],
   },
 };
 
@@ -139,5 +147,77 @@ describe("AssetDetailPage", () => {
       }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("no asset found");
+  });
+});
+
+// 2.5d: the operator decides, one document at a time, what a holder may read.
+describe("AssetDetailPage document disclosure", () => {
+  const withDocs = (investorVisible: boolean): AssetViewDto => ({
+    ...tokenized,
+    dossier: {
+      complete: true,
+      missingKinds: [],
+      documents: [
+        {
+          kind: "valuation_report",
+          title: "Valuation report",
+          cid: "bafyVal",
+          sha256: "d1",
+          investorVisible,
+        },
+      ],
+    },
+  });
+
+  it("says plainly whether holders can see a document", async () => {
+    renderPage(apiWith(withDocs(false)));
+
+    expect(await screen.findByText(/hidden from holders/i)).toBeTruthy();
+  });
+
+  it("publishes a document to holders on request", async () => {
+    const setDocumentVisibility = vi.fn().mockResolvedValue(undefined);
+    renderPage(apiWith(withDocs(false), { setDocumentVisibility }));
+
+    await userEvent.click(await screen.findByRole("button", { name: /show to holders/i }));
+
+    await waitFor(() => {
+      expect(setDocumentVisibility).toHaveBeenCalledWith(
+        "tok",
+        "asset-1",
+        "valuation_report",
+        true,
+      );
+    });
+  });
+
+  it("takes a disclosure back", async () => {
+    const setDocumentVisibility = vi.fn().mockResolvedValue(undefined);
+    renderPage(apiWith(withDocs(true), { setDocumentVisibility }));
+
+    await userEvent.click(await screen.findByRole("button", { name: /hide from holders/i }));
+
+    await waitFor(() => {
+      expect(setDocumentVisibility).toHaveBeenCalledWith(
+        "tok",
+        "asset-1",
+        "valuation_report",
+        false,
+      );
+    });
+  });
+
+  it("surfaces a refusal instead of pretending the switch moved", async () => {
+    renderPage(
+      apiWith(withDocs(false), {
+        setDocumentVisibility: vi
+          .fn()
+          .mockRejectedValue(new ApiError(409, "the dossier holds no such document")),
+      }),
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: /show to holders/i }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("no such document");
   });
 });

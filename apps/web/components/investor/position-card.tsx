@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import type { PortfolioDto } from "../../lib/api";
+import type { InvestorDocumentDto, PortfolioDto } from "../../lib/api";
 import type { ApiClient } from "../../lib/api";
 import { formatDate, formatRial, formatTokens } from "../../lib/format";
 import { dictionaries } from "../../lib/i18n";
@@ -39,6 +39,8 @@ export const PositionCard = ({
   const t = dictionaries[locale];
   const [portfolio, setPortfolio] = useState<PortfolioDto | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [documents, setDocuments] = useState<InvestorDocumentDto[] | undefined>(undefined);
+  const [documentsError, setDocumentsError] = useState<string | undefined>(undefined);
 
   const load = useCallback(async () => {
     try {
@@ -53,6 +55,19 @@ export const PositionCard = ({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Documents load on their own: a failure to fetch them must not blank out
+  // the money figures beside them.
+  useEffect(() => {
+    void (async () => {
+      try {
+        setDocuments(await api.myAssetDocuments(assetId));
+        setDocumentsError(undefined);
+      } catch (loadError) {
+        setDocumentsError(messageOf(loadError));
+      }
+    })();
+  }, [api, assetId]);
 
   if (error !== undefined) {
     return (
@@ -187,6 +202,27 @@ export const PositionCard = ({
               </tbody>
             </table>
           </div>
+        )}
+      </Card>
+
+      <Card title={t.positionDocumentsTitle} subtitle={t.positionDocumentsSubtitle}>
+        {documentsError !== undefined ? (
+          <p className="field__error" role="alert">
+            {documentsError}
+          </p>
+        ) : documents === undefined ? (
+          <Skeleton lines={2} testId="position-documents-loading" />
+        ) : documents.length === 0 ? (
+          <EmptyState icon="◫">{t.positionNoDocuments}</EmptyState>
+        ) : (
+          <ul className="list">
+            {documents.map((document) => (
+              <li key={document.cid} className="list__row">
+                <span>{document.title}</span>
+                <span className="muted text-sm">{document.kind}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
 

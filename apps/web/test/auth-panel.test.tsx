@@ -53,6 +53,8 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   recordCustody: vi.fn(),
   confirmChecklistItem: vi.fn(),
   approveAsset: vi.fn(),
+  setDocumentVisibility: vi.fn(),
+  myAssetDocuments: vi.fn(),
   tokenizeAsset: vi.fn(),
   ledgerMe: vi.fn(),
   creditLedger: vi.fn(),

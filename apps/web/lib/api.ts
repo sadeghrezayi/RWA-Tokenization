@@ -113,8 +113,21 @@ export interface AssetViewDto {
   dossier: {
     complete: boolean;
     missingKinds: string[];
-    documents: { kind: string; title: string; cid: string; sha256: string }[];
+    documents: {
+      kind: string;
+      title: string;
+      cid: string;
+      sha256: string;
+      investorVisible: boolean;
+    }[];
   };
+}
+
+export interface InvestorDocumentDto {
+  kind: string;
+  title: string;
+  cid: string;
+  sha256: string;
 }
 
 export interface OfferingSummaryDto {
@@ -433,6 +446,13 @@ export interface ApiClient {
   ): Promise<void>;
   confirmChecklistItem(officerToken: string, assetId: string, item: string): Promise<void>;
   approveAsset(officerToken: string, assetId: string): Promise<void>;
+  setDocumentVisibility(
+    officerToken: string,
+    assetId: string,
+    kind: string,
+    visible: boolean,
+  ): Promise<void>;
+  myAssetDocuments(assetId: string): Promise<InvestorDocumentDto[]>;
   tokenizeAsset(
     officerToken: string,
     assetId: string,
@@ -923,6 +943,14 @@ export const createApiClient = (
     approveAsset: async (officerToken, assetId) => {
       await call(`/assets/${assetId}/approve`, { method: "POST", token: officerToken });
     },
+    setDocumentVisibility: async (officerToken, assetId, kind, visible) => {
+      await call(`/assets/${assetId}/documents/${kind}/visibility`, {
+        method: "POST",
+        token: officerToken,
+        body: { visible },
+      });
+    },
+    myAssetDocuments: (assetId) => json(call(`/portfolio/assets/${assetId}/documents`)),
     tokenizeAsset: (officerToken, assetId, symbol) =>
       json(
         call(`/assets/${assetId}/tokenize`, {

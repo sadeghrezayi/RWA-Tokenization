@@ -144,92 +144,124 @@ export const AssetDetailPage = ({
         </div>
       </div>
 
-      <div className="grid-2">
-        <Card title={t.dossierLabel}>
-          <div className="stack">
-            {asset.dossier.documents.length === 0 ? (
-              <EmptyState icon="◇">{t.noDocuments}</EmptyState>
-            ) : (
-              <div className="table-wrap">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>{t.documentKindLabel}</th>
-                      <th>{t.documentTitleLabel}</th>
-                      <th>{t.documentRefLabel}</th>
+      {/* The dossier is full width: it gained a per-document disclosure control,
+          and at half width the actions column was pushed out of sight. */}
+      <Card title={t.dossierLabel}>
+        <div className="stack">
+          {asset.dossier.documents.length === 0 ? (
+            <EmptyState icon="◇">{t.noDocuments}</EmptyState>
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{t.documentKindLabel}</th>
+                    <th>{t.documentTitleLabel}</th>
+                    <th>{t.documentRefLabel}</th>
+                    <th className="table__num">{t.actionsLabel}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {asset.dossier.documents.map((doc) => (
+                    <tr key={`${doc.kind}-${doc.cid}`}>
+                      <td className="text-sm">{doc.kind}</td>
+                      <td>{doc.title}</td>
+                      <td className="mono text-sm">
+                        <Address value={doc.cid} />
+                      </td>
+                      <td className="table__num">
+                        {/* 2.5d: what a holder may read is a decision, so the
+                              current answer is stated in words next to the
+                              control that changes it. */}
+                        <div className="table__actions">
+                          <Badge tone={doc.investorVisible ? "success" : "neutral"}>
+                            {doc.investorVisible
+                              ? t.documentVisibleToHolders
+                              : t.documentHiddenFromHolders}
+                          </Badge>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              guard(async () => {
+                                await api.setDocumentVisibility(
+                                  token,
+                                  asset.id,
+                                  doc.kind,
+                                  !doc.investorVisible,
+                                );
+                              }, t.disclosureUpdated);
+                            }}
+                          >
+                            {doc.investorVisible ? t.hideFromHoldersButton : t.showToHoldersButton}
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {asset.dossier.documents.map((doc) => (
-                      <tr key={`${doc.kind}-${doc.cid}`}>
-                        <td className="text-sm">{doc.kind}</td>
-                        <td>{doc.title}</td>
-                        <td className="mono text-sm">
-                          <Address value={doc.cid} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {!asset.dossier.complete && asset.dossier.missingKinds.length > 0 && (
-              <p className="text-sm muted">
-                {t.missingKindsLabel}: {asset.dossier.missingKinds.join(", ")}
-              </p>
-            )}
-            {structuring && (
-              <form
-                className="row row--bottom"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (docTitle.trim() !== "") {
-                    guard(async () => {
-                      await api.attachAssetDocument(token, asset.id, {
-                        kind: docKind,
-                        title: docTitle.trim(),
-                        contentBase64: btoa(`${docTitle} placeholder content`),
-                      });
-                      setDocTitle("");
-                    }, t.documentAttached);
-                  }
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {!asset.dossier.complete && asset.dossier.missingKinds.length > 0 && (
+            <p className="text-sm muted">
+              {t.missingKindsLabel}: {asset.dossier.missingKinds.join(", ")}
+            </p>
+          )}
+          {structuring && (
+            <form
+              className="row row--bottom"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (docTitle.trim() !== "") {
+                  guard(async () => {
+                    await api.attachAssetDocument(token, asset.id, {
+                      kind: docKind,
+                      title: docTitle.trim(),
+                      contentBase64: btoa(`${docTitle} placeholder content`),
+                    });
+                    setDocTitle("");
+                  }, t.documentAttached);
+                }
+              }}
+            >
+              <SelectField
+                id="doc-kind"
+                label={t.documentKindLabel}
+                value={docKind}
+                onChange={(e) => {
+                  setDocKind(e.target.value);
                 }}
               >
-                <SelectField
-                  id="doc-kind"
-                  label={t.documentKindLabel}
-                  value={docKind}
+                {DOCUMENT_KINDS.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {kind}
+                  </option>
+                ))}
+              </SelectField>
+              <div className="field" style={{ flex: 1 }}>
+                <label className="field__label" htmlFor="doc-title">
+                  {t.documentTitleLabel}
+                </label>
+                <input
+                  id="doc-title"
+                  className="field__input"
+                  value={docTitle}
                   onChange={(e) => {
-                    setDocKind(e.target.value);
+                    setDocTitle(e.target.value);
                   }}
-                >
-                  {DOCUMENT_KINDS.map((kind) => (
-                    <option key={kind} value={kind}>
-                      {kind}
-                    </option>
-                  ))}
-                </SelectField>
-                <div className="field" style={{ flex: 1 }}>
-                  <label className="field__label" htmlFor="doc-title">
-                    {t.documentTitleLabel}
-                  </label>
-                  <input
-                    id="doc-title"
-                    className="field__input"
-                    value={docTitle}
-                    onChange={(e) => {
-                      setDocTitle(e.target.value);
-                    }}
-                  />
-                </div>
-                <Button type="submit" variant="secondary">
-                  {t.attachDocumentButton}
-                </Button>
-              </form>
-            )}
-          </div>
-        </Card>
+                />
+              </div>
+              <Button type="submit" variant="secondary">
+                {t.attachDocumentButton}
+              </Button>
+            </form>
+          )}
+        </div>
+      </Card>
 
+      <div className="grid-2">
         <Card title={t.custodyLabel}>
           <div className="stack">
             {asset.custody !== undefined ? (

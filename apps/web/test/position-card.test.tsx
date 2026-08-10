@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { PositionCard } from "../components/investor/position-card";
 import type { ApiClient, PortfolioDto } from "../lib/api";
 import { stubApi } from "./auth-panel.test";
@@ -186,5 +186,41 @@ describe("PositionCard", () => {
 
     expect(await screen.findByTestId("subscription-off-1")).toBeTruthy();
     expect(screen.getByTestId("position-tokens").textContent).toContain("0");
+  });
+});
+
+// 2.5d: the documents an operator deliberately published for this asset.
+describe("PositionCard documents", () => {
+  const doc = { kind: "valuation_report", title: "Valuation report", cid: "bafyVal", sha256: "d1" };
+
+  it("lists the documents published for this asset", async () => {
+    renderPosition("asset-1", { myAssetDocuments: vi.fn().mockResolvedValue([doc]) });
+
+    expect(await screen.findByText("Valuation report")).toBeTruthy();
+  });
+
+  it("says nothing has been published rather than showing an empty box", async () => {
+    renderPosition("asset-1", { myAssetDocuments: vi.fn().mockResolvedValue([]) });
+
+    expect(await screen.findByText(/no documents have been published/i)).toBeTruthy();
+  });
+
+  it("asks for this asset's documents, not the whole portfolio's", async () => {
+    const myAssetDocuments = vi.fn().mockResolvedValue([]);
+    renderPosition("asset-1", { myAssetDocuments });
+
+    await waitFor(() => {
+      expect(myAssetDocuments).toHaveBeenCalledWith("asset-1");
+    });
+  });
+
+  it("keeps the position readable when the documents cannot be fetched", async () => {
+    // A failed document read must not blank out the money figures beside it.
+    renderPosition("asset-1", {
+      myAssetDocuments: vi.fn().mockRejectedValue(new Error("documents unavailable")),
+    });
+
+    expect(await screen.findByTestId("position-tokens")).toBeTruthy();
+    expect(screen.getByText(/documents unavailable/i)).toBeTruthy();
   });
 });

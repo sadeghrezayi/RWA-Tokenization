@@ -167,6 +167,14 @@ export interface Dictionary {
   positionHistoryTitle: string;
   positionHistorySubtitle: string;
   positionBack: string;
+  documentVisibleToHolders: string;
+  documentHiddenFromHolders: string;
+  showToHoldersButton: string;
+  hideFromHoldersButton: string;
+  disclosureUpdated: string;
+  positionDocumentsTitle: string;
+  positionDocumentsSubtitle: string;
+  positionNoDocuments: string;
   createOfferingButton: string;
   openOfferingButton: string;
   closeOfferingButton: string;
@@ -617,6 +625,14 @@ export const dictionaries: Record<Locale, Dictionary> = {
     positionHistoryTitle: "How this position was built",
     positionHistorySubtitle: "Every offering you subscribed to for this asset.",
     positionBack: "Back to portfolio",
+    documentVisibleToHolders: "Visible to holders",
+    documentHiddenFromHolders: "Hidden from holders",
+    showToHoldersButton: "Show to holders",
+    hideFromHoldersButton: "Hide from holders",
+    disclosureUpdated: "Disclosure updated.",
+    positionDocumentsTitle: "Documents",
+    positionDocumentsSubtitle: "Published by the operator for this asset.",
+    positionNoDocuments: "No documents have been published for this asset yet.",
     createOfferingButton: "Create offering",
     openOfferingButton: "Open",
     closeOfferingButton: "Close",
