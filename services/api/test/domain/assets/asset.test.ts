@@ -6,6 +6,7 @@ import {
   REQUIRED_DOSSIER_KINDS,
 } from "../../../src/domain/assets/legal-dossier.js";
 import { CHECKLIST_ITEMS } from "../../../src/domain/assets/onboarding-checklist.js";
+import { RealEstateProfile } from "../../../src/domain/assets/real-estate-profile.js";
 import {
   ChecklistIncompleteError,
   DossierFrozenError,
@@ -33,6 +34,48 @@ const readyForApproval = () => {
   );
   return CHECKLIST_ITEMS.reduce((acc, item) => acc.confirmChecklistItem(item), asset);
 };
+
+// 3.1: a real-estate asset carries the property it is issued against and what
+// the token conveys. Both are part of what an officer approves, so both freeze
+// with the dossier — changing what holders own after issuance is not an edit.
+describe("Asset real-estate profile and rights", () => {
+  const profile = () =>
+    RealEstateProfile.of({
+      addressLine: "Plot 14, Vanak Street",
+      city: "Tehran",
+      propertyType: "residential",
+      areaSquareMetres: 240,
+      titleReference: "TR-1990-4471",
+    });
+
+  it("records the property while the asset is still being structured", () => {
+    const asset = propose().startStructuring().recordRealEstateProfile(profile());
+
+    expect(asset.realEstate?.titleReference).toBe("TR-1990-4471");
+  });
+
+  it("conveys a right, with the wording it was granted in", () => {
+    const asset = propose().startStructuring().conveyRight("income", "Net rent, clause 7.2");
+
+    expect(asset.rights.conveys("income")).toBe(true);
+    expect(asset.rights.noteFor("income")).toBe("Net rent, clause 7.2");
+  });
+
+  it("freezes the property and the rights once approved", () => {
+    // What a holder owns cannot quietly change after they own it.
+    const approved = readyForApproval().approve();
+
+    expect(() => approved.recordRealEstateProfile(profile())).toThrow(DossierFrozenError);
+    expect(() => approved.conveyRight("voting", "clause 12")).toThrow(DossierFrozenError);
+  });
+
+  it("starts with nothing conveyed and no property", () => {
+    const asset = propose();
+
+    expect(asset.realEstate).toBeUndefined();
+    expect(asset.rights.isEstablished()).toBe(false);
+  });
+});
 
 // Disclosure outlives the freeze. A dossier's CONTENTS are fixed at approval —
 // nobody rewrites the evidence a token was issued against — but deciding what a

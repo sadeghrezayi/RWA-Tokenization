@@ -1,5 +1,7 @@
 import type { CustodyArrangement } from "./custody-arrangement.js";
 import type { DossierDocument, DossierDocumentKind } from "./legal-dossier.js";
+import type { RealEstateProfile } from "./real-estate-profile.js";
+import { RightsMatrix } from "./rights-matrix.js";
 import { LegalDossier } from "./legal-dossier.js";
 import type { ChecklistItem } from "./onboarding-checklist.js";
 import { OnboardingChecklist } from "./onboarding-checklist.js";
@@ -30,6 +32,10 @@ export class Asset {
     public readonly checklist: OnboardingChecklist,
     public readonly custody: CustodyArrangement | undefined,
     public readonly tokenAddress: string | undefined,
+    // 3.1: the property this token is issued against, and what it conveys.
+    // Both are undefined/empty until a human records them — neither is inferred.
+    public readonly realEstate: RealEstateProfile | undefined,
+    public readonly rights: RightsMatrix,
   ) {}
 
   static propose(id: string, name: string, type: AssetType): Asset {
@@ -42,6 +48,8 @@ export class Asset {
       OnboardingChecklist.empty(),
       undefined,
       undefined,
+      undefined,
+      RightsMatrix.empty(),
     );
   }
 
@@ -54,6 +62,8 @@ export class Asset {
     checklist: OnboardingChecklist;
     custody: CustodyArrangement | undefined;
     tokenAddress?: string;
+    realEstate?: RealEstateProfile;
+    rights?: RightsMatrix;
   }): Asset {
     return new Asset(
       fields.id,
@@ -64,6 +74,10 @@ export class Asset {
       fields.checklist,
       fields.custody,
       fields.tokenAddress,
+      fields.realEstate,
+      // An asset stored before rights were modelled restores as "not
+      // established", which is the honest reading: nobody recorded them.
+      fields.rights ?? RightsMatrix.empty(),
     );
   }
 
@@ -86,6 +100,23 @@ export class Asset {
         ? this.dossier.revealToInvestors(kind)
         : this.dossier.hideFromInvestors(kind),
     });
+  }
+
+  // Both freeze with the dossier at approval: what a holder owns must not
+  // change quietly after they own it.
+  recordRealEstateProfile(realEstate: RealEstateProfile): Asset {
+    this.assertDossierEditable("record a property profile on");
+    return this.with({ realEstate });
+  }
+
+  conveyRight(kind: string, note: string): Asset {
+    this.assertDossierEditable("convey a right on");
+    return this.with({ rights: this.rights.convey(kind, note) });
+  }
+
+  withholdRight(kind: string): Asset {
+    this.assertDossierEditable("withhold a right on");
+    return this.with({ rights: this.rights.withhold(kind) });
   }
 
   recordCustody(custody: CustodyArrangement): Asset {
@@ -162,6 +193,8 @@ export class Asset {
     checklist?: OnboardingChecklist;
     custody?: CustodyArrangement;
     tokenAddress?: string;
+    realEstate?: RealEstateProfile;
+    rights?: RightsMatrix;
   }): Asset {
     return new Asset(
       this.id,
@@ -172,6 +205,8 @@ export class Asset {
       changes.checklist ?? this.checklist,
       changes.custody ?? this.custody,
       changes.tokenAddress ?? this.tokenAddress,
+      changes.realEstate ?? this.realEstate,
+      changes.rights ?? this.rights,
     );
   }
 }

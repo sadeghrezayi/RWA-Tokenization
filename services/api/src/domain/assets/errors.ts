@@ -21,3 +21,13 @@ export class DocumentNotInDossierError extends DomainError {
     super(`the dossier holds no ${kind} document`);
   }
 }
+
+export class UnknownRightError extends DomainError {
+  constructor(kind: string) {
+    super(`"${kind}" is not a right this platform records`);
+  }
+}
+
+export class InvalidRightError extends DomainError {}
+
+export class InvalidRealEstateProfileError extends DomainError {}
