@@ -320,3 +320,61 @@ describe("AssetDetailPage property and rights", () => {
     expect(screen.queryByRole("button", { name: /withdraw/i })).toBeNull();
   });
 });
+
+// The gap this closes: both forms were only ever exercised on the happy path,
+// so nothing proved a server refusal reaches the officer rather than vanishing.
+describe("AssetDetailPage property and rights refusals", () => {
+  it("surfaces a refused property instead of appearing to succeed", async () => {
+    renderPage(
+      apiWith(structuring, {
+        recordRealEstateProfile: vi
+          .fn()
+          .mockRejectedValue(
+            new ApiError(400, "area must be a positive whole number of square metres"),
+          ),
+      }),
+    );
+
+    await userEvent.type(await screen.findByLabelText("Address"), "Plot 14");
+    await userEvent.click(screen.getByRole("button", { name: /record property/i }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("positive whole number");
+  });
+
+  it("surfaces a refused right, with the server's wording", async () => {
+    renderPage(
+      apiWith(structuring, {
+        conveyRight: vi
+          .fn()
+          .mockRejectedValue(
+            new ApiError(400, "a conveyed right needs the wording it was granted in"),
+          ),
+      }),
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: /convey right/i }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("wording it was granted in");
+  });
+
+  it("surfaces a refused withdrawal rather than dropping the right from view", async () => {
+    renderPage(
+      apiWith(
+        {
+          ...structuring,
+          rights: [{ kind: "income", note: "clause 7.2" }],
+        },
+        {
+          withdrawRight: vi.fn().mockRejectedValue(new ApiError(409, "the dossier is frozen")),
+        },
+      ),
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: /withdraw/i }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("frozen");
+    // The right is still listed: a failed withdrawal must not look like a
+    // successful one.
+    expect(screen.getByTestId("right-income")).toBeTruthy();
+  });
+});
