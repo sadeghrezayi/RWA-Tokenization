@@ -16,21 +16,23 @@ const devnetUp = async (): Promise<boolean> => {
   }
 };
 
-// The platform signs every chain write with ONE operator account. Two staff
-// actions that touch the chain at the same time — approving a KYC while an
-// asset is being tokenized — must not fight over the nonce.
+// The platform signs every chain write with ONE operator account, so how long
+// a signer keeps its cached nonce matters.
 //
-// Each adapter used to build its own NonceManager, and several built a fresh
-// one per call. Two managers over the same account both read "next nonce = N"
-// and both send N; the loser comes back as "nonce has already been used",
-// surfaced to an operator as a bare 500.
+// A long-lived NonceManager goes stale the moment another adapter sends — that
+// was the real defect behind seven CI failures, and it is covered where it
+// belongs, in onchainid-claim-issuer.test.ts.
+//
+// What remains open is the narrower case below: two sends issued in the same
+// instant, which a per-call manager cannot prevent because both read the same
+// chain nonce before either lands.
 describe("operator signer (integration, anvil devnet)", () => {
-  // KNOWN LIMITATION, recorded rather than hidden: two chain writes issued at
-  // the same moment can allocate the same nonce, and the loser fails with
-  // "nonce has already been used" (a 500 to whoever asked). Sharing one signer
-  // fixes this but wedges the account on any failed send — see custodial-
-  // wallets.ts. The real fix is a serialised send queue; until then this test
-  // documents the gap instead of pretending it is closed.
+  // KNOWN LIMITATION, skipped rather than deleted: two sends issued at the same
+  // instant can allocate the same nonce, and the loser fails with "nonce has
+  // already been used". Sharing one signer removes the race but wedges the
+  // account on any failed send (see custodial-wallets.ts), so the fix is a
+  // serialised send queue per account — its own slice. This test states the gap
+  // instead of pretending it is closed.
   it.skip("hands out distinct nonces to concurrent callers", async () => {
     if (!(await devnetUp())) {
       // The chain suites are skipped rather than failed when no devnet is up;

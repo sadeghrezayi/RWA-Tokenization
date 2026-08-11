@@ -25,17 +25,23 @@ export type RegistryContract = Contract & {
 
 // A FRESH manager per call, deliberately.
 //
-// Sharing one NonceManager per account looks obviously better — it stops two
-// concurrent callers allocating the same nonce (see the KNOWN LIMITATION in
-// docs/open-product-decisions.md). It was tried and reverted: a NonceManager
-// allocates optimistically, so any send that does not reach the chain leaves a
-// gap, and every later transaction from that account queues behind it forever.
-// Measured across full integration runs: shared → a random chain suite hung for
-// 900s; shared with reset-on-failure → a setup hook timed out; per-call → clean.
-// A per-call manager re-reads the chain nonce, so it cannot drift.
+// An ethers NonceManager caches the next nonce and only advances it when IT
+// sends. Hold one for longer than a single operation and another adapter's
+// transaction moves the chain on while yours stands still — the next send is
+// then rejected with "nonce has already been used". That is not theoretical:
+// it is the bug that failed CI seven times, from the claim issuer keeping one
+// for the life of the process (see the 2026-08-11 entry in
+// docs/open-product-decisions.md). Every adapter takes one per operation.
 //
-// The right fix is a serialised send queue per account (one in flight at a
-// time, nonce read fresh); that is its own slice, not a one-line change.
+// Sharing ONE manager across adapters was tried as a fix and reverted: it
+// allocates optimistically, so a send that never reaches the chain leaves a gap
+// and later transactions queue behind it forever. Measured across full
+// integration runs: shared -> a chain suite hung for 900s; shared behind a
+// serialised send lane -> the same; per-call -> clean.
+//
+// STILL OPEN, and genuinely a concurrency problem: two sends issued in the same
+// instant can read the same nonce. The fix is a serialised send queue per
+// account (one in flight, nonce read fresh), which is its own slice.
 export const operatorSigner = (rpcUrl: string, mnemonic: string): NonceManager =>
   new NonceManager(HDNodeWallet.fromPhrase(mnemonic).connect(new JsonRpcProvider(rpcUrl)));
 
