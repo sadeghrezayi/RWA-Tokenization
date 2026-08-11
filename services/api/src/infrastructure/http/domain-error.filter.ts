@@ -133,7 +133,14 @@ export class DomainErrorFilter implements ExceptionFilter {
     const response = host.switchToHttp().getResponse<MinimalResponse>();
 
     if (exception instanceof HttpException) {
-      response.status(exception.getStatus()).json(exception.getResponse());
+      const status = exception.getStatus();
+      // A 500 is an incident whichever type it arrives as. This branch used to
+      // return silently, which is how a CI failure showed "internal server
+      // error" with nothing in the log to explain it.
+      if (status >= 500) {
+        this.log.error(exception.message, exception.stack);
+      }
+      response.status(status).json(exception.getResponse());
       return;
     }
 

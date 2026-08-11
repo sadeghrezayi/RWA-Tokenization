@@ -31,6 +31,20 @@ describe("DomainErrorFilter", () => {
     expect(logged).toContain("the ledger connection dropped");
   });
 
+  it("logs a 500 that arrives as an HttpException too", async () => {
+    // The gap this closes: an explicit 500 took the HttpException fast path and
+    // was never logged, so a CI failure showed "internal server error" with
+    // nothing anywhere to explain it.
+    const { InternalServerErrorException } = await import("@nestjs/common");
+    const log = { error: vi.fn() };
+    const { host, response } = capture();
+
+    new DomainErrorFilter(log).catch(new InternalServerErrorException("upstream exploded"), host);
+
+    expect(response.status).toHaveBeenCalledWith(500);
+    expect(String(log.error.mock.calls[0]?.[0] ?? "")).toContain("upstream exploded");
+  });
+
   it("stays quiet about refusals that are working as designed", () => {
     // A 409 is the system doing its job. Logging it as an error would bury the
     // incidents that matter.
