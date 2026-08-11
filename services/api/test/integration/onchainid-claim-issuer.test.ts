@@ -14,6 +14,7 @@ import {
   CLAIM_TOPIC_KYC,
   OnchainidClaimIssuer,
 } from "../../src/infrastructure/chain/onchainid-claim-issuer.js";
+import { operatorSigner } from "../../src/infrastructure/chain/custodial-wallets.js";
 
 // Requires a running anvil devnet (pnpm devnet) — well-known anvil test mnemonic.
 const RPC_URL = process.env.DEVNET_RPC_URL ?? "http://127.0.0.1:8545";
@@ -113,4 +114,28 @@ describe("OnchainidClaimIssuer (integration, anvil devnet)", () => {
 
     expect(second?.address).toBe(first?.address);
   });
+
+  it("still issues after another adapter has moved the operator's nonce", async () => {
+    // The platform signs every chain write with one account. This adapter used
+    // to hold a NonceManager for the life of the process, so a tokenization in
+    // between advanced the chain while its cached counter stood still — and the
+    // next claim was rejected with "nonce has already been used". That is
+    // exactly the shape of the CI failure: the first KYC approval of a run
+    // succeeds, the one after a tokenization does not.
+    await prisma.investor.create({
+      data: {
+        id: "inv-nonce-b",
+        email: "nonce-b@example.com",
+        passwordHash: "hashed:test-only",
+        kycState: "approved",
+      },
+    });
+    await adapter.issueKycApprovedClaim("inv-chain-1");
+
+    // Stand in for a tokenization: another operator-signed transaction, mined.
+    const mover = operatorSigner(RPC_URL, MNEMONIC);
+    await (await mover.sendTransaction({ to: signer.address, value: 0n })).wait();
+
+    await expect(adapter.issueKycApprovedClaim("inv-nonce-b")).resolves.toBeUndefined();
+  }, 60_000);
 });

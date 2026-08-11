@@ -45,9 +45,6 @@ interface IdentityContract {
 // adapter-owned onchain_identities table.
 export class OnchainidClaimIssuer implements ClaimIssuer {
   private readonly signer: HDNodeWallet;
-  // Local nonce tracking: ethers briefly caches identical RPC reads, which can
-  // reuse a nonce when transactions follow each other quickly (anvil automine).
-  private readonly txSigner: NonceManager;
 
   constructor(
     private readonly prisma: PrismaClient,
@@ -55,8 +52,18 @@ export class OnchainidClaimIssuer implements ClaimIssuer {
   ) {
     const provider = new JsonRpcProvider(config.rpcUrl);
     this.signer = HDNodeWallet.fromPhrase(config.operatorMnemonic).connect(provider);
-    // Shared across adapters: see operatorSigner.
-    this.txSigner = operatorSigner(config.rpcUrl, config.operatorMnemonic);
+  }
+
+  // A FRESH signer per operation, as every other chain adapter does.
+  //
+  // This used to be one NonceManager held for the life of the process. Its
+  // counter only advances when IT sends, so a tokenization through another
+  // adapter moved the chain on while this one stood still, and the next claim
+  // was rejected with "nonce has already been used". That is precisely the CI
+  // failure: the first KYC approval of a run succeeds, the one after a
+  // tokenization does not.
+  private txSigner(): NonceManager {
+    return operatorSigner(this.config.rpcUrl, this.config.operatorMnemonic);
   }
 
   async issueKycApprovedClaim(investorId: string): Promise<void> {
@@ -66,7 +73,7 @@ export class OnchainidClaimIssuer implements ClaimIssuer {
     const identity = new Contract(
       identityAddress,
       identityArtifact.abi,
-      this.txSigner,
+      this.txSigner(),
     ) as unknown as IdentityContract;
     const tx = await identity.addClaim(
       CLAIM_TOPIC_KYC,
@@ -88,7 +95,7 @@ export class OnchainidClaimIssuer implements ClaimIssuer {
     const factory = new ContractFactory(
       identityArtifact.abi,
       identityArtifact.bytecode,
-      this.txSigner,
+      this.txSigner(),
     );
     const deployed = await factory.deploy(this.signer.address, false);
     await deployed.waitForDeployment();
