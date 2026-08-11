@@ -33,6 +33,9 @@ import {
   InvalidAssetTransitionError,
   InvalidCustodyArrangementError,
   InvalidDossierDocumentError,
+  InvalidRealEstateProfileError,
+  InvalidRightError,
+  UnknownRightError,
 } from "../../domain/assets/errors.js";
 import {
   AssetNotTokenizedError,
@@ -199,6 +202,11 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidVerificationTokenError) return 400;
   if (exception instanceof InvalidDossierDocumentError) return 400;
   if (exception instanceof InvalidCustodyArrangementError) return 400;
+  // 3.1: a malformed property, an unknown right, or a right asserted with no
+  // wording are all bad input — the request, not the state, is wrong.
+  if (exception instanceof InvalidRealEstateProfileError) return 400;
+  if (exception instanceof UnknownRightError) return 400;
+  if (exception instanceof InvalidRightError) return 400;
   if (exception instanceof EmptyDocumentError) return 400;
   if (exception instanceof InvalidTokenSymbolError) return 400;
   if (exception instanceof OfferingNotFoundError) return 404;

@@ -48,6 +48,8 @@ import { PrismaStaffUserRepository } from "./infrastructure/persistence/prisma-s
 import { StaffBootstrap } from "./infrastructure/auth/staff-bootstrap.js";
 import { ApproveAsset } from "./application/assets/approve-asset.js";
 import { SetDocumentVisibility } from "./application/assets/set-document-visibility.js";
+import { RecordRealEstateProfile } from "./application/assets/record-real-estate-profile.js";
+import { SetConveyedRight } from "./application/assets/set-conveyed-right.js";
 import { GetMyAssetDocuments } from "./application/assets/get-my-asset-documents.js";
 import { AttachDossierDocument } from "./application/assets/attach-dossier-document.js";
 import { ConfirmChecklistItem } from "./application/assets/confirm-checklist-item.js";
@@ -1458,6 +1460,19 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
       useFactory: (funding: FundingRepository, investors: InvestorRepository) =>
         new ListPendingFunding(funding, investors),
       inject: [FUNDING_REPOSITORY, INVESTOR_REPOSITORY],
+    },
+    {
+      // 3.1: the property a token is issued against, and what it conveys.
+      provide: RecordRealEstateProfile,
+      useFactory: (assets: AssetRepository, events: AssetEventLog) =>
+        new RecordRealEstateProfile(assets, events),
+      inject: [ASSET_REPOSITORY, ASSET_EVENT_LOG],
+    },
+    {
+      provide: SetConveyedRight,
+      useFactory: (assets: AssetRepository, events: AssetEventLog) =>
+        new SetConveyedRight(assets, events),
+      inject: [ASSET_REPOSITORY, ASSET_EVENT_LOG],
     },
     {
       // 2.5d: the operator's disclosure switch, and the holder's view of it.

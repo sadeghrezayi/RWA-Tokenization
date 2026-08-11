@@ -12,6 +12,15 @@ export interface AssetView {
   tokenAddress?: string;
   custody?: { custodianName: string; location: string };
   checklist: { confirmed: ChecklistItem[]; unconfirmed: ChecklistItem[] };
+  realEstate?: {
+    addressLine: string;
+    city: string;
+    propertyType: string;
+    areaSquareMetres: number;
+    titleReference: string;
+    builtInYear?: number;
+  };
+  rights: { kind: string; note: string }[];
   dossier: {
     complete: boolean;
     missingKinds: DossierDocumentKind[];
@@ -43,6 +52,21 @@ export const toAssetView = (asset: Asset): AssetView => ({
     confirmed: asset.checklist.confirmedItems(),
     unconfirmed: asset.checklist.unconfirmedItems(),
   },
+  ...(asset.realEstate !== undefined
+    ? {
+        realEstate: {
+          addressLine: asset.realEstate.addressLine,
+          city: asset.realEstate.city,
+          propertyType: asset.realEstate.propertyType,
+          areaSquareMetres: asset.realEstate.areaSquareMetres,
+          titleReference: asset.realEstate.titleReference,
+          ...(asset.realEstate.builtInYear !== undefined
+            ? { builtInYear: asset.realEstate.builtInYear }
+            : {}),
+        },
+      }
+    : {}),
+  rights: asset.rights.conveyed().map((right) => ({ kind: right.kind, note: right.note })),
   dossier: {
     complete: asset.dossier.isComplete(),
     missingKinds: asset.dossier.missingKinds(),

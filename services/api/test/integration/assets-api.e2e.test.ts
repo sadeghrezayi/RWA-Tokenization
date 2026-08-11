@@ -69,6 +69,154 @@ describe("Assets API (e2e, real Postgres, fake document store)", () => {
     return (res.body as { assetId: string }).assetId;
   };
 
+  // 3.1: the property a token is issued against, and what it conveys. Both are
+  // recorded by an officer while the asset is being structured.
+  describe("real-estate profile and rights", () => {
+    const profile = {
+      addressLine: "Plot 14, Vanak Street",
+      city: "Tehran",
+      propertyType: "residential",
+      areaSquareMetres: 240,
+      titleReference: "TR-1990-4471",
+      builtInYear: 1998,
+    };
+
+    const structuring = async (): Promise<string> => {
+      const assetId = await propose();
+      await request(server)
+        .post(`/assets/${assetId}/start-structuring`)
+        .set(auth(officerToken))
+        .expect(204);
+      return assetId;
+    };
+
+    it("records the property and reads it back on the asset", async () => {
+      const assetId = await structuring();
+
+      await request(server)
+        .post(`/assets/${assetId}/real-estate`)
+        .set(auth(officerToken))
+        .send(profile)
+        .expect(204);
+
+      const res = await request(server)
+        .get(`/assets/${assetId}`)
+        .set(auth(officerToken))
+        .expect(200);
+      const body = res.body as { realEstate?: { titleReference: string; city: string } };
+      expect(body.realEstate?.titleReference).toBe("TR-1990-4471");
+      expect(body.realEstate?.city).toBe("Tehran");
+    });
+
+    it("refuses a property with no title reference (400)", async () => {
+      const assetId = await structuring();
+
+      await request(server)
+        .post(`/assets/${assetId}/real-estate`)
+        .set(auth(officerToken))
+        .send({ ...profile, titleReference: "  " })
+        .expect(400);
+    });
+
+    it("conveys a right with the wording it was granted in", async () => {
+      const assetId = await structuring();
+
+      await request(server)
+        .post(`/assets/${assetId}/rights/income`)
+        .set(auth(officerToken))
+        .send({ note: "Net rental income, quarterly, clause 7.2" })
+        .expect(204);
+
+      const res = await request(server)
+        .get(`/assets/${assetId}`)
+        .set(auth(officerToken))
+        .expect(200);
+      const body = res.body as { rights: { kind: string; note: string }[] };
+      expect(body.rights).toEqual([
+        { kind: "income", note: "Net rental income, quarterly, clause 7.2" },
+      ]);
+    });
+
+    it("withdraws a right", async () => {
+      const assetId = await structuring();
+      await request(server)
+        .post(`/assets/${assetId}/rights/income`)
+        .set(auth(officerToken))
+        .send({ note: "clause 7.2" })
+        .expect(204);
+
+      await request(server)
+        .delete(`/assets/${assetId}/rights/income`)
+        .set(auth(officerToken))
+        .expect(204);
+
+      const res = await request(server).get(`/assets/${assetId}`).set(auth(officerToken));
+      expect((res.body as { rights: unknown[] }).rights).toEqual([]);
+    });
+
+    it("refuses a right with no wording (400) and an unknown right (400)", async () => {
+      const assetId = await structuring();
+
+      await request(server)
+        .post(`/assets/${assetId}/rights/income`)
+        .set(auth(officerToken))
+        .send({ note: "   " })
+        .expect(400);
+      await request(server)
+        .post(`/assets/${assetId}/rights/timeshare_weeks`)
+        .set(auth(officerToken))
+        .send({ note: "invented" })
+        .expect(400);
+    });
+
+    it("freezes both once the asset is approved (409)", async () => {
+      // What a holder owns must not change quietly after they own it.
+      const assetId = await propose();
+      const http = request(server);
+      await http.post(`/assets/${assetId}/start-structuring`).set(auth(officerToken));
+      for (const kind of REQUIRED_DOSSIER_KINDS) {
+        await http
+          .post(`/assets/${assetId}/documents`)
+          .set(auth(officerToken))
+          .send({ kind, title: kind, contentBase64: CONTENT });
+      }
+      await http
+        .post(`/assets/${assetId}/custody`)
+        .set(auth(officerToken))
+        .send({ custodianName: "Trust Co.", location: "Vault 1" });
+      for (const item of CHECKLIST_ITEMS) {
+        await http.post(`/assets/${assetId}/checklist/${item}`).set(auth(officerToken));
+      }
+      await http.post(`/assets/${assetId}/approve`).set(auth(officerToken)).expect(204);
+
+      await request(server)
+        .post(`/assets/${assetId}/real-estate`)
+        .set(auth(officerToken))
+        .send(profile)
+        .expect(409);
+      await request(server)
+        .post(`/assets/${assetId}/rights/income`)
+        .set(auth(officerToken))
+        .send({ note: "too late" })
+        .expect(409);
+    });
+
+    it("keeps an investor away from both (403)", async () => {
+      const assetId = await structuring();
+
+      await request(server)
+        .post(`/assets/${assetId}/real-estate`)
+        .set(auth(investorToken))
+        .send(profile)
+        .expect(403);
+      await request(server)
+        .post(`/assets/${assetId}/rights/income`)
+        .set(auth(investorToken))
+        .send({ note: "mine now" })
+        .expect(403);
+    });
+  });
+
   // 2.5d: an operator decides, one document at a time, what a HOLDER may read.
   // The rules that matter here are who may flip the switch and who may read the
   // result.

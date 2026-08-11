@@ -1,6 +1,19 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+} from "@nestjs/common";
 import { ApproveAsset } from "../../application/assets/approve-asset.js";
 import { SetDocumentVisibility } from "../../application/assets/set-document-visibility.js";
+import { RecordRealEstateProfile } from "../../application/assets/record-real-estate-profile.js";
+import { SetConveyedRight } from "../../application/assets/set-conveyed-right.js";
+import { PROPERTY_TYPES } from "../../domain/assets/real-estate-profile.js";
+import type { PropertyType } from "../../domain/assets/real-estate-profile.js";
 import { TokenizeAsset } from "../../application/assets/tokenize-asset.js";
 import { AttachDossierDocument } from "../../application/assets/attach-dossier-document.js";
 import { ConfirmChecklistItem } from "../../application/assets/confirm-checklist-item.js";
@@ -55,6 +68,8 @@ export class AssetsController {
     private readonly confirmChecklistItem: ConfirmChecklistItem,
     private readonly approveAsset: ApproveAsset,
     private readonly setDocumentVisibility: SetDocumentVisibility,
+    private readonly recordRealEstate: RecordRealEstateProfile,
+    private readonly setConveyedRight: SetConveyedRight,
     private readonly tokenizeAsset: TokenizeAsset,
     private readonly getAsset: GetAsset,
     private readonly listAssets: ListAssets,
@@ -122,6 +137,67 @@ export class AssetsController {
       visible,
       actor: actorOf(principal),
     });
+  }
+
+  // 3.1: the property this token is issued against.
+  @Post(":id/real-estate")
+  @HttpCode(204)
+  realEstate(
+    @Param("id") id: string,
+    @Body() body: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<void> {
+    const fields = body as Record<string, unknown> | null | undefined;
+    const propertyType = requireString(body, "propertyType");
+    if (!(PROPERTY_TYPES as readonly string[]).includes(propertyType)) {
+      throw new BadRequestException(`"propertyType" must be one of: ${PROPERTY_TYPES.join(", ")}`);
+    }
+    const area = fields?.areaSquareMetres;
+    if (typeof area !== "number") {
+      throw new BadRequestException('"areaSquareMetres" is required and must be a number');
+    }
+    const builtInYear = fields?.builtInYear;
+    if (builtInYear !== undefined && typeof builtInYear !== "number") {
+      throw new BadRequestException('"builtInYear" must be a number when given');
+    }
+    return this.recordRealEstate.execute({
+      assetId: id,
+      addressLine: requireString(body, "addressLine"),
+      city: requireString(body, "city"),
+      propertyType: propertyType as PropertyType,
+      areaSquareMetres: area,
+      titleReference: requireString(body, "titleReference"),
+      ...(typeof builtInYear === "number" ? { builtInYear } : {}),
+      actor: actorOf(principal),
+    });
+  }
+
+  // 3.1: what the token conveys. POST states a right in the wording it was
+  // granted in; DELETE withdraws it. Both are audited.
+  @Post(":id/rights/:kind")
+  @HttpCode(204)
+  conveyRight(
+    @Param("id") id: string,
+    @Param("kind") kind: string,
+    @Body() body: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<void> {
+    return this.setConveyedRight.execute({
+      assetId: id,
+      kind,
+      note: requireString(body, "note"),
+      actor: actorOf(principal),
+    });
+  }
+
+  @Delete(":id/rights/:kind")
+  @HttpCode(204)
+  withdrawRight(
+    @Param("id") id: string,
+    @Param("kind") kind: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<void> {
+    return this.setConveyedRight.execute({ assetId: id, kind, actor: actorOf(principal) });
   }
 
   @Post(":id/custody")
