@@ -3,6 +3,7 @@ import { Asset } from "../../src/domain/assets/asset.js";
 import { CustodyArrangement } from "../../src/domain/assets/custody-arrangement.js";
 import { DossierDocument, LegalDossier } from "../../src/domain/assets/legal-dossier.js";
 import { OnboardingChecklist } from "../../src/domain/assets/onboarding-checklist.js";
+import { RealEstateProfile } from "../../src/domain/assets/real-estate-profile.js";
 import type { AssetRepository } from "../../src/application/assets/ports.js";
 
 const SHA = "c".repeat(64);
@@ -107,6 +108,55 @@ export const assetRepositoryContract = (
 
       expect(loaded?.dossier.documents).toHaveLength(1);
       expect(loaded?.dossier.investorVisibleDocuments()).toEqual([]);
+    });
+
+    it("remembers the property a token is issued against", async () => {
+      const asset = structuredAsset("asset-property").recordRealEstateProfile(
+        RealEstateProfile.of({
+          addressLine: "Plot 14, Vanak Street",
+          city: "Tehran",
+          propertyType: "residential",
+          areaSquareMetres: 240,
+          titleReference: "TR-1990-4471",
+          builtInYear: 1998,
+        }),
+      );
+      await repo.save(asset);
+
+      const loaded = await repo.findById("asset-property");
+
+      expect(loaded?.realEstate?.addressLine).toBe("Plot 14, Vanak Street");
+      expect(loaded?.realEstate?.city).toBe("Tehran");
+      expect(loaded?.realEstate?.propertyType).toBe("residential");
+      expect(loaded?.realEstate?.areaSquareMetres).toBe(240);
+      expect(loaded?.realEstate?.titleReference).toBe("TR-1990-4471");
+      expect(loaded?.realEstate?.builtInYear).toBe(1998);
+    });
+
+    it("remembers what the token conveys, in the wording it was granted in", async () => {
+      // The failure this guards against is silent: rights that do not survive a
+      // reload leave an officer believing holders own something they do not.
+      const asset = structuredAsset("asset-rights")
+        .conveyRight("income", "Net rental income, quarterly, clause 7.2")
+        .conveyRight("voting", "One token one vote, clause 12");
+      await repo.save(asset);
+
+      const loaded = await repo.findById("asset-rights");
+
+      expect(loaded?.rights.conveys("income")).toBe(true);
+      expect(loaded?.rights.noteFor("income")).toBe("Net rental income, quarterly, clause 7.2");
+      expect(loaded?.rights.conveys("voting")).toBe(true);
+      expect(loaded?.rights.conveys("use")).toBe(false);
+    });
+
+    it("restores an asset with neither profile nor rights as exactly that", async () => {
+      // Not "empty because we lost it" — empty because nobody recorded it.
+      await repo.save(structuredAsset("asset-bare"));
+
+      const loaded = await repo.findById("asset-bare");
+
+      expect(loaded?.realEstate).toBeUndefined();
+      expect(loaded?.rights.isEstablished()).toBe(false);
     });
 
     it("lists_all_saved_assets", async () => {

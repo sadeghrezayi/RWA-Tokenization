@@ -46,6 +46,7 @@ model Tenant {
   kycEvidence            KycEvidence[]
   onboardingAnswers      OnboardingAnswer[]
   fundingRequests        FundingRequest[]
+  assetRights            AssetRight[]
 
   @@map("tenants")
 }
@@ -256,22 +257,50 @@ model Attestation {
 }
 
 model Asset {
-  id              String          @id
-  tenantId        String          @default("default") @map("tenant_id")
-  tenant          Tenant          @relation(fields: [tenantId], references: [id])
-  name            String
-  type            String
-  state           AssetState
-  custodianName   String?         @map("custodian_name")
-  custodyLocation String?         @map("custody_location")
-  tokenAddress    String?         @map("token_address")
-  checklist       String[]
-  documents       AssetDocument[]
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  id               String          @id
+  tenantId         String          @default("default") @map("tenant_id")
+  tenant           Tenant          @relation(fields: [tenantId], references: [id])
+  name             String
+  type             String
+  state            AssetState
+  custodianName    String?         @map("custodian_name")
+  custodyLocation  String?         @map("custody_location")
+  tokenAddress     String?         @map("token_address")
+  checklist        String[]
+  documents        AssetDocument[]
+  // 3.1: the property a real-estate token is issued against. Nullable because
+  // not every asset is a building — an asset with no profile has simply not
+  // had one recorded.
+  addressLine      String?         @map("address_line")
+  city             String?
+  propertyType     String?         @map("property_type")
+  areaSquareMetres Int?            @map("area_square_metres")
+  titleReference   String?         @map("title_reference")
+  builtInYear      Int?            @map("built_in_year")
+  rights           AssetRight[]
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
 
   @@index([tenantId])
   @@map("assets")
+}
+
+// 3.1: what the token conveys, one row per right, carrying the wording it was
+// granted in. A right absent from this table is NOT conveyed — and an asset
+// with no rows has had nothing established, which is a different statement.
+model AssetRight {
+  id        String   @id @default(uuid())
+  tenantId  String   @default("default") @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  assetId   String   @map("asset_id")
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  kind      String
+  note      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([assetId, kind])
+  @@index([tenantId])
+  @@map("asset_rights")
 }
 
 model AssetDocument {
