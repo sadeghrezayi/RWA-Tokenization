@@ -23,27 +23,62 @@ export type RegistryContract = Contract & {
   ): Promise<ContractTransactionResponse>;
 };
 
-// A FRESH manager per call, deliberately.
+// A FRESH nonce manager per send, and only one send per account at a time.
 //
-// An ethers NonceManager caches the next nonce and only advances it when IT
-// sends. Hold one for longer than a single operation and another adapter's
-// transaction moves the chain on while yours stands still — the next send is
-// then rejected with "nonce has already been used". That is not theoretical:
-// it is the bug that failed CI seven times, from the claim issuer keeping one
-// for the life of the process (see the 2026-08-11 entry in
-// docs/open-product-decisions.md). Every adapter takes one per operation.
+// Two rules, each earned the hard way:
 //
-// Sharing ONE manager across adapters was tried as a fix and reverted: it
-// allocates optimistically, so a send that never reaches the chain leaves a gap
-// and later transactions queue behind it forever. Measured across full
-// integration runs: shared -> a chain suite hung for 900s; shared behind a
-// serialised send lane -> the same; per-call -> clean.
+// FRESH, because an ethers NonceManager only advances its cached nonce when IT
+// sends. Hold one beyond a single operation and another adapter's transaction
+// moves the chain on while yours stands still — the next send is rejected with
+// "nonce has already been used". That was the claim-issuer bug behind seven CI
+// failures (2026-08-11 in docs/open-product-decisions.md).
 //
-// STILL OPEN, and genuinely a concurrency problem: two sends issued in the same
-// instant can read the same nonce. The fix is a serialised send queue per
-// account (one in flight, nonce read fresh), which is its own slice.
+// ONE AT A TIME, because two sends issued in the same instant both read the
+// same nonce before either lands, and the loser is rejected the same way.
+//
+// The lane is the ONLY thing shared. Sharing a NonceManager instead was tried
+// twice and reverted: it allocates optimistically, so a send that never reaches
+// the chain leaves a gap and everything after it queues forever — measured, a
+// chain suite hung for 900s. Nothing here can go stale or wedge: a failed send
+// leaves no state behind, and the next one re-reads the chain.
+const lanes = new Map<string, Promise<unknown>>();
+
+class LanedOperatorSigner extends NonceManager {
+  constructor(
+    signer: HDNodeWallet,
+    private readonly lane: string,
+  ) {
+    super(signer);
+  }
+
+  override async sendTransaction(
+    tx: Parameters<NonceManager["sendTransaction"]>[0],
+  ): Promise<Awaited<ReturnType<NonceManager["sendTransaction"]>>> {
+    const queued = (lanes.get(this.lane) ?? Promise.resolve()).then(async () =>
+      // No reset here: this manager reads the chain once and then increments
+      // locally for its OWN sends. Forcing a re-read per send hits ethers'
+      // 250ms RPC cache, so two rapid sends get the same count back and the
+      // second is rejected "nonce too low" — which is what a local increment
+      // exists to prevent.
+      super.sendTransaction(tx),
+    );
+    // A failure must not stop the queue for everyone behind it.
+    lanes.set(
+      this.lane,
+      queued.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return queued;
+  }
+}
+
 export const operatorSigner = (rpcUrl: string, mnemonic: string): NonceManager =>
-  new NonceManager(HDNodeWallet.fromPhrase(mnemonic).connect(new JsonRpcProvider(rpcUrl)));
+  new LanedOperatorSigner(
+    HDNodeWallet.fromPhrase(mnemonic).connect(new JsonRpcProvider(rpcUrl)),
+    `${rpcUrl}|${mnemonic}`,
+  );
 
 // The derived signing key for an investor's custodial wallet (platform-held).
 export const investorSigner = (

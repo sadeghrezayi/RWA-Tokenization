@@ -23,17 +23,11 @@ const devnetUp = async (): Promise<boolean> => {
 // was the real defect behind seven CI failures, and it is covered where it
 // belongs, in onchainid-claim-issuer.test.ts.
 //
-// What remains open is the narrower case below: two sends issued in the same
-// instant, which a per-call manager cannot prevent because both read the same
-// chain nonce before either lands.
+// The narrower case below — two sends issued in the same instant — is closed
+// by serialising sends per account: only a promise lane is shared, so nothing
+// can go stale or wedge.
 describe("operator signer (integration, anvil devnet)", () => {
-  // KNOWN LIMITATION, skipped rather than deleted: two sends issued at the same
-  // instant can allocate the same nonce, and the loser fails with "nonce has
-  // already been used". Sharing one signer removes the race but wedges the
-  // account on any failed send (see custodial-wallets.ts), so the fix is a
-  // serialised send queue per account — its own slice. This test states the gap
-  // instead of pretending it is closed.
-  it.skip("hands out distinct nonces to concurrent callers", async () => {
+  it("hands out distinct nonces to concurrent callers", async () => {
     if (!(await devnetUp())) {
       // The chain suites are skipped rather than failed when no devnet is up;
       // this one follows the same rule.
@@ -60,5 +54,22 @@ describe("operator signer (integration, anvil devnet)", () => {
     );
 
     expect(new Set(sent).size, `nonces collided: ${sent.join(", ")}`).toBe(sent.length);
+  }, 60_000);
+
+  it("keeps the lane moving after a send fails", async () => {
+    if (!(await devnetUp())) {
+      return;
+    }
+    const signer = operatorSigner(RPC_URL, MNEMONIC);
+    const to = await signer.getAddress();
+
+    // A send that cannot succeed: more value than the account holds.
+    await expect(signer.sendTransaction({ to, value: 2n ** 200n })).rejects.toThrow();
+
+    // The next one must still be mined. This is exactly what the two shared-
+    // NonceManager designs could not do — everything after a failure queued
+    // behind the gap and hung.
+    const after = await operatorSigner(RPC_URL, MNEMONIC).sendTransaction({ to, value: 0n });
+    expect((await after.wait())?.status).toBe(1);
   }, 60_000);
 });
