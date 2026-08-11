@@ -25,6 +25,7 @@ const tokenizedAsset: AssetViewDto = {
   name: "Pilot Real Estate SPV",
   type: "asset_backed",
   state: "tokenized",
+  rights: [],
   tokenAddress: "0xToken1",
   checklist: { confirmed: [], unconfirmed: [] },
   dossier: { complete: true, missingKinds: [], documents: [] },

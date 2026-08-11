@@ -10,6 +10,7 @@ const asset = (overrides: Partial<AssetViewDto>): AssetViewDto => ({
   name: "Pilot Real Estate SPV",
   type: "asset_backed",
   state: "proposed",
+  rights: [],
   checklist: { confirmed: [], unconfirmed: ["legal_right_clear"] },
   dossier: { complete: false, missingKinds: ["ownership_evidence"], documents: [] },
   ...overrides,

@@ -102,12 +102,28 @@ export interface InvestorViewDto {
 export type AssetState =
   "proposed" | "in_structuring" | "approved" | "tokenized" | "suspended" | "retired";
 
+export interface RealEstateProfileDto {
+  addressLine: string;
+  city: string;
+  propertyType: string;
+  areaSquareMetres: number;
+  titleReference: string;
+  builtInYear?: number;
+}
+
+export interface ConveyedRightDto {
+  kind: string;
+  note: string;
+}
+
 export interface AssetViewDto {
   id: string;
   name: string;
   type: string;
   state: AssetState;
   tokenAddress?: string;
+  realEstate?: RealEstateProfileDto;
+  rights: ConveyedRightDto[];
   custody?: { custodianName: string; location: string };
   checklist: { confirmed: string[]; unconfirmed: string[] };
   dossier: {
@@ -452,6 +468,13 @@ export interface ApiClient {
     kind: string,
     visible: boolean,
   ): Promise<void>;
+  recordRealEstateProfile(
+    officerToken: string,
+    assetId: string,
+    profile: RealEstateProfileDto,
+  ): Promise<void>;
+  conveyRight(officerToken: string, assetId: string, kind: string, note: string): Promise<void>;
+  withdrawRight(officerToken: string, assetId: string, kind: string): Promise<void>;
   myAssetDocuments(assetId: string): Promise<InvestorDocumentDto[]>;
   tokenizeAsset(
     officerToken: string,
@@ -942,6 +965,23 @@ export const createApiClient = (
     },
     approveAsset: async (officerToken, assetId) => {
       await call(`/assets/${assetId}/approve`, { method: "POST", token: officerToken });
+    },
+    recordRealEstateProfile: async (officerToken, assetId, profile) => {
+      await call(`/assets/${assetId}/real-estate`, {
+        method: "POST",
+        token: officerToken,
+        body: profile,
+      });
+    },
+    conveyRight: async (officerToken, assetId, kind, note) => {
+      await call(`/assets/${assetId}/rights/${kind}`, {
+        method: "POST",
+        token: officerToken,
+        body: { note },
+      });
+    },
+    withdrawRight: async (officerToken, assetId, kind) => {
+      await call(`/assets/${assetId}/rights/${kind}`, { method: "DELETE", token: officerToken });
     },
     setDocumentVisibility: async (officerToken, assetId, kind, visible) => {
       await call(`/assets/${assetId}/documents/${kind}/visibility`, {

@@ -40,6 +40,15 @@ export const AssetDetailPage = ({
   const toast = useToast();
   const [asset, setAsset] = useState<AssetViewDto | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [propertyForm, setPropertyForm] = useState({
+    addressLine: "",
+    city: "",
+    propertyType: "residential",
+    areaSquareMetres: "",
+    titleReference: "",
+    builtInYear: "",
+  });
+  const [rightForm, setRightForm] = useState({ kind: "income", note: "" });
   const [docKind, setDocKind] = useState(DOCUMENT_KINDS[0] ?? "");
   const [docTitle, setDocTitle] = useState("");
   const [custodian, setCustodian] = useState("");
@@ -260,6 +269,213 @@ export const AssetDetailPage = ({
           )}
         </div>
       </Card>
+
+      {/* 3.1: the property this token is issued against, and what it conveys —
+          the platform's central claim, stated where an officer records it. */}
+      <div className="grid-2">
+        <Card title={t.propertyTitle} subtitle={t.propertySubtitle}>
+          <div className="stack">
+            {asset.realEstate ? (
+              <dl className="terms">
+                <div>
+                  <dt>{t.addressLabel}</dt>
+                  <dd>{asset.realEstate.addressLine}</dd>
+                </div>
+                <div>
+                  <dt>{t.cityLabel}</dt>
+                  <dd>{asset.realEstate.city}</dd>
+                </div>
+                <div>
+                  <dt>{t.propertyTypeLabel}</dt>
+                  <dd>{asset.realEstate.propertyType}</dd>
+                </div>
+                <div>
+                  <dt>{t.areaLabel}</dt>
+                  <dd className="num">{asset.realEstate.areaSquareMetres}</dd>
+                </div>
+                <div>
+                  <dt>{t.titleReferenceLabel}</dt>
+                  <dd className="num">{asset.realEstate.titleReference}</dd>
+                </div>
+                {asset.realEstate.builtInYear !== undefined && (
+                  <div>
+                    <dt>{t.builtInYearLabel}</dt>
+                    <dd className="num">{asset.realEstate.builtInYear}</dd>
+                  </div>
+                )}
+              </dl>
+            ) : (
+              <EmptyState icon="▤">{t.noPropertyRecorded}</EmptyState>
+            )}
+
+            {/* Frozen after approval, so the form goes away rather than
+                offering a button the API will refuse. */}
+            {structuring && (
+              <form
+                className="stack"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const area = Number(propertyForm.areaSquareMetres);
+                  const year = propertyForm.builtInYear.trim();
+                  guard(
+                    () =>
+                      api.recordRealEstateProfile(token, asset.id, {
+                        addressLine: propertyForm.addressLine,
+                        city: propertyForm.city,
+                        propertyType: propertyForm.propertyType,
+                        areaSquareMetres: Number.isFinite(area) ? area : 0,
+                        titleReference: propertyForm.titleReference,
+                        ...(year !== "" ? { builtInYear: Number(year) } : {}),
+                      }),
+                    t.propertyRecorded,
+                  );
+                }}
+              >
+                <Field
+                  id="property-address"
+                  label={t.addressLabel}
+                  value={propertyForm.addressLine}
+                  onChange={(e) => {
+                    setPropertyForm({ ...propertyForm, addressLine: e.target.value });
+                  }}
+                />
+                <Field
+                  id="property-city"
+                  label={t.cityLabel}
+                  value={propertyForm.city}
+                  onChange={(e) => {
+                    setPropertyForm({ ...propertyForm, city: e.target.value });
+                  }}
+                />
+                <SelectField
+                  id="property-type"
+                  label={t.propertyTypeLabel}
+                  value={propertyForm.propertyType}
+                  onChange={(e) => {
+                    setPropertyForm({ ...propertyForm, propertyType: e.target.value });
+                  }}
+                >
+                  {["residential", "commercial", "industrial", "land"].map((kind) => (
+                    <option key={kind} value={kind}>
+                      {kind}
+                    </option>
+                  ))}
+                </SelectField>
+                <Field
+                  id="property-area"
+                  label={t.areaLabel}
+                  inputMode="numeric"
+                  value={propertyForm.areaSquareMetres}
+                  onChange={(e) => {
+                    setPropertyForm({ ...propertyForm, areaSquareMetres: e.target.value });
+                  }}
+                />
+                <Field
+                  id="property-title"
+                  label={t.titleReferenceLabel}
+                  value={propertyForm.titleReference}
+                  onChange={(e) => {
+                    setPropertyForm({ ...propertyForm, titleReference: e.target.value });
+                  }}
+                />
+                <Field
+                  id="property-year"
+                  label={t.builtInYearLabel}
+                  inputMode="numeric"
+                  value={propertyForm.builtInYear}
+                  onChange={(e) => {
+                    setPropertyForm({ ...propertyForm, builtInYear: e.target.value });
+                  }}
+                />
+                <div className="row">
+                  <Button type="submit" size="sm">
+                    {t.recordPropertyButton}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </Card>
+
+        <Card title={t.rightsTitle} subtitle={t.rightsSubtitle}>
+          <div className="stack">
+            {asset.rights.length === 0 ? (
+              // Not "conveys nothing" — nobody has established it yet.
+              <EmptyState icon="◇">{t.rightsNotEstablished}</EmptyState>
+            ) : (
+              <ul className="list">
+                {asset.rights.map((right) => (
+                  <li key={right.kind} className="list__row" data-testid={`right-${right.kind}`}>
+                    <span>
+                      <strong>{right.kind}</strong>
+                      <span className="muted"> — {right.note}</span>
+                    </span>
+                    {structuring && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          guard(
+                            () => api.withdrawRight(token, asset.id, right.kind),
+                            t.rightWithdrawn,
+                          );
+                        }}
+                      >
+                        {t.withdrawRightButton}
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {structuring && (
+              <form
+                className="stack"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  guard(
+                    () => api.conveyRight(token, asset.id, rightForm.kind, rightForm.note),
+                    t.rightConveyed,
+                  );
+                }}
+              >
+                <SelectField
+                  id="right-kind"
+                  label={t.rightKindLabel}
+                  value={rightForm.kind}
+                  onChange={(e) => {
+                    setRightForm({ ...rightForm, kind: e.target.value });
+                  }}
+                >
+                  {["income", "disposal_proceeds", "voting", "use", "residual_value"].map(
+                    (kind) => (
+                      <option key={kind} value={kind}>
+                        {kind}
+                      </option>
+                    ),
+                  )}
+                </SelectField>
+                <Field
+                  id="right-note"
+                  label={t.rightNoteLabel}
+                  value={rightForm.note}
+                  onChange={(e) => {
+                    setRightForm({ ...rightForm, note: e.target.value });
+                  }}
+                />
+                <div className="row">
+                  <Button type="submit" size="sm">
+                    {t.conveyRightButton}
+                  </Button>
+                </div>
+              </form>
+            )}
+            <p className="muted text-sm">{t.rightsProvisionalNotice}</p>
+          </div>
+        </Card>
+      </div>
 
       <div className="grid-2">
         <Card title={t.custodyLabel}>

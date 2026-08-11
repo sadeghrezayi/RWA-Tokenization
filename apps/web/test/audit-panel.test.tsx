@@ -10,6 +10,7 @@ const assets: AssetViewDto[] = [
     name: "Vanak Tower SPV",
     type: "asset_backed",
     state: "tokenized",
+    rights: [],
     tokenAddress: "0xTok1",
     checklist: { confirmed: [], unconfirmed: [] },
     dossier: { complete: true, missingKinds: [], documents: [] },

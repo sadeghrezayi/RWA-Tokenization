@@ -172,6 +172,27 @@ export interface Dictionary {
   showToHoldersButton: string;
   hideFromHoldersButton: string;
   disclosureUpdated: string;
+  propertyTitle: string;
+  propertySubtitle: string;
+  noPropertyRecorded: string;
+  addressLabel: string;
+  cityLabel: string;
+  propertyTypeLabel: string;
+  areaLabel: string;
+  titleReferenceLabel: string;
+  builtInYearLabel: string;
+  recordPropertyButton: string;
+  propertyRecorded: string;
+  rightsTitle: string;
+  rightsSubtitle: string;
+  rightsNotEstablished: string;
+  rightKindLabel: string;
+  rightNoteLabel: string;
+  conveyRightButton: string;
+  withdrawRightButton: string;
+  rightConveyed: string;
+  rightWithdrawn: string;
+  rightsProvisionalNotice: string;
   positionDocumentsTitle: string;
   positionDocumentsSubtitle: string;
   positionNoDocuments: string;
@@ -630,6 +651,29 @@ export const dictionaries: Record<Locale, Dictionary> = {
     showToHoldersButton: "Show to holders",
     hideFromHoldersButton: "Hide from holders",
     disclosureUpdated: "Disclosure updated.",
+    propertyTitle: "Property",
+    propertySubtitle: "The building this token is issued against.",
+    noPropertyRecorded: "No property recorded for this asset yet.",
+    addressLabel: "Address",
+    cityLabel: "City",
+    propertyTypeLabel: "Property type",
+    areaLabel: "Area (m²)",
+    titleReferenceLabel: "Title reference",
+    builtInYearLabel: "Built in year",
+    recordPropertyButton: "Record property",
+    propertyRecorded: "Property recorded.",
+    rightsTitle: "What this token conveys",
+    rightsSubtitle: "Each right, in the wording it was granted in.",
+    rightsNotEstablished:
+      "The rights this token conveys have not been established yet — which is not the same as conveying nothing.",
+    rightKindLabel: "Right",
+    rightNoteLabel: "Wording it was granted in",
+    conveyRightButton: "Convey right",
+    withdrawRightButton: "Withdraw",
+    rightConveyed: "Right recorded.",
+    rightWithdrawn: "Right withdrawn.",
+    rightsProvisionalNotice:
+      "This list of rights is provisional and requires local legal validation before anyone relies on it.",
     positionDocumentsTitle: "Documents",
     positionDocumentsSubtitle: "Published by the operator for this asset.",
     positionNoDocuments: "No documents have been published for this asset yet.",

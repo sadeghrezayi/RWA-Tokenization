@@ -13,6 +13,7 @@ const asset = (id: string, name: string, tokenized = true): AssetViewDto => ({
   custody: { custodianName: "Bank", location: "Tehran" },
   checklist: { confirmed: [], unconfirmed: [] },
   dossier: { complete: true, missingKinds: [], documents: [] },
+  rights: [],
 });
 
 const registry: HolderRegistryDto = {

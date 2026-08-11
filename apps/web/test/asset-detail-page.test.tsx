@@ -10,6 +10,7 @@ const structuring: AssetViewDto = {
   name: "Vanak Tower SPV",
   type: "asset_backed",
   state: "in_structuring",
+  rights: [],
   custody: { custodianName: "Melli Custody", location: "Tehran vault 7" },
   checklist: {
     confirmed: ["legal_right_clear"],
@@ -35,6 +36,7 @@ const tokenized: AssetViewDto = {
   name: "Vanak Tower SPV",
   type: "asset_backed",
   state: "tokenized",
+  rights: [],
   tokenAddress: "0x90b9e83e22afa2e6a96b3549a0e495d5bae61af",
   custody: { custodianName: "Melli Custody", location: "Tehran vault 7" },
   checklist: { confirmed: ["legal_right_clear", "transferable"], unconfirmed: [] },
@@ -124,6 +126,7 @@ describe("AssetDetailPage", () => {
       name: tokenized.name,
       type: tokenized.type,
       state: "approved",
+      rights: [],
       checklist: tokenized.checklist,
       dossier: tokenized.dossier,
       ...(tokenized.custody ? { custody: tokenized.custody } : {}),
@@ -219,5 +222,101 @@ describe("AssetDetailPage document disclosure", () => {
     await userEvent.click(await screen.findByRole("button", { name: /show to holders/i }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("no such document");
+  });
+});
+
+// 3.1: the officer's view of what this token is issued against and what it
+// conveys — the platform's central claim, made visible.
+describe("AssetDetailPage property and rights", () => {
+  const withProfile = (): AssetViewDto => ({
+    ...structuring,
+    realEstate: {
+      addressLine: "Plot 14, Vanak Street",
+      city: "Tehran",
+      propertyType: "residential",
+      areaSquareMetres: 240,
+      titleReference: "TR-1990-4471",
+      builtInYear: 1998,
+    },
+    rights: [{ kind: "income", note: "Net rental income, quarterly, clause 7.2" }],
+  });
+
+  it("shows the property a token is issued against", async () => {
+    renderPage(apiWith(withProfile()));
+
+    expect(await screen.findByText("Plot 14, Vanak Street")).toBeTruthy();
+    expect(screen.getByText("TR-1990-4471")).toBeTruthy();
+  });
+
+  it("says no property is recorded rather than showing an empty box", async () => {
+    renderPage(apiWith(structuring));
+
+    expect(await screen.findByText(/no property recorded/i)).toBeTruthy();
+  });
+
+  it("records a property from the form", async () => {
+    const recordRealEstateProfile = vi.fn().mockResolvedValue(undefined);
+    renderPage(apiWith(structuring, { recordRealEstateProfile }));
+
+    await userEvent.type(await screen.findByLabelText("Address"), "Plot 14");
+    await userEvent.type(screen.getByLabelText("City"), "Tehran");
+    await userEvent.type(screen.getByLabelText(/^Area/), "240");
+    await userEvent.type(screen.getByLabelText("Title reference"), "TR-1");
+    await userEvent.click(screen.getByRole("button", { name: /record property/i }));
+
+    await waitFor(() => {
+      expect(recordRealEstateProfile).toHaveBeenCalledWith(
+        "tok",
+        "asset-1",
+        expect.objectContaining({ addressLine: "Plot 14", city: "Tehran", titleReference: "TR-1" }),
+      );
+    });
+  });
+
+  it("lists what the token conveys, with the wording it was granted in", async () => {
+    renderPage(apiWith(withProfile()));
+
+    expect(await screen.findByText(/Net rental income, quarterly, clause 7.2/)).toBeTruthy();
+  });
+
+  it("distinguishes rights not yet established from a token that conveys nothing", async () => {
+    // The whole point of the empty state: silence is not a grant, and it is
+    // also not a refusal.
+    renderPage(apiWith(structuring));
+
+    expect(await screen.findByText(/not been established/i)).toBeTruthy();
+  });
+
+  it("conveys a right with its wording", async () => {
+    const conveyRight = vi.fn().mockResolvedValue(undefined);
+    renderPage(apiWith(structuring, { conveyRight }));
+
+    await userEvent.type(await screen.findByLabelText(/wording/i), "clause 7.2");
+    await userEvent.click(screen.getByRole("button", { name: /convey right/i }));
+
+    await waitFor(() => {
+      expect(conveyRight).toHaveBeenCalledWith("tok", "asset-1", "income", "clause 7.2");
+    });
+  });
+
+  it("withdraws a conveyed right", async () => {
+    const withdrawRight = vi.fn().mockResolvedValue(undefined);
+    renderPage(apiWith(withProfile(), { withdrawRight }));
+
+    await userEvent.click(await screen.findByRole("button", { name: /withdraw/i }));
+
+    await waitFor(() => {
+      expect(withdrawRight).toHaveBeenCalledWith("tok", "asset-1", "income");
+    });
+  });
+
+  it("offers no controls once the asset is approved", async () => {
+    // The API refuses after approval, so a button here would be a lie.
+    renderPage(apiWith({ ...withProfile(), state: "tokenized" }));
+
+    expect(await screen.findByText("Plot 14, Vanak Street")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /record property/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /convey right/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /withdraw/i })).toBeNull();
   });
 });
