@@ -107,8 +107,17 @@ const apiLogTail = (): string => {
   const path = process.env.API_LOG_PATH;
   if (path === undefined || path === "") return "";
   try {
-    const lines = readFileSync(path, "utf8").trimEnd().split("\n");
-    return `\n--- ${path} (last 40 lines) ---\n${lines.slice(-40).join("\n")}`;
+    // ERROR lines only, and few of them. A raw tail is mostly Nest's startup
+    // banner, and the annotation that carries this gets truncated — which is
+    // how an earlier attempt at this diagnostic showed nothing but route
+    // registrations and no fault at all.
+    const failures = readFileSync(path, "utf8")
+      .split("\n")
+      .filter((line) => /\bERROR\b|\bFATAL\b/.test(line))
+      .slice(-6);
+    return failures.length === 0
+      ? `\n(no ERROR lines in ${path})`
+      : `\n--- ${path} errors ---\n${failures.join("\n")}`;
   } catch {
     return `\n(could not read ${path})`;
   }
