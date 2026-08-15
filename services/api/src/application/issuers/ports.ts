@@ -13,3 +13,12 @@ export interface IssuerRepository {
   membersOf(organisationId: string): Promise<IssuerMembership[]>;
   membershipsFor(userId: string): Promise<IssuerMembership[]>;
 }
+
+// Answers "has this person completed individual verification?".
+//
+// A port rather than a direct lookup because an issuer's people are Users while
+// individual KYC currently lives on the Investor record — the adapter has real
+// work behind it, and these use cases must not care how it is resolved.
+export interface PersonVerification {
+  isVerified(userId: string): Promise<boolean>;
+}
