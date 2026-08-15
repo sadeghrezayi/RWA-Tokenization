@@ -47,6 +47,8 @@ model Tenant {
   onboardingAnswers      OnboardingAnswer[]
   fundingRequests        FundingRequest[]
   assetRights            AssetRight[]
+  issuerOrganisations    IssuerOrganisation[]
+  issuerMemberships      IssuerMembership[]
 
   @@map("tenants")
 }
@@ -676,4 +678,45 @@ model FundingRequest {
   @@index([tenantId, status])
   @@index([tenantId, investorId])
   @@map("funding_requests")
+}
+
+// 3.2: the legal entity that brings assets to the platform. It applies, a
+// person reviews it, and only then may it do anything — the default is never
+// "allowed to raise money from the public".
+model IssuerOrganisation {
+  id                 String             @id
+  tenantId           String             @default("default") @map("tenant_id")
+  tenant             Tenant             @relation(fields: [tenantId], references: [id])
+  legalName          String             @map("legal_name")
+  registrationNumber String             @map("registration_number")
+  contactEmail       String             @map("contact_email")
+  state              String
+  appliedAt          DateTime           @map("applied_at")
+  decidedAt          DateTime?          @map("decided_at")
+  decidedBy          String?            @map("decided_by")
+  rejectionReason    String?            @map("rejection_reason")
+  members            IssuerMembership[]
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("issuer_organisations")
+}
+
+// A person acting for an organisation. One row per person per organisation:
+// adding someone again changes their role rather than listing them twice.
+model IssuerMembership {
+  id             String             @id @default(uuid())
+  tenantId       String             @default("default") @map("tenant_id")
+  tenant         Tenant             @relation(fields: [tenantId], references: [id])
+  organisationId String             @map("organisation_id")
+  organisation   IssuerOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  userId         String             @map("user_id")
+  role           String
+  addedAt        DateTime           @map("added_at")
+
+  @@unique([organisationId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("issuer_memberships")
 }

@@ -1,0 +1,15 @@
+import type { IssuerMembership } from "../../domain/issuers/issuer-membership.js";
+import type { IssuerOrganisation } from "../../domain/issuers/issuer-organisation.js";
+
+export interface IssuerRepository {
+  findById(id: string): Promise<IssuerOrganisation | undefined>;
+  findAll(): Promise<IssuerOrganisation[]>;
+  save(organisation: IssuerOrganisation): Promise<void>;
+
+  // Membership is stored with the organisation but read on its own: the common
+  // question at request time is "which organisation is this user acting for?"
+  addMember(membership: IssuerMembership): Promise<void>;
+  removeMember(organisationId: string, userId: string): Promise<void>;
+  membersOf(organisationId: string): Promise<IssuerMembership[]>;
+  membershipsFor(userId: string): Promise<IssuerMembership[]>;
+}
