@@ -9,6 +9,9 @@ import {
   tenantScopedPrisma,
 } from "../../src/infrastructure/tenancy/tenant-scoped-prisma.js";
 import { PrismaAssetRepository } from "../../src/infrastructure/persistence/prisma-asset-repository.js";
+import { PrismaIssuerRepository } from "../../src/infrastructure/persistence/prisma-issuer-repository.js";
+import { IssuerMembership } from "../../src/domain/issuers/issuer-membership.js";
+import { IssuerOrganisation } from "../../src/domain/issuers/issuer-organisation.js";
 import { Asset } from "../../src/domain/assets/asset.js";
 import { LegalDossier } from "../../src/domain/assets/legal-dossier.js";
 import { OnboardingChecklist } from "../../src/domain/assets/onboarding-checklist.js";
@@ -33,12 +36,20 @@ describe("Tenant isolation (integration, real Postgres)", () => {
     });
   });
 
-  beforeEach(async () => {
-    await raw.asset.deleteMany({ where: { tenantId: { in: [A, B] } } });
-  });
+  // Cleanup keys on the "iso-" id prefix, NOT on tenant: a test that
+  // deliberately mis-wires the scoped client writes rows under the DEFAULT
+  // tenant, and a tenant-keyed cleanup leaves them behind to poison the next
+  // run. Learned the hard way.
+  const clearFixtures = async () => {
+    await raw.issuerMembership.deleteMany({ where: { organisationId: { startsWith: "iso-" } } });
+    await raw.issuerOrganisation.deleteMany({ where: { id: { startsWith: "iso-" } } });
+    await raw.asset.deleteMany({ where: { id: { startsWith: "iso-" } } });
+  };
+
+  beforeEach(clearFixtures);
 
   afterAll(async () => {
-    await raw.asset.deleteMany({ where: { tenantId: { in: [A, B] } } });
+    await clearFixtures();
     await raw.tenant.deleteMany({ where: { id: { in: [A, B] } } });
     await raw.$disconnect();
   });
@@ -128,5 +139,59 @@ describe("Tenant isolation (integration, real Postgres)", () => {
   it("leaves_the_tenant_model_itself_unscoped", async () => {
     const tenants = await scoped.tenant.findMany({ where: { id: { in: [A, B] } } });
     expect(tenants).toHaveLength(2);
+  });
+
+  // 3.2: issuer organisations carry tenant_id like everything else, and the
+  // repository must be isolated by the same construction — an organisation is
+  // who may raise money here, so leaking one across tenants is severe.
+  it("keeps_issuer_organisations_isolated_through_the_repository", async () => {
+    const repo = new PrismaIssuerRepository(scoped);
+    const organisation = IssuerOrganisation.apply({
+      id: "iso-org-1",
+      legalName: "A-owned Holdings",
+      registrationNumber: "REG-A",
+      contactEmail: "a@example.test",
+      appliedAt: new Date("2026-08-01T00:00:00Z"),
+    });
+
+    await inTenant(A, () => repo.save(organisation));
+
+    expect((await raw.issuerOrganisation.findFirst({ where: { id: "iso-org-1" } }))?.tenantId).toBe(
+      A,
+    );
+    expect(await inTenant(B, () => repo.findById("iso-org-1"))).toBeUndefined();
+    expect(await inTenant(B, () => repo.findAll())).toEqual([]);
+    expect(await inTenant(A, () => repo.findAll())).toHaveLength(1);
+  });
+
+  it("keeps_issuer_memberships_isolated_through_the_repository", async () => {
+    // Membership answers "which organisation is this user acting for?" — the
+    // question asked on every issuer request, so it must never cross tenants.
+    const repo = new PrismaIssuerRepository(scoped);
+    await inTenant(A, () =>
+      repo.save(
+        IssuerOrganisation.apply({
+          id: "iso-org-2",
+          legalName: "A-owned Holdings",
+          registrationNumber: "REG-A2",
+          contactEmail: "a2@example.test",
+          appliedAt: new Date("2026-08-01T00:00:00Z"),
+        }),
+      ),
+    );
+    await inTenant(A, () =>
+      repo.addMember(
+        IssuerMembership.of({
+          organisationId: "iso-org-2",
+          userId: "iso-user-1",
+          role: "issuer_admin",
+          addedAt: new Date("2026-08-01T00:00:00Z"),
+        }),
+      ),
+    );
+
+    expect(await inTenant(A, () => repo.membershipsFor("iso-user-1"))).toHaveLength(1);
+    expect(await inTenant(B, () => repo.membershipsFor("iso-user-1"))).toEqual([]);
+    expect(await inTenant(B, () => repo.membersOf("iso-org-2"))).toEqual([]);
   });
 });
