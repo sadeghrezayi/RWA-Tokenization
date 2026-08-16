@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { AddTeamMember } from "../../../src/application/issuers/add-team-member.js";
 import { ApplyAsIssuer } from "../../../src/application/issuers/apply-as-issuer.js";
 import { DecideIssuerApplication } from "../../../src/application/issuers/decide-issuer-application.js";
-import { PersonNotVerifiedError } from "../../../src/application/issuers/errors.js";
+import { RemoveTeamMember } from "../../../src/application/issuers/remove-team-member.js";
+import {
+  LastIssuerAdminError,
+  PersonNotFoundError,
+  PersonNotVerifiedError,
+} from "../../../src/application/issuers/errors.js";
+import type { IssuerRole } from "../../../src/domain/issuers/issuer-membership.js";
 import { InMemoryIssuerRepository } from "../../fakes/issuer-fakes.js";
 
 const NOW = new Date("2026-08-15T10:00:00Z");
@@ -25,22 +31,37 @@ const verification = {
   isVerified: (userId: string) => Promise.resolve(verified.has(userId)),
 };
 
+// People are known to each other by email, never by UUID. Matching is on the
+// normalized address, as the real directory does through EmailAddress.
+const people = new Map<string, string>();
+const directory = {
+  findIdByEmail: (email: string) => Promise.resolve(people.get(email.trim().toLowerCase())),
+  emailOf: (userId: string) => Promise.resolve([...people].find(([, id]) => id === userId)?.[0]),
+};
+
 let issuers: InMemoryIssuerRepository;
 let apply: ApplyAsIssuer;
 let decide: DecideIssuerApplication;
 let addMember: AddTeamMember;
+let removeMember: RemoveTeamMember;
 
 beforeEach(() => {
   issuers = new InMemoryIssuerRepository();
   verified.clear();
-  apply = new ApplyAsIssuer(issuers, ids, clock);
+  people.clear();
+  people.set("founder@vanak.example", "user-founder");
+  people.set("colleague@vanak.example", "user-colleague");
+  verified.add("user-founder");
+  apply = new ApplyAsIssuer(issuers, verification, ids, clock);
   decide = new DecideIssuerApplication(issuers, clock);
-  addMember = new AddTeamMember(issuers, verification, clock);
+  addMember = new AddTeamMember(issuers, directory, verification, clock);
+  removeMember = new RemoveTeamMember(issuers);
 });
 
-const applied = async () =>
+const applied = async (applicantUserId = "user-founder") =>
   (
     await apply.execute({
+      applicantUserId,
       legalName: "Vanak Property Holdings PJSC",
       registrationNumber: "IR-448120",
       contactEmail: "ops@vanak.example",
@@ -54,6 +75,26 @@ describe("ApplyAsIssuer", () => {
     const organisation = await issuers.findById(id);
     expect(organisation?.state).toBe("applied");
     expect(organisation?.canSubmitAssets()).toBe(false);
+  });
+
+  // The person who applies is the first person acting for the organisation, so
+  // they are its administrator. Otherwise an approved issuer would have nobody
+  // able to staff it but the platform.
+  it("makes the applicant the organisation's administrator", async () => {
+    const id = await applied();
+
+    const members = await issuers.membersOf(id);
+    expect(members).toHaveLength(1);
+    expect(members[0]?.userId).toBe("user-founder");
+    expect(members[0]?.canManageTeam()).toBe(true);
+  });
+
+  it("refuses an applicant who has not been individually verified", async () => {
+    // The company is verified by the platform's review; the person applying for
+    // it is not exempt from verifying themselves.
+    await expect(applied("user-colleague")).rejects.toThrow(PersonNotVerifiedError);
+
+    expect(await issuers.findAll()).toEqual([]);
   });
 });
 
@@ -96,40 +137,141 @@ describe("AddTeamMember", () => {
     const id = await applied();
 
     await expect(
-      addMember.execute({ organisationId: id, userId: "user-1", role: "issuer_admin" }),
+      addMember.execute({
+        organisationId: id,
+        email: "colleague@vanak.example",
+        role: "issuer_contributor",
+      }),
     ).rejects.toThrow(PersonNotVerifiedError);
 
-    expect(await issuers.membersOf(id)).toEqual([]);
+    expect(await issuers.membersOf(id)).toHaveLength(1);
   });
 
   it("adds a verified person in the role given", async () => {
     const id = await applied();
-    verified.add("user-1");
+    verified.add("user-colleague");
 
-    await addMember.execute({ organisationId: id, userId: "user-1", role: "issuer_admin" });
+    await addMember.execute({
+      organisationId: id,
+      email: "colleague@vanak.example",
+      role: "issuer_contributor",
+    });
 
-    const members = await issuers.membersOf(id);
-    expect(members).toHaveLength(1);
-    expect(members[0]?.canManageTeam()).toBe(true);
+    const added = (await issuers.membersOf(id)).find((m) => m.userId === "user-colleague");
+    expect(added?.role).toBe("issuer_contributor");
+    expect(added?.canManageTeam()).toBe(false);
+  });
+
+  it("finds the person however their address was typed", async () => {
+    const id = await applied();
+    verified.add("user-colleague");
+
+    await addMember.execute({
+      organisationId: id,
+      email: "  Colleague@Vanak.example  ",
+      role: "issuer_contributor",
+    });
+
+    expect((await issuers.membersOf(id)).map((m) => m.userId)).toContain("user-colleague");
   });
 
   it("changes an existing member's role rather than adding them twice", async () => {
     const id = await applied();
-    verified.add("user-1");
+    verified.add("user-colleague");
 
-    await addMember.execute({ organisationId: id, userId: "user-1", role: "issuer_contributor" });
-    await addMember.execute({ organisationId: id, userId: "user-1", role: "issuer_admin" });
+    await addMember.execute({
+      organisationId: id,
+      email: "colleague@vanak.example",
+      role: "issuer_contributor",
+    });
+    await addMember.execute({
+      organisationId: id,
+      email: "colleague@vanak.example",
+      role: "issuer_admin",
+    });
 
     const members = await issuers.membersOf(id);
-    expect(members).toHaveLength(1);
-    expect(members[0]?.role).toBe("issuer_admin");
+    expect(members).toHaveLength(2);
+    expect(members.find((m) => m.userId === "user-colleague")?.role).toBe("issuer_admin");
+  });
+
+  it("says plainly when nobody on the platform has that address", async () => {
+    // An admin inviting a colleague who has not registered needs to be told
+    // that, not handed a silent failure or a blank 500.
+    const id = await applied();
+
+    await expect(
+      addMember.execute({
+        organisationId: id,
+        email: "stranger@elsewhere.example",
+        role: "issuer_contributor",
+      }),
+    ).rejects.toThrow(PersonNotFoundError);
   });
 
   it("refuses to staff an organisation that does not exist", async () => {
-    verified.add("user-1");
+    verified.add("user-colleague");
 
     await expect(
-      addMember.execute({ organisationId: "ghost", userId: "user-1", role: "issuer_admin" }),
+      addMember.execute({
+        organisationId: "ghost",
+        email: "colleague@vanak.example",
+        role: "issuer_admin",
+      }),
+    ).rejects.toThrow();
+  });
+});
+
+describe("RemoveTeamMember", () => {
+  const invite = async (organisationId: string, role: IssuerRole = "issuer_contributor") => {
+    verified.add("user-colleague");
+    await addMember.execute({ organisationId, email: "colleague@vanak.example", role });
+  };
+
+  it("takes someone off the team when they leave the company", async () => {
+    // Granting without revoking would leave a departed colleague acting for the
+    // issuer forever.
+    const id = await applied();
+    await invite(id);
+
+    await removeMember.execute({ organisationId: id, userId: "user-colleague" });
+
+    expect((await issuers.membersOf(id)).map((m) => m.userId)).toEqual(["user-founder"]);
+  });
+
+  it("refuses to remove the last administrator", async () => {
+    // An organisation with no admin can never staff itself again — only the
+    // platform could, which is exactly the dependency admins exist to avoid.
+    const id = await applied();
+    await invite(id);
+
+    await expect(
+      removeMember.execute({ organisationId: id, userId: "user-founder" }),
+    ).rejects.toThrow(LastIssuerAdminError);
+
+    expect(await issuers.membersOf(id)).toHaveLength(2);
+  });
+
+  it("removes an administrator once another one remains", async () => {
+    const id = await applied();
+    await invite(id, "issuer_admin");
+
+    await removeMember.execute({ organisationId: id, userId: "user-founder" });
+
+    expect((await issuers.membersOf(id)).map((m) => m.userId)).toEqual(["user-colleague"]);
+  });
+
+  it("is content when the person is already gone", async () => {
+    const id = await applied();
+
+    await expect(
+      removeMember.execute({ organisationId: id, userId: "user-nobody" }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("refuses to touch an organisation that does not exist", async () => {
+    await expect(
+      removeMember.execute({ organisationId: "ghost", userId: "user-colleague" }),
     ).rejects.toThrow();
   });
 });

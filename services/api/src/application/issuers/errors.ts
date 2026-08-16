@@ -13,3 +13,34 @@ export class PersonNotVerifiedError extends ApplicationError {
     super(`"${userId}" has not completed individual verification`);
   }
 }
+
+// Colleagues are invited by email. When nobody holds that address, say so —
+// the admin's next move is to ask them to register, and a silent failure or a
+// blank 500 would tell them nothing.
+export class PersonNotFoundError extends ApplicationError {
+  constructor(email: string) {
+    super(`no platform account is registered to "${email}"`);
+  }
+}
+
+// Resource-level authorization: acting for an issuer is membership, which no
+// platform-wide permission can express.
+export class NotIssuerTeamMemberError extends ApplicationError {
+  constructor(userId: string, organisationId: string) {
+    super(`"${userId}" does not act for issuer organisation "${organisationId}"`);
+  }
+}
+
+// An organisation must keep at least one administrator, or it can never staff
+// itself again.
+export class LastIssuerAdminError extends ApplicationError {
+  constructor(organisationId: string) {
+    super(`issuer organisation "${organisationId}" must keep at least one administrator`);
+  }
+}
+
+export class NotIssuerAdminError extends ApplicationError {
+  constructor(userId: string, organisationId: string) {
+    super(`"${userId}" is not an administrator of issuer organisation "${organisationId}"`);
+  }
+}

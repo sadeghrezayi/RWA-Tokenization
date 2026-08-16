@@ -107,6 +107,19 @@ import {
   OnboardingIncompleteError,
 } from "../../domain/onboarding/errors.js";
 import {
+  IssuerOrganisationNotFoundError,
+  LastIssuerAdminError,
+  NotIssuerAdminError,
+  NotIssuerTeamMemberError,
+  PersonNotFoundError,
+  PersonNotVerifiedError,
+} from "../../application/issuers/errors.js";
+import {
+  InvalidIssuerMembershipError,
+  InvalidIssuerOrganisationError,
+  InvalidIssuerTransitionError,
+} from "../../domain/issuers/errors.js";
+import {
   EvidenceNotFoundError,
   EvidenceTooLargeError,
   InvalidStepAnswersError,
@@ -272,5 +285,20 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidFundingAmountError) return 400;
   if (exception instanceof InvalidFundingReferenceError) return 400;
   if (exception instanceof MissingRejectionReasonError) return 400;
+  // 3.2 issuers. An unverified person is refused (403) rather than told the
+  // organisation does not exist; an invitation to an address nobody holds is a
+  // 404 the inviter can act on; acting for an issuer you are not part of, or
+  // outranking your role in it, is 403.
+  if (exception instanceof IssuerOrganisationNotFoundError) return 404;
+  if (exception instanceof PersonNotVerifiedError) return 403;
+  if (exception instanceof PersonNotFoundError) return 404;
+  if (exception instanceof NotIssuerTeamMemberError) return 403;
+  if (exception instanceof NotIssuerAdminError) return 403;
+  // Removing the last administrator conflicts with the organisation's state,
+  // not with the caller's rights.
+  if (exception instanceof LastIssuerAdminError) return 409;
+  if (exception instanceof InvalidIssuerTransitionError) return 409;
+  if (exception instanceof InvalidIssuerOrganisationError) return 400;
+  if (exception instanceof InvalidIssuerMembershipError) return 400;
   return 500;
 };

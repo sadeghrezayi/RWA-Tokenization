@@ -18,6 +18,8 @@ export const PERMISSIONS = {
   CRM_MANAGE: "crm.manage",
   REPORTING_READ: "reporting.read",
   APPROVAL_DECIDE: "approval.decide",
+  // 3.2: reviewing issuer organisations and staffing their teams.
+  ISSUER_MANAGE: "issuer.manage",
   MFA_SELF: "mfa.self",
   INVESTOR_PORTAL: "investor.portal",
 } as const;
@@ -61,12 +63,16 @@ const ALL_STAFF_PERMISSIONS: readonly Permission[] = [
   PERMISSIONS.CRM_MANAGE,
   PERMISSIONS.REPORTING_READ,
   PERMISSIONS.APPROVAL_DECIDE,
+  PERMISSIONS.ISSUER_MANAGE,
   PERMISSIONS.MFA_SELF,
 ];
 
 export const ROLE_PERMISSIONS: Record<RoleName, ReadonlySet<Permission>> = {
   super_admin: new Set(ALL_STAFF_PERMISSIONS),
   platform_operator: new Set(ALL_STAFF_PERMISSIONS),
+  // Vetting the entity behind an issuer application is the same discipline as
+  // vetting a person's KYC, so it sits with compliance rather than with a role
+  // that only moves money.
   compliance_analyst: new Set([
     PERMISSIONS.KYC_REVIEW,
     PERMISSIONS.INVESTOR_READ,
@@ -74,6 +80,7 @@ export const ROLE_PERMISSIONS: Record<RoleName, ReadonlySet<Permission>> = {
     PERMISSIONS.REGISTRY_READ,
     PERMISSIONS.REPORTING_READ,
     PERMISSIONS.AUDIT_READ,
+    PERMISSIONS.ISSUER_MANAGE,
     PERMISSIONS.MFA_SELF,
   ]),
   // Maker for money movements — can request a credit but not approve it.

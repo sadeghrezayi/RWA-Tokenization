@@ -22,3 +22,14 @@ export interface IssuerRepository {
 export interface PersonVerification {
   isVerified(userId: string): Promise<boolean>;
 }
+
+// Who a person is, for the two directions an issuer team needs: inviting a
+// colleague (address → person) and reading a team back (person → address).
+// Deliberately separate from the verification gate above — widening a lookup
+// must never be able to widen the gate.
+export interface PersonDirectory {
+  // Matches the normalized address, so an invitation works however the sender
+  // capitalized or padded what they typed.
+  findIdByEmail(email: string): Promise<string | undefined>;
+  emailOf(userId: string): Promise<string | undefined>;
+}

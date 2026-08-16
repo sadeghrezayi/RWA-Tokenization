@@ -88,11 +88,14 @@ describe("authorization", () => {
       P.CRM_MANAGE,
       P.REPORTING_READ,
       P.APPROVAL_DECIDE,
+      P.ISSUER_MANAGE,
       P.MFA_SELF,
     ]);
     const matrix: Record<string, Set<string>> = {
       super_admin: allStaff,
       platform_operator: allStaff,
+      // 3.2: reviewing the entity behind an issuer application is the same
+      // discipline as reviewing a person's KYC, so it sits with compliance.
       compliance_analyst: new Set([
         P.KYC_REVIEW,
         P.INVESTOR_READ,
@@ -100,6 +103,7 @@ describe("authorization", () => {
         P.REGISTRY_READ,
         P.REPORTING_READ,
         P.AUDIT_READ,
+        P.ISSUER_MANAGE,
         P.MFA_SELF,
       ]),
       treasury: new Set([

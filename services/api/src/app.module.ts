@@ -114,6 +114,21 @@ import { PublicController } from "./infrastructure/http/public.controller.js";
 import { OnboardingController } from "./infrastructure/http/onboarding.controller.js";
 import { PortfolioController } from "./infrastructure/http/portfolio.controller.js";
 import { FundingController } from "./infrastructure/http/funding.controller.js";
+import { IssuersController } from "./infrastructure/http/issuers.controller.js";
+import { PrismaIssuerRepository } from "./infrastructure/persistence/prisma-issuer-repository.js";
+import type {
+  IssuerRepository,
+  PersonDirectory,
+  PersonVerification,
+} from "./application/issuers/ports.js";
+import { ApplyAsIssuer } from "./application/issuers/apply-as-issuer.js";
+import { DecideIssuerApplication } from "./application/issuers/decide-issuer-application.js";
+import { AddTeamMember } from "./application/issuers/add-team-member.js";
+import { RemoveTeamMember } from "./application/issuers/remove-team-member.js";
+import { IssuerTeamAccess } from "./application/issuers/issuer-team-access.js";
+import { ListIssuerTeam, ListIssuers } from "./application/issuers/issuer-views.js";
+import { InvestorPersonVerification } from "./application/issuers/investor-person-verification.js";
+import { InvestorPersonDirectory } from "./application/issuers/investor-person-directory.js";
 import { PrismaFundingRepository } from "./infrastructure/persistence/prisma-funding-repository.js";
 import type { FundingRepository, PaymentInstructions } from "./application/funding/ports.js";
 import { RequestFunding } from "./application/funding/request-funding.js";
@@ -348,6 +363,9 @@ export const INVESTOR_CHAIN_DIRECTORY = "INVESTOR_CHAIN_DIRECTORY";
 export const CRM_PROFILE_REPOSITORY = "CRM_PROFILE_REPOSITORY";
 export const CRM_NOTE_REPOSITORY = "CRM_NOTE_REPOSITORY";
 export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
+export const ISSUER_REPOSITORY = "ISSUER_REPOSITORY";
+export const PERSON_VERIFICATION = "PERSON_VERIFICATION";
+export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
 
 // Composition root: the only place where ports meet their adapters (see
 // docs/engineering/architecture.md). Use-cases stay framework-free — they are
@@ -371,6 +389,7 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
     OnboardingController,
     PortfolioController,
     FundingController,
+    IssuersController,
   ],
   providers: [
     PrismaService,
@@ -1727,6 +1746,76 @@ export const FOLLOW_UP_REPOSITORY = "FOLLOW_UP_REPOSITORY";
         GetInvestorTimeline,
         CLOCK,
       ],
+    },
+    {
+      // 3.2: issuer organisations and their people.
+      provide: ISSUER_REPOSITORY,
+      useFactory: (prisma: PrismaService) => new PrismaIssuerRepository(prisma),
+      inject: [SCOPED_PRISMA],
+    },
+    {
+      // THE GATE (user decision 2026-08-15). This binding is what makes "every
+      // person acting for an issuer is individually verified" true at runtime:
+      // point it at anything permissive and the rule silently evaporates, which
+      // is why the e2e suite asserts the refusal through the HTTP API and not
+      // only against this use case.
+      provide: PERSON_VERIFICATION,
+      useFactory: (investors: InvestorRepository): PersonVerification =>
+        new InvestorPersonVerification(investors),
+      inject: [INVESTOR_REPOSITORY],
+    },
+    {
+      provide: PERSON_DIRECTORY,
+      useFactory: (investors: InvestorRepository): PersonDirectory =>
+        new InvestorPersonDirectory(investors),
+      inject: [INVESTOR_REPOSITORY],
+    },
+    {
+      provide: ApplyAsIssuer,
+      useFactory: (
+        issuers: IssuerRepository,
+        verification: PersonVerification,
+        ids: IdGenerator,
+        clock: Clock,
+      ) => new ApplyAsIssuer(issuers, verification, ids, clock),
+      inject: [ISSUER_REPOSITORY, PERSON_VERIFICATION, ID_GENERATOR, CLOCK],
+    },
+    {
+      provide: DecideIssuerApplication,
+      useFactory: (issuers: IssuerRepository, clock: Clock) =>
+        new DecideIssuerApplication(issuers, clock),
+      inject: [ISSUER_REPOSITORY, CLOCK],
+    },
+    {
+      provide: AddTeamMember,
+      useFactory: (
+        issuers: IssuerRepository,
+        people: PersonDirectory,
+        verification: PersonVerification,
+        clock: Clock,
+      ) => new AddTeamMember(issuers, people, verification, clock),
+      inject: [ISSUER_REPOSITORY, PERSON_DIRECTORY, PERSON_VERIFICATION, CLOCK],
+    },
+    {
+      provide: RemoveTeamMember,
+      useFactory: (issuers: IssuerRepository) => new RemoveTeamMember(issuers),
+      inject: [ISSUER_REPOSITORY],
+    },
+    {
+      provide: ListIssuers,
+      useFactory: (issuers: IssuerRepository) => new ListIssuers(issuers),
+      inject: [ISSUER_REPOSITORY],
+    },
+    {
+      provide: ListIssuerTeam,
+      useFactory: (issuers: IssuerRepository, people: PersonDirectory) =>
+        new ListIssuerTeam(issuers, people),
+      inject: [ISSUER_REPOSITORY, PERSON_DIRECTORY],
+    },
+    {
+      provide: IssuerTeamAccess,
+      useFactory: (issuers: IssuerRepository) => new IssuerTeamAccess(issuers),
+      inject: [ISSUER_REPOSITORY],
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     // CSRF runs after AuthGuard (guard order follows provider order) so it can
