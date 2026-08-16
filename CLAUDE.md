@@ -72,22 +72,41 @@ but locking in or deviating requires user confirmation. Details and rationale in
 
 ---
 
-## 5. Repository structure (current — governance foundation only)
+## 5. Repository structure (current)
 
 ```
-tokenization-platform/
+RWA-Tokenization/
 ├── CLAUDE.md                  # this file (how we build)
-├── .claude/
-│   ├── core-invariants.md     # canonical non-negotiables (re-injected on compaction)
-│   ├── settings.json          # hook wiring (enforcing + advisory)
-│   └── hooks/                 # hook scripts (see §7)
-└── docs/
-    ├── product-requirements.md# product requirements (source of truth for the product)
-    └── engineering/           # architecture, principles, tdd, tech-stack, glossary
+├── TEST_SCENARIOS.md          # narrated manual demo script
+├── docker-compose.yml         # Postgres (host :5433) + IPFS kubo (:5001)
+├── .claude/                   # core-invariants.md, settings.json, hooks/, launch.json
+├── .github/workflows/ci.yml   # the full verification battery
+├── docs/
+│   ├── product-requirements.md    # source of truth for the product
+│   ├── implementation-roadmap.md  # phases 0–8
+│   ├── open-product-decisions.md  # APPEND-ONLY decision log + OD-1…OD-23
+│   ├── engineering/               # architecture, principles, tdd, tech-stack, glossary
+│   └── handoff/                   # continuity package — see §5a
+├── services/api/              # NestJS + Prisma. domain/ → application/ → infrastructure/
+│                              #   app.module.ts is the ONLY composition root
+├── apps/web/                  # Next.js 15 App Router: (public), (portal), admin
+└── contracts/                 # Foundry: AttestationRegistry.sol, TrexSuiteLib.sol, Deploy.s.sol
 ```
 
-Application code (monorepo: `apps/`, `services/`, `contracts/`, `packages/`) is **not yet
-scaffolded** — that is the next reviewed step, intentionally deferred.
+There is no `packages/` directory. Ports: API 3001, web 3000, Postgres 5433, IPFS 5001, anvil 8545.
+
+### 5a. Handoff package — read this before starting work in a new session
+
+[`docs/handoff/`](docs/handoff/) is the continuity package. Start with
+[`HANDOFF_INDEX.md`](docs/handoff/HANDOFF_INDEX.md), and if you are an AI assistant follow
+[`CONTINUATION_INSTRUCTIONS_FOR_CLAUDE.md`](docs/handoff/CONTINUATION_INSTRUCTIONS_FOR_CLAUDE.md)
+**before modifying code**. It carries the architecture as built, an honest feature-status
+inventory, the decision history (including rejected approaches), the backlog, known issues and
+traps, the runbook, and a machine-readable `project_state.json`.
+
+**When a material decision or status change happens, update that package** —
+`IMPLEMENTATION_STATUS.md`, `CURRENT_BACKLOG.md`, `KNOWN_ISSUES.md`, `project_state.json` — and
+append to `docs/open-product-decisions.md`.
 
 ---
 

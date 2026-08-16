@@ -1,0 +1,371 @@
+{
+  "handoff_version": "1.0.0",
+  "generated_at": "2026-08-16T07:09:00Z",
+  "project": {
+    "name": "Tokenization Platform",
+    "repository_name": "RWA-Tokenization",
+    "purpose": "Self-hosted, permissioned, closed-loop real-world-asset tokenization platform, real-estate first, settling in Iranian Rial on an internal ledger",
+    "deployment_model": "self-hosted, permissioned, closed-loop, domestic settlement",
+    "settlement_currency": "IRR (integer minor units, internal ledger)",
+    "regulatory_posture": "asserts no compliance; jurisdiction rules are configuration marked REQUIRES LOCAL LEGAL VALIDATION",
+    "default_language": "en",
+    "sources_of_truth": {
+      "product": "docs/product-requirements.md",
+      "process": "CLAUDE.md",
+      "invariants": ".claude/core-invariants.md",
+      "decisions": "docs/open-product-decisions.md",
+      "roadmap": "docs/implementation-roadmap.md"
+    }
+  },
+  "repository": {
+    "root": "/Users/sadeghrezayi/Projects/RWA-Tokenization",
+    "branch": "main",
+    "commit": "e26f60f80e4d97040d160411fd74017f13d6b2ed",
+    "working_tree": "clean at time of handoff (before handoff docs were added)",
+    "commit_count": 123,
+    "first_commit_date": "2026-07-10",
+    "last_commit_date": "2026-08-16",
+    "workspace_manager": "pnpm@10.12.1",
+    "workspaces": ["apps/web", "services/api", "contracts"],
+    "packages_dir_exists": false,
+    "ci": {
+      "provider": "github-actions",
+      "workflow": ".github/workflows/ci.yml",
+      "last_run_id": 31932519987,
+      "last_run_conclusion": "success",
+      "last_run_commit": "e26f60f"
+    }
+  },
+  "architecture": {
+    "style": "Clean Architecture (domain -> application -> infrastructure)",
+    "composition_root": "services/api/src/app.module.ts",
+    "backend": "NestJS 11 on Express, TypeScript strict + exactOptionalPropertyTypes + noUncheckedIndexedAccess",
+    "frontend": "Next.js 15 App Router, React 19, zero UI dependencies, hand-rolled design system",
+    "database": "PostgreSQL 16 via Prisma",
+    "chain": "EVM (anvil devnet), ERC-3643 (T-REX) + ONCHAINID, ethers v6",
+    "multi_tenancy": "tenant_id everywhere; AsyncLocalStorage TenantContext; Prisma Proxy that forbids findUnique/update/upsert/delete",
+    "async": "transactional outbox (in-process drainer) + pg-boss cron",
+    "auth": "jose JWT in httpOnly cookie or Bearer (cookie wins); argon2; TOTP MFA opt-in for officers; deny-by-default RBAC"
+  },
+  "components": [
+    { "name": "api", "path": "services/api", "tech": "NestJS + Prisma", "port": 3001 },
+    { "name": "web", "path": "apps/web", "tech": "Next.js 15", "port": 3000 },
+    {
+      "name": "contracts",
+      "path": "contracts",
+      "tech": "Foundry/Solidity",
+      "artifacts": ["AttestationRegistry.sol", "TrexSuiteLib.sol", "script/Deploy.s.sol"]
+    },
+    { "name": "postgres", "tech": "postgres:16-alpine (docker compose)", "port": 5433 },
+    { "name": "ipfs", "tech": "ipfs/kubo:v0.34.1 (docker compose)", "port": 5001 },
+    { "name": "devnet", "tech": "anvil", "port": 8545 }
+  ],
+  "features": [
+    { "name": "Investor registration and login", "status": "COMPLETE" },
+    { "name": "Staff login with multi-role RBAC", "status": "COMPLETE" },
+    { "name": "Cookie sessions + CSRF", "status": "COMPLETE" },
+    { "name": "Password reset", "status": "COMPLETE" },
+    { "name": "Email verification (nothing gated on it, OD-22)", "status": "COMPLETE" },
+    { "name": "Officer TOTP MFA (opt-in)", "status": "COMPLETE" },
+    {
+      "name": "Login lockout + per-IP rate limit",
+      "status": "COMPLETE_BUT_NEEDS_HARDENING",
+      "note": "rate limiter is in-memory/per-process"
+    },
+    {
+      "name": "Onboarding/KYC wizard with encrypted evidence",
+      "status": "COMPLETE_BUT_NEEDS_HARDENING",
+      "note": "key management and retention policy unsolved"
+    },
+    { "name": "Officer KYC review and decision", "status": "COMPLETE" },
+    {
+      "name": "Entity (company) investor onboarding",
+      "status": "NOT_STARTED",
+      "note": "explicitly refused with EntityOnboardingNotAvailableError"
+    },
+    { "name": "Asset onboarding, dossier, checklist, custody", "status": "COMPLETE" },
+    {
+      "name": "Real-estate profile and rights matrix",
+      "status": "COMPLETE",
+      "note": "catalogue provisional"
+    },
+    {
+      "name": "Per-asset ERC-3643 tokenization",
+      "status": "COMPLETE_BUT_NEEDS_HARDENING",
+      "note": "synchronous, single operator key, devnet only"
+    },
+    { "name": "Documents centre (holder-visible subset, hidden by default)", "status": "COMPLETE" },
+    { "name": "Offering lifecycle, publication, public catalogue with ISR", "status": "COMPLETE" },
+    {
+      "name": "Subscription, escrow, pro-rata close, full refund of unallocated",
+      "status": "COMPLETE"
+    },
+    {
+      "name": "Internal Rial ledger",
+      "status": "PARTIAL",
+      "note": "single-entry; double-entry journal is roadmap 6.1"
+    },
+    { "name": "Funding: declare deposit, treasury confirms actual amount", "status": "COMPLETE" },
+    {
+      "name": "Maker-checker on ledger credit (threshold, atomic)",
+      "status": "COMPLETE",
+      "note": "threshold value is a placeholder"
+    },
+    { "name": "Distributions declare/pay pro-rata", "status": "COMPLETE" },
+    { "name": "Compliant transfers", "status": "COMPLETE" },
+    { "name": "Redemption at attested value", "status": "COMPLETE" },
+    { "name": "Signed valuation attestations + on-chain anchor", "status": "COMPLETE" },
+    { "name": "Holder registry from chain events + CSV", "status": "COMPLETE" },
+    { "name": "Audit trail", "status": "COMPLETE" },
+    { "name": "Ops work queue + system health", "status": "COMPLETE" },
+    { "name": "In-app notifications both portals", "status": "COMPLETE" },
+    { "name": "Email delivery", "status": "STUB", "note": "dev sink only, no SMTP adapter" },
+    {
+      "name": "CRM (stage, tags, notes, follow-ups)",
+      "status": "COMPLETE",
+      "note": "follow-ups have no owner"
+    },
+    { "name": "Issuer organisation domain, persistence, use cases", "status": "COMPLETE" },
+    {
+      "name": "Issuer individual-verification gate",
+      "status": "COMPLETE",
+      "note": "mutation-checked through HTTP"
+    },
+    {
+      "name": "Issuer HTTP API and team management",
+      "status": "COMPLETE_API_ONLY",
+      "note": "NO USER INTERFACE"
+    },
+    { "name": "Issuer portal", "status": "NOT_STARTED" },
+    {
+      "name": "Asset to issuer-organisation link",
+      "status": "NOT_STARTED",
+      "note": "data-migration point"
+    },
+    {
+      "name": "What an issuer may see about investors",
+      "status": "DECIDED_IN_PRINCIPLE_NOT_IMPLEMENTED"
+    },
+    {
+      "name": "Multi-tenancy (schema, scoping, isolation tests)",
+      "status": "COMPLETE",
+      "note": "OD-1a scope; SaaS ops deferred"
+    },
+    { "name": "i18n", "status": "PARTIAL", "note": "structure exists, en only" },
+    { "name": "Accessibility assertions", "status": "NOT_STARTED" },
+    { "name": "Observability, backups, DR, deployment", "status": "NOT_STARTED" }
+  ],
+  "integrations": [
+    { "system": "PostgreSQL", "real": true, "env": ["DATABASE_URL"] },
+    {
+      "system": "IPFS kubo",
+      "real": true,
+      "env": ["IPFS_API_URL"],
+      "scope": "asset legal documents only"
+    },
+    {
+      "system": "EVM devnet (anvil)",
+      "real": true,
+      "env": [
+        "DEVNET_RPC_URL",
+        "PLATFORM_OPERATOR_MNEMONIC",
+        "ONCHAINID_CLAIM_ISSUER_ADDRESS",
+        "ATTESTATION_REGISTRY_ADDRESS"
+      ],
+      "note": "Besu stand-up is a pre-pilot gate, not done"
+    },
+    { "system": "Email/SMTP", "real": false, "mock": "dev sink", "env": [], "blocked_by": "OD-7" },
+    { "system": "SMS", "real": false, "status": "not started" },
+    {
+      "system": "KYC/KYB screening",
+      "real": false,
+      "mock": "labelled dev mock",
+      "blocked_by": "OD-11"
+    },
+    {
+      "system": "Sejam / national KYC registry",
+      "real": false,
+      "status": "not integrated, no port, no decision"
+    },
+    {
+      "system": "Banking / payment rail",
+      "real": false,
+      "mode": "manual bank transfer with treasury confirmation (OD-6a)",
+      "env": [
+        "FUNDING_BANK_NAME",
+        "FUNDING_ACCOUNT_HOLDER",
+        "FUNDING_ACCOUNT_NUMBER",
+        "FUNDING_NOTICE"
+      ]
+    },
+    { "system": "Digital Rial / CBDC", "real": false, "status": "not scoped" },
+    {
+      "system": "pg-boss",
+      "real": true,
+      "env": ["SCHEDULED_JOBS_ENABLED", "FOLLOW_UP_DUE_CRON"],
+      "note": "default tenant only"
+    },
+    {
+      "system": "Next.js ISR revalidation",
+      "real": true,
+      "env": ["REVALIDATE_SECRET", "WEB_ORIGIN"],
+      "note": "secret must match on API and web"
+    },
+    { "system": "GitHub Actions", "real": true }
+  ],
+  "environments": [
+    {
+      "name": "local",
+      "exists": true,
+      "notes": "docker compose (postgres 5433, ipfs 5001) + host processes + anvil 8545"
+    },
+    {
+      "name": "ci",
+      "exists": true,
+      "notes": "ephemeral services + anvil with freshly deployed contracts"
+    },
+    { "name": "staging", "exists": false },
+    {
+      "name": "production",
+      "exists": false,
+      "notes": "no hosting, no reverse proxy, no TLS, no secrets manager"
+    }
+  ],
+  "tests": {
+    "api_unit": { "files": 89, "tests": 725, "status": "passing" },
+    "api_integration": {
+      "files": 54,
+      "tests": 319,
+      "status": "passing",
+      "requires": ["postgres", "ipfs", "anvil with deployed contracts"]
+    },
+    "web_unit": { "files": 41, "tests": 329, "status": "passing" },
+    "playwright": { "files": 2, "tests": 22, "status": "passing in CI" },
+    "contracts": { "runner": "forge", "status": "passing in CI" },
+    "coverage_tooling": null,
+    "known_environment_failures_without_anvil": [
+      "notification-triggers-api.e2e",
+      "work-queue-api.e2e"
+    ]
+  },
+  "risks": [
+    {
+      "id": "C-1",
+      "severity": "critical",
+      "title": "Single hot key controls mint/burn/claims and derives custodial wallets"
+    },
+    {
+      "id": "C-2",
+      "severity": "critical",
+      "title": "KYC evidence encryption key is a plain env var with no rotation or escrow"
+    },
+    {
+      "id": "C-3",
+      "severity": "critical",
+      "title": "No retention or erasure policy for personal data"
+    },
+    { "id": "H-1", "severity": "high", "title": "Chain writes are synchronous and unrecoverable" },
+    {
+      "id": "H-2",
+      "severity": "high",
+      "title": "Ledger is single-entry with no conservation invariants"
+    },
+    { "id": "H-3", "severity": "high", "title": "No secrets management" },
+    { "id": "H-4", "severity": "high", "title": "No backups or disaster recovery" },
+    { "id": "H-5", "severity": "high", "title": "No observability" },
+    { "id": "H-6", "severity": "high", "title": "Rate limiting is in-memory per process" }
+  ],
+  "known_issues": [
+    { "id": "K-1", "severity": "high", "title": "Issuer subsystem has no user interface" },
+    {
+      "id": "K-2",
+      "severity": "high",
+      "title": "KYC approval returns 500 when the devnet is unreachable"
+    },
+    { "id": "K-3", "severity": "high", "title": "No email is ever delivered" },
+    {
+      "id": "K-4",
+      "severity": "medium",
+      "title": "ISR purge silently no-ops without REVALIDATE_SECRET on both sides"
+    },
+    {
+      "id": "K-5",
+      "severity": "medium",
+      "title": "Applications waiting on the applicant still sit in the officer queue"
+    },
+    { "id": "K-6", "severity": "medium", "title": "A KYC-rejected applicant can never re-apply" },
+    {
+      "id": "K-7",
+      "severity": "medium",
+      "title": "CRM follow-ups have no owner, so reminders fan out to all crm.manage holders"
+    },
+    {
+      "id": "K-9",
+      "severity": "medium",
+      "title": "Rate limiter resets on restart and is per-process"
+    },
+    {
+      "id": "K-13",
+      "severity": "low",
+      "title": "IssuerMembership.canWorkOnAssets() has no production caller"
+    }
+  ],
+  "current_milestone": {
+    "phase": "3.2",
+    "name": "Issuer org onboarding, team & roles",
+    "state": "API complete and CI-green; no user interface",
+    "completed_slices": [
+      "3.2a domain",
+      "3.2b persistence",
+      "3.2c use cases + verification gate",
+      "3.2d gate bound to KYC pipeline",
+      "3.2e HTTP API + team management + DI wiring"
+    ],
+    "exit_criteria_remaining": ["an officer can review and decide issuer applications in a browser"]
+  },
+  "next_actions": [
+    {
+      "priority": "P0",
+      "id": "P0-1",
+      "action": "Build the ops review screen for issuer applications at apps/web/app/[locale]/admin/issuers/"
+    },
+    {
+      "priority": "P0",
+      "id": "P0-2",
+      "action": "Move chain writes to an async ChainTransaction lifecycle with idempotency keys (do NOT touch the nonce lane design casually)"
+    },
+    {
+      "priority": "P0",
+      "id": "P0-3",
+      "action": "Implement a real SMTP adapter behind the existing EmailSender port (needs OD-7)"
+    },
+    {
+      "priority": "P0",
+      "id": "P0-4",
+      "action": "Address secrets and key management (needs an owner decision on the interim signer)"
+    },
+    {
+      "priority": "P1",
+      "id": "P1-1",
+      "action": "Link assets to issuer organisations (data-migration point; ask the owner what existing assets belong to)"
+    },
+    {
+      "priority": "P1",
+      "id": "P1-2",
+      "action": "Propose the concrete field list an issuer may see about investors, get approval, then implement with exclusion tests"
+    }
+  ],
+  "open_questions_for_owner": [
+    "Concrete field list an issuer may see about investors",
+    "Block asset approval until the rights matrix is established?",
+    "Bar issuer staff from investing?",
+    "OD-23 mandatory MFA for privileged roles?",
+    "OD-7 email/SMS provider",
+    "OD-10 chain governance target",
+    "OD-16 custody hardening interim target",
+    "OD-13 fa/RTL locale pack",
+    "Queue semantics for applications waiting on the applicant",
+    "Should a KYC-rejected applicant be able to re-apply?",
+    "Should draft offerings be visible to signed-in investors?"
+  ]
+}

@@ -1,0 +1,145 @@
+# CURRENT BACKLOG (as of `e26f60f`, 2026-08-16)
+
+Ordered by priority. "Prerequisites" means work that must land first. Acceptance criteria are
+suggestions consistent with the project's Definition of Done (failing test first, CI-green,
+verified by running it).
+
+---
+
+## P0 — Blocking / critical
+
+### P0-1 — Issuer applications have no user interface
+- **What:** `POST /issuers`, the review queue and team management exist only as HTTP endpoints.
+  No officer can review an issuer application in a browser, and no issuer can apply.
+- **Why it matters:** the newest subsystem is invisible; by the project's own rule ("no feature is
+  claimed unless visible in the UI") Phase 3.2 is not finished.
+- **Files:** `services/api/src/infrastructure/http/issuers.controller.ts` (API side);
+  new admin route under `apps/web/app/[locale]/admin/issuers/`.
+- **Prerequisites:** none.
+- **Acceptance:** an officer signs in, sees pending applications with legal name, registration
+  number, contact and applied date; can start review, approve, reject with a reason, suspend and
+  reinstate; can see and manage the team; every action is reflected without a reload; web unit
+  tests + a Playwright layout contract; nothing shown that the API does not return.
+- **Risks:** exposing an applicant's people list is PII — show what the API already returns
+  (email, role), nothing more.
+
+### P0-2 — Chain writes are synchronous on a single hot key
+- **What:** tokenize / mint / transfer / burn / claim-issue all run inside the HTTP request using
+  one operator account derived from `PLATFORM_OPERATOR_MNEMONIC`.
+- **Why it matters:** a devnet hiccup turns a KYC approval or a subscription close into a 500;
+  throughput is bounded by one nonce lane; and in production this is a single permanent EOA
+  controlling mint/burn — which the project's own invariants forbid.
+- **Files:** `services/api/src/infrastructure/chain/*`, especially `custodial-wallets.ts`.
+- **Prerequisites:** the `ChainTransaction` lifecycle entity from roadmap 1.6.
+- **Acceptance:** chain submission is enqueued and retried with idempotency keys; the request
+  returns a pending state; the devnet fast path is preserved for tests; nonce behaviour stays
+  covered by `operator-nonce.test.ts`.
+- **Risks:** **high regression risk** — the nonce design took four attempts. Do not "simplify"
+  `LanedOperatorSigner`; read the comments in that file and DECISION_LOG C4 first.
+
+### P0-3 — No real email delivery
+- **What:** every notification email goes to a dev sink. There is no SMTP adapter.
+- **Why it matters:** password reset, email verification and KYC decisions are undeliverable, so
+  no real pilot user could complete a flow.
+- **Files:** `services/api/src/application/identity/email-outbox.ts`, the `EmailSender` port.
+- **Prerequisites:** OD-7 — the owner must name a provider.
+- **Acceptance:** a nodemailer-backed adapter behind the existing port, configured by env, with
+  the dev sink still used in tests; at-least-once delivery still proven by the outbox tests.
+
+### P0-4 — Secrets and key management
+- **What:** `AUTH_TOKEN_SECRET`, `KYC_EVIDENCE_KEY`, `PLATFORM_OPERATOR_MNEMONIC` and the officer
+  password hashes all come from plain environment variables. `services/api/.env` exists locally
+  with dev values.
+- **Why it matters:** the KYC evidence key protects passport scans; the mnemonic controls minting.
+  There is no rotation, escrow, KMS or HSM (OD-16 names the target; nothing implements it).
+- **Prerequisites:** an owner decision on the interim signer service.
+- **Acceptance:** at minimum, documented rotation procedures and a signer that is not the API
+  process. **Do not treat this as done because the values are "only dev" — the pattern is what
+  ships.**
+
+---
+
+## P1 — Important (next milestone)
+
+### P1-1 — Link assets to issuer organisations
+- **What:** an `Asset` has no `organisationId`. Until it does, an approved issuer cannot own or
+  submit anything, and `IssuerMembership.canWorkOnAssets()` has no caller.
+- **Why:** it is the structural join that makes Phase 3 meaningful, and it is the project's
+  identified **data-migration point** (existing assets have no organisation).
+- **Files:** `prisma/schema.prisma`, `domain/assets/asset.ts`, `application/assets/*`,
+  `docs/data-migration-plan.md`.
+- **Prerequisites:** P0-1 is not strictly required but makes the result visible.
+- **Acceptance:** new assets carry an organisation; existing assets are handled by an explicit,
+  reviewed migration (nullable column + backfill decision, **not** a silent default); an issuer's
+  contributor can work on their organisation's assets and no one else's; tenant isolation intact.
+- **Risks:** a careless backfill would attribute existing assets to the wrong entity. Ask the
+  owner what existing assets belong to before writing the migration.
+
+### P1-2 — Decide and implement what an issuer may see about investors
+- **What:** the owner answered "all necessary information"; nothing is implemented.
+- **Acceptance:** propose an explicit field list (recommended start: holder name, tokens held,
+  allocation date, amount invested), get it struck/extended by the owner, then implement with a
+  test that asserts the **excluded** fields are absent from the response.
+- **Risks:** this is a PII exposure to a third party. Do not infer the list.
+
+### P1-3 — Issuer portal (roadmap 3.3)
+13-step tokenization wizard with drafts, completeness %, validation, review comments, status
+history. Large; scope it into slices as before.
+
+### P1-4 — Officer-side gaps flagged during Phase 2
+- An onboarding application waiting on the **applicant** still appears in the officer queue
+  (queue counts open cases, not "waiting on us").
+- A KYC-rejected applicant **cannot re-apply**; whether they should is a product question.
+- CRM follow-ups have **no owner**, so reminders go to every `crm.manage` holder.
+
+### P1-5 — Open product questions that gate design
+- Should an asset be blocked from approval until its rights matrix is established?
+- Should issuer staff be barred from investing?
+- Should draft (unopened) offerings be visible to signed-in investors at all?
+
+### P1-6 — Accessibility assertions
+axe-core was approved in OD-4 but no automated a11y checks exist. Add them to the Playwright run.
+
+### P1-7 — Rate limiter is in-memory
+`AuthRateLimitGuard` keeps counters per process. Behind more than one instance it is not a limit.
+Move to Postgres or accept single-instance deployment explicitly.
+
+---
+
+## P2 — Enhancements
+
+- **`GET /issuers/mine`** so an applicant can see their own application state (deliberately not
+  built yet — YAGNI until the portal exists).
+- **Invite a colleague who has no account yet** (today: 404 "no platform account"). Would need an
+  invitation token flow.
+- **Document versioning and per-holder access logs** for the documents centre.
+- **Persistent chain indexer** instead of rebuilding the registry from events on demand.
+- **fa/RTL locale pack** (OD-13, unapproved).
+- **Report registry, PDF exports** (roadmap 8.1).
+- **Observability**: structured logs, metrics, tracing (roadmap 8.3).
+
+---
+
+## Technical debt, hacks and known non-real implementations
+
+| Item | Where | Note |
+|---|---|---|
+| Dev claim issuer / logging deployer | `chain/dev-log-claim-issuer.ts`, `app.module.ts` factories | Used when devnet env is absent so the API boots chain-less. Clearly labelled |
+| Screening mock | (port only) | OD-11: no vendor |
+| Email dev sink | `email-outbox.ts` | P0-3 |
+| Ledger is single-entry | `LedgerAccount`/`LedgerEntry` | Double-entry journal is roadmap 6.1 with a parallel-run plan |
+| Approval threshold placeholder | `LEDGER_CREDIT_APPROVAL_THRESHOLD_RIAL` | Requires local policy validation |
+| Rights catalogue provisional | `RIGHTS_ARE_PROVISIONAL = true` | Requires local legal validation |
+| Onboarding field set provisional | `application/onboarding/onboarding-form.ts` | Requires local legal validation |
+| pg-boss scan is default-tenant only | `infrastructure/jobs/*` | Multi-tenant sweep deferred with OD-1a |
+| Outbox drainer is in-process | `infrastructure/outbox/*` | Multi-node draining untested |
+| `IssuerMembership.canWorkOnAssets()` unused | `domain/issuers/issuer-membership.ts:41` | Gets a caller with P1-1 |
+| No `TODO`/`FIXME`/`HACK` markers exist anywhere in source | verified by grep | Debt is documented here instead |
+
+## Missing tests (known)
+
+- No automated accessibility assertions.
+- No load or performance tests of any kind.
+- No security tests beyond authz matrix + isolation (no fuzzing, no dependency-audit gate in CI).
+- Multi-node outbox draining and multi-tenant scheduled scans are untested.
+- No test asserts that PII is absent from logs.
