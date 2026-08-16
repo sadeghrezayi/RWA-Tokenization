@@ -163,6 +163,14 @@ running, with `REVALIDATE_SECRET` set on both):
 pnpm --filter @tokenization/web test:layout
 ```
 
+> **Which browser Playwright uses.** `playwright.config.ts` reads `PLAYWRIGHT_CHANNEL` and
+> defaults to the `chrome` channel — i.e. **your installed Google Chrome**. CI sets
+> `PLAYWRIGHT_CHANNEL=""` so the runner uses Playwright's own bundled Chromium instead.
+> On this development machine the bundled browser **cannot be installed**:
+> `npx playwright install` returns **403 "this service is not available in your location"** from
+> `cdn.playwright.dev`. So locally, leave `PLAYWRIGHT_CHANNEL` unset and the suite runs against
+> Chrome. Do not copy CI's empty value into a local run.
+
 Notes:
 - The **integration suite requires Postgres, IPFS and a running anvil with deployed contracts**.
   Without anvil the six chain suites self-skip **and two e2e tests fail** (KYC approve and the
@@ -215,3 +223,6 @@ now points at nothing** — reset the database too, or expect chain reads for th
 | Supertest requests behave as the wrong user | The API prefers the **cookie** over the Bearer header when both are present | Use one request context per actor; send `x-csrf-token` for cookie auth |
 | `pnpm vitest` → "Command vitest not found" | Run from the repo root instead of the package | `cd services/api` first, or use `pnpm --filter @tokenization/api test` |
 | Port 5432 conflicts | Compose deliberately maps Postgres to **5433** | Use 5433 in `DATABASE_URL` |
+| **Every** server-rendered page 500s with `SyntaxError: … JSON at position 979` (even `/favicon.ico`), while client-rendered admin pages still work | Corrupt Next dev artifact `apps/web/.next/prerender-manifest.json` | `rm -rf apps/web/.next` and restart the dev server (`.next` is git-ignored build output) |
+| `npx playwright install` fails with 403 "not available in your location" | Geographic block on `cdn.playwright.dev` | Run against the system Chrome — leave `PLAYWRIGHT_CHANNEL` unset (see §8) |
+| The admin console shows only a login form and every attempt fails | `OFFICER_EMAIL` / `OFFICER_PASSWORD_HASH` are unset in `services/api/.env` — with no officer configured there is no way into the console at all | Generate the argon2 hash with the one-liner in `.env.example`, set both, restart the API |

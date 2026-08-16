@@ -1,8 +1,11 @@
 # HANDOFF INDEX
 
-**Generated:** 2026-08-16 (UTC) · **Corresponds to:** branch `main`, commit `e26f60f`
-(`feat(issuers): issuer HTTP API, team management and the wiring that binds the verification gate
-(P3.2e)`), CI run 31932519987 = success, working tree clean at the time of capture.
+**Generated:** 2026-08-16 (UTC) · **Last updated:** 2026-08-16 at commit `9e63980`
+(`refactor(web): drop the issuer member type nothing consumes yet`, on top of `d0e6a71`
+"the issuer review screen"), CI green, working tree clean.
+
+> The package was first written at `e26f60f`. Since then Phase **3.2f** shipped the issuer
+> review screen, and three environment traps were recorded — see `KNOWN_ISSUES.md` K-17…K-19.
 
 This package converts ~45 days of ephemeral development conversation into durable repository
 knowledge. It is designed so a fresh engineer — or a fresh Claude session — can continue work

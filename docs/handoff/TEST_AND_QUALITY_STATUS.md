@@ -1,6 +1,6 @@
 # TEST AND QUALITY STATUS
 
-Measured at commit `e26f60f` on 2026-08-16 by actually running the suites on the development
+Measured at commit `9e63980` on 2026-08-16 by actually running the suites on the development
 machine (macOS, Node 22, Postgres 16 in Docker, IPFS in Docker, anvil with freshly deployed
 contracts).
 
@@ -12,8 +12,8 @@ contracts).
 |---|---|---|---|---|
 | API unit | `pnpm --filter @tokenization/api test` | 89 | **725** | ✅ all passed |
 | API integration (real Postgres + IPFS + anvil) | `pnpm --filter @tokenization/api test:integration` | 54 | **319** | ✅ all passed (62 s) |
-| Web unit (Vitest + Testing Library) | `pnpm --filter @tokenization/web test` | 41 | **329** | ✅ all passed |
-| Playwright (layout contracts + exit journey) | `pnpm --filter @tokenization/web test:layout` | 2 | **22** (desktop + mobile projects) | ✅ green in CI on this commit |
+| Web unit (Vitest + Testing Library) | `pnpm --filter @tokenization/web test` | 42 | **343** | ✅ all passed |
+| Playwright (layout contracts + exit journey) | `pnpm --filter @tokenization/web test:layout` | 2 | **24** (desktop + mobile projects) | ✅ 18 layout contracts run locally against system Chrome; full suite green in CI |
 | Contracts (Foundry) | `cd contracts && forge test -vv` | 2 | — | ✅ green in CI on this commit |
 | Lint | `pnpm lint` | — | — | ✅ clean |
 | Format | `pnpm format` | — | — | ✅ clean |
@@ -56,6 +56,15 @@ Running the integration suite **without anvil** while `DEVNET_RPC_URL` is set pr
 
 Start anvil and deploy the contracts (RUNBOOK §6) and both pass. This was observed and confirmed
 during this handoff.
+
+Two further environment traps, both observed on 2026-08-16 and both documented in KNOWN_ISSUES:
+
+- **Playwright's bundled Chromium cannot be downloaded on this machine** (`cdn.playwright.dev`
+  returns 403 for this location). Run locally with `PLAYWRIGHT_CHANNEL` **unset** so the config's
+  default `chrome` channel uses the installed Google Chrome. CI sets it to `""` on purpose.
+- **A corrupt `apps/web/.next/prerender-manifest.json`** makes every server-rendered page return
+  500 with an opaque JSON parse error, which looks exactly like an application bug. `rm -rf
+  apps/web/.next`.
 
 ## 4. Flaky tests
 

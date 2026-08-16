@@ -1,4 +1,4 @@
-# IMPLEMENTATION STATUS (verified 2026-08-16 @ `e26f60f`)
+# IMPLEMENTATION STATUS (verified 2026-08-16 @ `9e63980`)
 
 Status vocabulary:
 
@@ -12,8 +12,8 @@ Status vocabulary:
 | **NOT STARTED** | No code, not scheduled soon |
 | **UNKNOWN** | Needs verification |
 
-Test counts at this commit: **725 API unit · 319 API integration · 329 web unit · 22 Playwright ·
-Foundry contract tests**. CI run 31932519987 on `e26f60f` = success.
+Test counts at this commit: **725 API unit · 319 API integration · 343 web unit · 24 Playwright ·
+Foundry contract tests**. CI green on `9e63980`.
 
 ---
 
@@ -111,8 +111,10 @@ Foundry contract tests**. CI run 31932519987 on `e26f60f` = success.
 | Issuer memberships + roles | **COMPLETE** | domain tests | `issuer-membership.ts` | `issuer-membership.test.ts` | `canWorkOnAssets()` has **no production caller yet** — it gets one when assets link to organisations |
 | Persistence + tenant isolation | **COMPLETE** | contract + isolation tests | `persistence/prisma-issuer-repository.ts` | `prisma-issuer-repository.test.ts`, `tenant-isolation.test.ts` | — |
 | Individual-verification gate | **COMPLETE** | e2e + **mutation-checked** | `application/issuers/require-verified-person.ts`, `investor-person-verification.ts` | `issuers-api.e2e`, `prisma-person-verification.test.ts` | Fails closed for unknown people |
-| Issuer HTTP API (apply/review/decide/team) | **COMPLETE (API only)** | `issuers-api.e2e` 18 tests | `http/issuers.controller.ts` | `issuers-api.e2e` | **No UI at all** — no officer can review an application in a browser today |
-| Issuer portal | **NOT STARTED** | — | — | — | Roadmap 3.3 |
+| Issuer HTTP API (apply/review/decide/team) | **COMPLETE** | `issuers-api.e2e` 18 tests | `http/issuers.controller.ts` | `issuers-api.e2e` | — |
+| Issuer **review screen** (staff) | **COMPLETE** (3.2f) | 14 web tests + a layout contract + a live browser walk of both decision paths | `apps/web/app/[locale]/admin/issuers/`, `components/admin/issuers-panel.tsx` | `issuers-panel.test.tsx`, `layout.spec.ts` | Shows `decidedBy` as a raw officer id (KNOWN_ISSUES K-19) |
+| Issuer **team** management UI | **NOT STARTED** | — | endpoints exist | — | Add/list/remove members is HTTP-only |
+| Issuer portal (issuer-facing) | **NOT STARTED** | — | — | — | Roadmap 3.3 |
 | What an issuer may see about investors | **DISCUSSED, ANSWERED IN PRINCIPLE, NOT IMPLEMENTED** | decision log | — | — | User answered "all necessary information"; the concrete field list must be proposed and approved before anything is exposed |
 
 ## CRM

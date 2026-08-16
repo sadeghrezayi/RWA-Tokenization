@@ -111,14 +111,14 @@ that first. Both stories are in §7 because they are the most transferable lesso
 
 ## 4. The current state, precisely
 
-- **Branch** `main`, **commit** `e26f60f`, **working tree clean**, CI run 31932519987 = success.
-- **725** API unit tests · **319** API integration tests · **329** web unit tests · **22**
+- **Branch** `main`, **commit** `9e63980`, **working tree clean**, CI green.
+- **725** API unit tests · **319** API integration tests · **343** web unit tests · **24**
   Playwright tests · Foundry contract tests. Lint, format, typecheck and both builds clean.
 - **28 Prisma migrations**, 43 models/enums.
 - **18 HTTP controllers**; full route list in `REPOSITORY_MAP.md`.
-- Phase 0, 1 and 2 are complete; **3.1 complete**; **3.2 is API-complete with no UI**.
-- The immediate next slice, as stated at the end of the last session: **an ops review screen so an
-  officer can decide issuer applications in a browser**.
+- Phase 0, 1 and 2 are complete; **3.1 complete**; **3.2 API complete**, and **3.2f shipped the
+  staff review screen** — an officer can now decide issuer applications in a browser.
+- Still HTTP-only in 3.2: **team management** (add/list/remove an issuer's people).
 
 ## 5. Decisions the user made personally (never reverse these without asking)
 

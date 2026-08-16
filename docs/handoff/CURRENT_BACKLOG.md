@@ -1,4 +1,4 @@
-# CURRENT BACKLOG (as of `e26f60f`, 2026-08-16)
+# CURRENT BACKLOG (as of `9e63980`, 2026-08-16)
 
 Ordered by priority. "Prerequisites" means work that must land first. Acceptance criteria are
 suggestions consistent with the project's Definition of Done (failing test first, CI-green,
@@ -8,20 +8,11 @@ verified by running it).
 
 ## P0 — Blocking / critical
 
-### P0-1 — Issuer applications have no user interface
-- **What:** `POST /issuers`, the review queue and team management exist only as HTTP endpoints.
-  No officer can review an issuer application in a browser, and no issuer can apply.
-- **Why it matters:** the newest subsystem is invisible; by the project's own rule ("no feature is
-  claimed unless visible in the UI") Phase 3.2 is not finished.
-- **Files:** `services/api/src/infrastructure/http/issuers.controller.ts` (API side);
-  new admin route under `apps/web/app/[locale]/admin/issuers/`.
-- **Prerequisites:** none.
-- **Acceptance:** an officer signs in, sees pending applications with legal name, registration
-  number, contact and applied date; can start review, approve, reject with a reason, suspend and
-  reinstate; can see and manage the team; every action is reflected without a reload; web unit
-  tests + a Playwright layout contract; nothing shown that the API does not return.
-- **Risks:** exposing an applicant's people list is PII — show what the API already returns
-  (email, role), nothing more.
+### ~~P0-1 — Issuer applications have no user interface~~ → **DONE for the review queue** (3.2f, `d0e6a71`)
+An officer can now sign in and walk an application through review, approval, rejection with a
+reason, suspension and reinstatement at `/[locale]/admin/issuers`, behind `issuer.manage`.
+Verified live in a browser. **What remains, split out below:** the team panel (P1-8) and naming
+the deciding officer (P1-9).
 
 ### P0-2 — Chain writes are synchronous on a single hot key
 - **What:** tokenize / mint / transfer / burn / claim-issue all run inside the HTTP request using
@@ -96,6 +87,25 @@ history. Large; scope it into slices as before.
 - Should an asset be blocked from approval until its rights matrix is established?
 - Should issuer staff be barred from investing?
 - Should draft (unopened) offerings be visible to signed-in investors at all?
+
+### P1-8 — Issuer team panel
+- **What:** add / list / remove an issuer's people in the browser. Endpoints exist and are tested
+  (`GET|POST /issuers/:id/members`, `DELETE /issuers/:id/members/:userId`).
+- **Why:** the individual-verification gate — the rule the whole phase exists to enforce — is
+  currently only reachable by curl.
+- **Acceptance:** an officer (or an issuer admin) invites by **email**; an unverified person is
+  refused with the server's message; removing the last administrator is refused (409) and the UI
+  says why; the list shows email + role, and nothing more about a person.
+- **Risks:** an issuer's people list is PII. Show only what the API returns.
+
+### P1-9 — Name the officer who decided
+- **What:** the issuer queue prints `decidedBy` verbatim — "Decided by officer-1".
+- **Why:** the project already fixed this class of thing once (`fix(notifications): human labels
+  in the approval alert, not raw ids`).
+- **Files:** `application/issuers/issuer-views.ts` (needs a staff-directory lookup),
+  `components/admin/issuers-panel.tsx`.
+- **Acceptance:** a name or email is shown; an id that cannot be resolved degrades to the id
+  rather than blanking the row.
 
 ### P1-6 — Accessibility assertions
 axe-core was approved in OD-4 but no automated a11y checks exist. Add them to the Playwright run.
