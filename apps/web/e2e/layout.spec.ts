@@ -107,6 +107,17 @@ test.describe("admin console", () => {
     await expectNothingOverflowsItsContainer(page);
   });
 
+  // 3.2f: the issuer queue is the widest table in the console — six columns,
+  // one of them a wrapping decision reason. It must not push the page sideways.
+  test("the issuer queue fits the screen it is read on", async ({ page }) => {
+    await page.goto("/en/admin/issuers");
+    await signIn(page, "officer@platform.local", "officer-dev-pass");
+    await expect(page.getByRole("heading", { name: /issuer applications/i })).toBeVisible();
+
+    await expectNoHorizontalPageScroll(page);
+    await expectNothingOverflowsItsContainer(page);
+  });
+
   test("an officer can always reach log out", async ({ page }) => {
     await page.goto("/en/admin/kyc");
     await signIn(page, "officer@platform.local", "officer-dev-pass");

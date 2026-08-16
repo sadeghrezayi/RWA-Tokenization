@@ -299,6 +299,7 @@ export interface Dictionary {
   openButton: string;
   navGroupMain: string;
   navGroupInvestors: string;
+  navGroupIssuers: string;
   navGroupAssets: string;
   navGroupReporting: string;
   navGroupAccount: string;
@@ -399,6 +400,35 @@ export interface Dictionary {
   fundingQueueAmountInvalid: string;
   fundingQueueReasonRequired: string;
   fundingQueueParked: string;
+  issuersNav: string;
+  issuersTitle: string;
+  issuersSubtitle: string;
+  issuersEmpty: string;
+  issuersLegalNameLabel: string;
+  issuersRegistrationLabel: string;
+  issuersContactLabel: string;
+  issuersAppliedLabel: string;
+  issuersStateLabel: string;
+  issuersStateApplied: string;
+  issuersStateInReview: string;
+  issuersStateApproved: string;
+  issuersStateRejected: string;
+  issuersStateSuspended: string;
+  issuersCanSubmit: string;
+  issuersStartReviewButton: string;
+  issuersApproveButton: string;
+  issuersRejectButton: string;
+  issuersSuspendButton: string;
+  issuersReinstateButton: string;
+  issuersRejectTitle: string;
+  issuersRejectHelp: string;
+  issuersSuspendTitle: string;
+  issuersSuspendHelp: string;
+  issuersReasonLabel: string;
+  issuersReasonRequired: string;
+  issuersSendRejectionButton: string;
+  issuersConfirmSuspensionButton: string;
+  issuersDecidedBy: string;
   signedInAs: string;
   investorPortalTitle: string;
   backToAssets: string;
@@ -780,6 +810,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
     openButton: "Open",
     navGroupMain: "Overview",
     navGroupInvestors: "Investors",
+    navGroupIssuers: "Issuers",
     navGroupAssets: "Assets",
     navGroupReporting: "Reporting",
     navGroupAccount: "Account",
@@ -895,6 +926,38 @@ export const dictionaries: Record<Locale, Dictionary> = {
     fundingQueueReasonRequired: "Say why this deposit is being rejected.",
     fundingQueueParked:
       "Recorded. This credit is above the approval threshold, so it needs a second approval before the investor's balance changes.",
+    issuersNav: "Issuers",
+    issuersTitle: "Issuer applications",
+    issuersSubtitle:
+      "Organisations applying to bring assets to the platform. An applicant can do nothing until it is approved, and every refusal carries a reason.",
+    issuersEmpty: "No issuer applications yet.",
+    issuersLegalNameLabel: "Legal name",
+    issuersRegistrationLabel: "Registration number",
+    issuersContactLabel: "Contact",
+    issuersAppliedLabel: "Applied",
+    issuersStateLabel: "State",
+    issuersStateApplied: "Applied",
+    issuersStateInReview: "In review",
+    issuersStateApproved: "Approved",
+    issuersStateRejected: "Rejected",
+    issuersStateSuspended: "Suspended",
+    issuersCanSubmit: "May bring assets",
+    issuersStartReviewButton: "Start review",
+    issuersApproveButton: "Approve",
+    issuersRejectButton: "Reject",
+    issuersSuspendButton: "Suspend",
+    issuersReinstateButton: "Reinstate",
+    issuersRejectTitle: "Reject this application",
+    issuersRejectHelp:
+      "The applicant is told why. Rejection is final — re-applying starts a new application.",
+    issuersSuspendTitle: "Suspend this issuer",
+    issuersSuspendHelp:
+      "Suspension stops new assets immediately. It can be reversed by reinstating the organisation.",
+    issuersReasonLabel: "Reason",
+    issuersReasonRequired: "Say why this application is being refused.",
+    issuersSendRejectionButton: "Send rejection",
+    issuersConfirmSuspensionButton: "Confirm suspension",
+    issuersDecidedBy: "Decided by",
     signedInAs: "Signed in as",
     investorPortalTitle: "Investor Portal",
     backToAssets: "← Back to assets",

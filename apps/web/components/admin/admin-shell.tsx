@@ -102,6 +102,17 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
       ],
     },
     {
+      label: t.navGroupIssuers,
+      items: [
+        {
+          href: `${base}/issuers`,
+          label: t.issuersNav,
+          icon: "⬡",
+          permission: PERMISSIONS.ISSUER_MANAGE,
+        },
+      ],
+    },
+    {
       label: t.navGroupAssets,
       items: [
         {

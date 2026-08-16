@@ -18,6 +18,7 @@ export const PERMISSIONS = {
   CRM_MANAGE: "crm.manage",
   REPORTING_READ: "reporting.read",
   APPROVAL_DECIDE: "approval.decide",
+  ISSUER_MANAGE: "issuer.manage",
   MFA_SELF: "mfa.self",
   INVESTOR_PORTAL: "investor.portal",
 } as const;
@@ -492,6 +493,14 @@ export interface ApiClient {
     receivedRial: string,
   ): Promise<{ request: FundingRequestDto; creditStatus: { status: string } }>;
   rejectFunding(csrfToken: string, id: string, reason: string): Promise<FundingRequestDto>;
+  // 3.2: issuer organisations. Reviewing and deciding is staff work behind
+  // issuer.manage; every decision that refuses carries a reason.
+  issuers(): Promise<IssuerOrganisationDto[]>;
+  startIssuerReview(csrfToken: string, id: string): Promise<void>;
+  approveIssuer(csrfToken: string, id: string): Promise<void>;
+  rejectIssuer(csrfToken: string, id: string, reason: string): Promise<void>;
+  suspendIssuer(csrfToken: string, id: string, reason: string): Promise<void>;
+  reinstateIssuer(csrfToken: string, id: string): Promise<void>;
   // T1/T3: a credit at/above the approval threshold returns pending_approval
   // (parked for a second officer) instead of applying immediately.
   creditLedger(
@@ -791,6 +800,31 @@ export interface PendingFundingDto extends FundingRequestDto {
   investorEmail: string;
 }
 
+// 3.2: an organisation that brings assets to the platform. It is not a user —
+// people act for it (IssuerMemberDto) — and it can do nothing until approved.
+export type IssuerStateDto = "applied" | "in_review" | "approved" | "rejected" | "suspended";
+
+export interface IssuerOrganisationDto {
+  id: string;
+  legalName: string;
+  registrationNumber: string;
+  contactEmail: string;
+  state: IssuerStateDto;
+  appliedAt: string;
+  decidedAt?: string;
+  decidedBy?: string;
+  rejectionReason?: string;
+  canSubmitAssets: boolean;
+}
+
+export interface IssuerMemberDto {
+  userId: string;
+  email?: string;
+  role: "issuer_admin" | "issuer_contributor";
+  addedAt: string;
+  canManageTeam: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -1027,6 +1061,39 @@ export const createApiClient = (
           body: { reason },
         }),
       ),
+    issuers: () => json(call("/issuers")),
+    startIssuerReview: async (csrfToken, id) => {
+      await call(`/issuers/${encodeURIComponent(id)}/start-review`, {
+        method: "POST",
+        token: csrfToken,
+      });
+    },
+    approveIssuer: async (csrfToken, id) => {
+      await call(`/issuers/${encodeURIComponent(id)}/approve`, {
+        method: "POST",
+        token: csrfToken,
+      });
+    },
+    rejectIssuer: async (csrfToken, id, reason) => {
+      await call(`/issuers/${encodeURIComponent(id)}/reject`, {
+        method: "POST",
+        token: csrfToken,
+        body: { reason },
+      });
+    },
+    suspendIssuer: async (csrfToken, id, reason) => {
+      await call(`/issuers/${encodeURIComponent(id)}/suspend`, {
+        method: "POST",
+        token: csrfToken,
+        body: { reason },
+      });
+    },
+    reinstateIssuer: async (csrfToken, id) => {
+      await call(`/issuers/${encodeURIComponent(id)}/reinstate`, {
+        method: "POST",
+        token: csrfToken,
+      });
+    },
     creditLedger: async (officerToken, investorId, amountRial) => {
       const res = await call(`/ledger/${investorId}/credit`, {
         method: "POST",
