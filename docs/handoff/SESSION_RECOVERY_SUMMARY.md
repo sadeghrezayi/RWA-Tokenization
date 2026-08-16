@@ -329,23 +329,31 @@ Recorded honestly, per the handoff instruction:
 
 ## 12. If you do exactly one thing next
 
-Build **P0-1: the ops review screen for issuer applications**
-(`apps/web/app/[locale]/admin/issuers/`), against the endpoints that already exist and are tested:
+> **Check `CURRENT_BACKLOG.md` first.** This section names a slice, and a named slice goes stale
+> as soon as it ships. It last did: it used to say "build the ops review screen", which **now
+> exists** (3.2f, `d0e6a71`) — rebuilding it would have been the exact failure this package is
+> meant to prevent.
+
+As of `a09989f`, the issuer endpoints below are all live **and the staff review screen is built**
+at `apps/web/app/[locale]/admin/issuers/`:
 
 ```
-GET  /issuers                      → IssuerOrganisationView[]  (staff, issuer.manage)
-POST /issuers/:id/start-review     → 204
-POST /issuers/:id/approve          → 204
-POST /issuers/:id/reject   {reason}→ 204   (blank reason ⇒ 400)
-POST /issuers/:id/suspend  {reason}→ 204
-POST /issuers/:id/reinstate        → 204
-GET  /issuers/:id/members          → IssuerMemberView[]  (staff, or a member of that org)
-POST /issuers/:id/members {email, role} → 204  (unverified person ⇒ 403; unknown email ⇒ 404)
-DELETE /issuers/:id/members/:userId     → 204  (last administrator ⇒ 409)
+GET  /issuers                      → IssuerOrganisationView[]  (staff, issuer.manage)   ← in the UI
+POST /issuers/:id/start-review     → 204                                                ← in the UI
+POST /issuers/:id/approve          → 204                                                ← in the UI
+POST /issuers/:id/reject   {reason}→ 204   (blank reason ⇒ 400)                          ← in the UI
+POST /issuers/:id/suspend  {reason}→ 204                                                 ← in the UI
+POST /issuers/:id/reinstate        → 204                                                 ← in the UI
+GET  /issuers/:id/members          → IssuerMemberView[]  (staff, or a member of that org)   HTTP-only
+POST /issuers/:id/members {email, role} → 204  (unverified ⇒ 403; unknown email ⇒ 404)      HTTP-only
+DELETE /issuers/:id/members/:userId     → 204  (last administrator ⇒ 409)                   HTTP-only
 ```
 
-Follow the existing admin pages for structure (`admin/kyc`, `admin/deposits` are the closest
-analogues), write the web tests first, add a Playwright layout contract, and verify it in a real
-browser before calling it done. Then the **asset ↔ organisation link** (backlog P1-1), which is
-the project's identified data-migration point and needs the user's input on what existing assets
-belong to.
+So the nearest work is the three HTTP-only rows — **the team panel (P1-8)**, which is what makes
+the individual-verification gate reachable by a person — and **P1-9**, replacing "Decided by
+officer-1" with an actual name. Follow `components/admin/issuers-panel.tsx` for structure, write
+the web tests first, add a Playwright layout contract, and verify it in a real browser.
+
+After that: the **asset ↔ organisation link** (P1-1), the project's identified data-migration
+point, which needs the user's input on what existing assets belong to before a migration is
+written.

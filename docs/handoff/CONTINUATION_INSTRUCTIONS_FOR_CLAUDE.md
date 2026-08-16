@@ -119,6 +119,11 @@ it done.
 
 ## What to work on next
 
-See `CURRENT_BACKLOG.md`. Unless the user says otherwise, the intended next slice is **P0-1: the
-ops review screen for issuer applications**, because Phase 3.2's API exists with no user interface
-and the project does not consider a feature delivered until a person can use it.
+**Always take this from `CURRENT_BACKLOG.md`, not from this paragraph** — a named next slice goes
+stale the moment it ships, and a stale one would have you rebuild something that already exists.
+
+As of commit `a09989f`: the issuer **review screen** is built (3.2f). The nearest slices are
+**P1-9** (name the deciding officer instead of printing `officer-1`) and **P1-8** (the issuer team
+panel, which is what finally makes the individual-verification gate reachable by a person).
+**P1-1**, linking assets to issuer organisations, is the bigger structural step and needs the
+user's answer on what existing assets belong to before any migration is written.

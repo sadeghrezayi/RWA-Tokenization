@@ -59,7 +59,8 @@ the deciding officer (P1-9).
   identified **data-migration point** (existing assets have no organisation).
 - **Files:** `prisma/schema.prisma`, `domain/assets/asset.ts`, `application/assets/*`,
   `docs/data-migration-plan.md`.
-- **Prerequisites:** P0-1 is not strictly required but makes the result visible.
+- **Prerequisites:** none technically; the review screen (3.2f) already exists, so an approved
+  organisation is visible in the console and the result of this link will be too.
 - **Acceptance:** new assets carry an organisation; existing assets are handled by an explicit,
   reviewed migration (nullable column + backfill decision, **not** a silent default); an issuer's
   contributor can work on their organisation's assets and no one else's; tenant isolation intact.
