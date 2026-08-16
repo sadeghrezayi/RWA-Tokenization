@@ -148,6 +148,22 @@ describe("IssuersPanel", () => {
     });
   });
 
+  it("names the officer who decided rather than their account id", async () => {
+    renderPanel({}, [{ ...approved, decidedByLabel: "compliance@platform.local" }]);
+
+    const row = await screen.findByTestId("issuer-org-2");
+    expect(row.textContent).toContain("compliance@platform.local");
+    expect(row.textContent).not.toContain("officer-1");
+  });
+
+  it("falls back to the account id when the officer cannot be named", async () => {
+    // Losing who decided would be worse than showing an id.
+    renderPanel({}, [approved]);
+
+    const row = await screen.findByTestId("issuer-org-2");
+    expect(row.textContent).toContain("officer-1");
+  });
+
   it("says why a rejected application was refused", async () => {
     renderPanel({}, [
       {

@@ -1803,8 +1803,11 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     },
     {
       provide: ListIssuers,
-      useFactory: (issuers: IssuerRepository) => new ListIssuers(issuers),
-      inject: [ISSUER_REPOSITORY],
+      // The staff repository names the deciding officer. It is platform-level
+      // (raw client), which is why it is not the tenant-scoped one.
+      useFactory: (issuers: IssuerRepository, staff: StaffUserRepository) =>
+        new ListIssuers(issuers, staff),
+      inject: [ISSUER_REPOSITORY, STAFF_USER_REPOSITORY],
     },
     {
       provide: ListIssuerTeam,

@@ -162,6 +162,9 @@ describe("Issuers API (e2e, real Postgres)", () => {
     expect(mine?.state).toBe("approved");
     expect(mine?.canSubmitAssets).toBe(true);
     expect(mine?.decidedBy).toBeTruthy();
+    // The decision names a person, not an account id. If the wiring ever loses
+    // the staff lookup, this is what fails.
+    expect(mine?.decidedByLabel).toBe(OFFICER.email);
   });
 
   it("refuses approval of something nobody reviewed (409)", async () => {

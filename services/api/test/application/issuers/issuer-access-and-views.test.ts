@@ -7,7 +7,12 @@ import {
 } from "../../../src/application/issuers/errors.js";
 import { IssuerMembership } from "../../../src/domain/issuers/issuer-membership.js";
 import { IssuerOrganisation } from "../../../src/domain/issuers/issuer-organisation.js";
+import { EmailAddress } from "../../../src/domain/identity/email-address.js";
+import { PasswordHash } from "../../../src/domain/identity/password-hash.js";
+import { StaffUser } from "../../../src/domain/identity/staff-user.js";
 import { InMemoryIssuerRepository } from "../../fakes/issuer-fakes.js";
+import { InMemoryStaffUserRepository } from "../../fakes/identity-fakes.js";
+import type { StaffUserRepository } from "../../../src/application/identity/ports.js";
 
 const APPLIED_AT = new Date("2026-08-01T09:00:00Z");
 const DECIDED_AT = new Date("2026-08-02T09:00:00Z");
@@ -23,6 +28,26 @@ const directory = {
 };
 
 let issuers: InMemoryIssuerRepository;
+let staff: InMemoryStaffUserRepository;
+
+const officer = (id: string, email: string) =>
+  StaffUser.create(id, EmailAddress.of(email), PasswordHash.of("x"), ["compliance_analyst"]);
+
+// Counts the id lookups so a per-row query cannot creep back in. A spread of the
+// class instance would drop its prototype methods, so it delegates explicitly.
+const countingStaff = (source: InMemoryStaffUserRepository) => {
+  const counter = { lookups: 0 };
+  const repository: StaffUserRepository = {
+    findById: (id) => {
+      counter.lookups += 1;
+      return source.findById(id);
+    },
+    findByEmail: (email) => source.findByEmail(email),
+    findAll: () => source.findAll(),
+    save: (user) => source.save(user),
+  };
+  return { repository, counter };
+};
 
 const organisation = (id: string) =>
   IssuerOrganisation.apply({
@@ -41,6 +66,8 @@ const member = (
 
 beforeEach(async () => {
   issuers = new InMemoryIssuerRepository();
+  staff = new InMemoryStaffUserRepository();
+  await staff.save(officer("officer-1", "compliance@platform.local"));
   await issuers.save(organisation("org-1"));
   await issuers.addMember(member("org-1", "user-founder", "issuer_admin"));
   await issuers.addMember(member("org-1", "user-colleague", "issuer_contributor"));
@@ -48,7 +75,7 @@ beforeEach(async () => {
 
 describe("ListIssuers", () => {
   it("shows an officer what they must decide about", async () => {
-    const [view] = await new ListIssuers(issuers).execute();
+    const [view] = await new ListIssuers(issuers, staff).execute();
 
     expect(view?.legalName).toBe("Holdings org-1");
     expect(view?.registrationNumber).toBe("IR-org-1");
@@ -68,12 +95,64 @@ describe("ListIssuers", () => {
         .reject(DECIDED_AT, "officer-1", "registration number does not match the registry"),
     );
 
-    const rejected = (await new ListIssuers(issuers).execute()).find((v) => v.id === "org-2");
+    const rejected = (await new ListIssuers(issuers, staff).execute()).find(
+      (v) => v.id === "org-2",
+    );
 
     expect(rejected?.state).toBe("rejected");
     expect(rejected?.decidedAt).toBe(DECIDED_AT.toISOString());
     expect(rejected?.decidedBy).toBe("officer-1");
     expect(rejected?.rejectionReason).toBe("registration number does not match the registry");
+  });
+
+  // A decision is taken by a PERSON, and "officer-1" names nobody. The id stays
+  // for the audit trail; the label is what a reader is shown.
+  it("names the officer who decided, not their account id", async () => {
+    await issuers.save(
+      organisation("org-2").startReview(DECIDED_AT).approve(DECIDED_AT, "officer-1"),
+    );
+
+    const approved = (await new ListIssuers(issuers, staff).execute()).find(
+      (v) => v.id === "org-2",
+    );
+
+    expect(approved?.decidedBy).toBe("officer-1");
+    expect(approved?.decidedByLabel).toBe("compliance@platform.local");
+  });
+
+  it("falls back to the id when the account cannot be resolved", async () => {
+    // A decision must never lose its author because the account was renamed,
+    // disabled or removed — showing the id beats showing nothing.
+    await issuers.save(
+      organisation("org-2").startReview(DECIDED_AT).approve(DECIDED_AT, "officer-long-gone"),
+    );
+
+    const approved = (await new ListIssuers(issuers, staff).execute()).find(
+      (v) => v.id === "org-2",
+    );
+
+    expect(approved?.decidedBy).toBe("officer-long-gone");
+    expect(approved?.decidedByLabel).toBeUndefined();
+  });
+
+  it("looks each officer up once, however many rows they decided", async () => {
+    // The queue is read often; a lookup per row would multiply with the backlog.
+    const { repository, counter } = countingStaff(staff);
+    for (const id of ["org-2", "org-3", "org-4"]) {
+      await issuers.save(organisation(id).startReview(DECIDED_AT).approve(DECIDED_AT, "officer-1"));
+    }
+
+    await new ListIssuers(issuers, repository).execute();
+
+    expect(counter.lookups).toBe(1);
+  });
+
+  it("asks for nothing when no application has been decided", async () => {
+    const { repository, counter } = countingStaff(staff);
+
+    await new ListIssuers(issuers, repository).execute();
+
+    expect(counter.lookups).toBe(0);
   });
 });
 

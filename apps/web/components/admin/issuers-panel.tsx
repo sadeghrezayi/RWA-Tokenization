@@ -173,9 +173,12 @@ export const IssuersPanel = ({
                         {organisation.rejectionReason !== undefined && (
                           <span className="muted">{organisation.rejectionReason}</span>
                         )}
+                        {/* A decision is taken by a person. The account id is
+                            the fallback, not the label. */}
                         {organisation.decidedBy !== undefined && (
                           <span className="muted">
-                            {t.issuersDecidedBy} {organisation.decidedBy}
+                            {t.issuersDecidedBy}{" "}
+                            {organisation.decidedByLabel ?? organisation.decidedBy}
                           </span>
                         )}
                       </div>

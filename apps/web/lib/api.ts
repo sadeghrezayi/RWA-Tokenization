@@ -812,7 +812,10 @@ export interface IssuerOrganisationDto {
   state: IssuerStateDto;
   appliedAt: string;
   decidedAt?: string;
+  // The account id is the audit-stable reference; the label is the person. An
+  // unresolved account has no label, and the row falls back to the id.
   decidedBy?: string;
+  decidedByLabel?: string;
   rejectionReason?: string;
   canSubmitAssets: boolean;
 }
