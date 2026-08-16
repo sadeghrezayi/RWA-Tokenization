@@ -801,7 +801,7 @@ export interface PendingFundingDto extends FundingRequestDto {
 }
 
 // 3.2: an organisation that brings assets to the platform. It is not a user —
-// people act for it (IssuerMemberDto) — and it can do nothing until approved.
+// people act for it — and it can do nothing until the platform approves it.
 export type IssuerStateDto = "applied" | "in_review" | "approved" | "rejected" | "suspended";
 
 export interface IssuerOrganisationDto {
@@ -815,14 +815,6 @@ export interface IssuerOrganisationDto {
   decidedBy?: string;
   rejectionReason?: string;
   canSubmitAssets: boolean;
-}
-
-export interface IssuerMemberDto {
-  userId: string;
-  email?: string;
-  role: "issuer_admin" | "issuer_contributor";
-  addedAt: string;
-  canManageTeam: boolean;
 }
 
 export class ApiError extends Error {
