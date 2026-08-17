@@ -147,6 +147,20 @@ describe("AddTeamMember", () => {
     expect(await issuers.membersOf(id)).toHaveLength(1);
   });
 
+  // The inviter typed an address; telling them a UUID is not verified names
+  // nobody they know. The refusal has to be readable by the person who caused it.
+  it("refuses by the address the inviter typed, not by an internal id", async () => {
+    const id = await applied();
+
+    await expect(
+      addMember.execute({
+        organisationId: id,
+        email: "colleague@vanak.example",
+        role: "issuer_contributor",
+      }),
+    ).rejects.toThrow(/colleague@vanak\.example/);
+  });
+
   it("adds a verified person in the role given", async () => {
     const id = await applied();
     verified.add("user-colleague");
@@ -250,6 +264,17 @@ describe("RemoveTeamMember", () => {
     ).rejects.toThrow(LastIssuerAdminError);
 
     expect(await issuers.membersOf(id)).toHaveLength(2);
+  });
+
+  it("says why without reciting an identifier the reader already has", async () => {
+    // The refusal is read on the organisation's own page. Printing its UUID
+    // adds noise, not information.
+    const id = await applied();
+    await invite(id);
+
+    await expect(
+      removeMember.execute({ organisationId: id, userId: "user-founder" }),
+    ).rejects.toThrow(/^this organisation must keep at least one administrator$/i);
   });
 
   it("removes an administrator once another one remains", async () => {

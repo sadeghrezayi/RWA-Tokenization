@@ -46,6 +46,14 @@ describe("IssuersPanel", () => {
     expect(row.textContent).not.toContain("org-1");
   });
 
+  it("opens an organisation's own page from its name", async () => {
+    // Every entity is a page in this console; the team lives on the issuer's.
+    renderPanel();
+
+    const link = await screen.findByRole("link", { name: /Vanak Property Holdings PJSC/ });
+    expect(link.getAttribute("href")).toBe("/en/admin/issuers/org-1");
+  });
+
   it("says the queue is empty rather than showing a bare table", async () => {
     renderPanel({}, []);
 

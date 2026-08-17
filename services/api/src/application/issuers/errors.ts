@@ -32,10 +32,11 @@ export class NotIssuerTeamMemberError extends ApplicationError {
 }
 
 // An organisation must keep at least one administrator, or it can never staff
-// itself again.
+// itself again. The message carries no id: it is read by someone already
+// looking at the organisation, and a UUID would be noise, not information.
 export class LastIssuerAdminError extends ApplicationError {
-  constructor(organisationId: string) {
-    super(`issuer organisation "${organisationId}" must keep at least one administrator`);
+  constructor() {
+    super("this organisation must keep at least one administrator");
   }
 }
 

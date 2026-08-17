@@ -23,7 +23,7 @@ export class RemoveTeamMember {
       (member) => member.userId !== input.userId && member.canManageTeam(),
     );
     if (going.canManageTeam() && otherAdmins.length === 0) {
-      throw new LastIssuerAdminError(input.organisationId);
+      throw new LastIssuerAdminError();
     }
     await this.issuers.removeMember(input.organisationId, input.userId);
   }

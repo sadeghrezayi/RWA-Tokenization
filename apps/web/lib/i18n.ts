@@ -429,6 +429,21 @@ export interface Dictionary {
   issuersSendRejectionButton: string;
   issuersConfirmSuspensionButton: string;
   issuersDecidedBy: string;
+  issuerDetailBack: string;
+  issuerTeamTitle: string;
+  issuerTeamSubtitle: string;
+  issuerTeamEmpty: string;
+  issuerTeamMemberLabel: string;
+  issuerTeamRoleLabel: string;
+  issuerTeamAddedLabel: string;
+  issuerRoleAdmin: string;
+  issuerRoleContributor: string;
+  issuerInviteEmailLabel: string;
+  issuerInviteEmailHint: string;
+  issuerInviteButton: string;
+  issuerInviteEmailRequired: string;
+  issuerRemoveButton: string;
+  issuerOrganisationTitle: string;
   signedInAs: string;
   investorPortalTitle: string;
   backToAssets: string;
@@ -958,6 +973,22 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuersSendRejectionButton: "Send rejection",
     issuersConfirmSuspensionButton: "Confirm suspension",
     issuersDecidedBy: "Decided by",
+    issuerDetailBack: "← Back to issuers",
+    issuerOrganisationTitle: "Organisation",
+    issuerTeamTitle: "People acting for this issuer",
+    issuerTeamSubtitle:
+      "Everyone here has completed individual verification — the organisation's own approval does not cover its people. Invitations are by email.",
+    issuerTeamEmpty: "Nobody acts for this organisation yet.",
+    issuerTeamMemberLabel: "Person",
+    issuerTeamRoleLabel: "Role",
+    issuerTeamAddedLabel: "Added",
+    issuerRoleAdmin: "Administrator",
+    issuerRoleContributor: "Contributor",
+    issuerInviteEmailLabel: "Email",
+    issuerInviteEmailHint: "They must already hold a verified platform account.",
+    issuerInviteButton: "Invite",
+    issuerInviteEmailRequired: "Enter the email address of the person to invite.",
+    issuerRemoveButton: "Remove",
     signedInAs: "Signed in as",
     investorPortalTitle: "Investor Portal",
     backToAssets: "← Back to assets",

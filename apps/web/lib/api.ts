@@ -499,6 +499,15 @@ export interface ApiClient {
   // 3.2: issuer organisations. Reviewing and deciding is staff work behind
   // issuer.manage; every decision that refuses carries a reason.
   issuers(): Promise<IssuerOrganisationDto[]>;
+  issuer(id: string): Promise<IssuerOrganisationDto>;
+  issuerTeam(id: string): Promise<IssuerMemberDto[]>;
+  addIssuerMember(
+    csrfToken: string,
+    id: string,
+    email: string,
+    role: IssuerMemberDto["role"],
+  ): Promise<void>;
+  removeIssuerMember(csrfToken: string, id: string, userId: string): Promise<void>;
   startIssuerReview(csrfToken: string, id: string): Promise<void>;
   approveIssuer(csrfToken: string, id: string): Promise<void>;
   rejectIssuer(csrfToken: string, id: string, reason: string): Promise<void>;
@@ -823,6 +832,17 @@ export interface IssuerOrganisationDto {
   canSubmitAssets: boolean;
 }
 
+// A person acting for an issuer. Known by their address; the id is what the
+// remove call needs. An address that cannot be resolved leaves the row without
+// one rather than hiding the person.
+export interface IssuerMemberDto {
+  userId: string;
+  email?: string;
+  role: "issuer_admin" | "issuer_contributor";
+  addedAt: string;
+  canManageTeam: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -1060,6 +1080,21 @@ export const createApiClient = (
         }),
       ),
     issuers: () => json(call("/issuers")),
+    issuer: (id) => json(call(`/issuers/${encodeURIComponent(id)}`)),
+    issuerTeam: (id) => json(call(`/issuers/${encodeURIComponent(id)}/members`)),
+    addIssuerMember: async (csrfToken, id, email, role) => {
+      await call(`/issuers/${encodeURIComponent(id)}/members`, {
+        method: "POST",
+        token: csrfToken,
+        body: { email, role },
+      });
+    },
+    removeIssuerMember: async (csrfToken, id, userId) => {
+      await call(`/issuers/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, {
+        method: "DELETE",
+        token: csrfToken,
+      });
+    },
     startIssuerReview: async (csrfToken, id) => {
       await call(`/issuers/${encodeURIComponent(id)}/start-review`, {
         method: "POST",

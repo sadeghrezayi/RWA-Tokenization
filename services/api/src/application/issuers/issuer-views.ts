@@ -34,48 +34,24 @@ export interface IssuerMemberView {
   canManageTeam: boolean;
 }
 
-export class ListIssuers {
-  constructor(
-    private readonly issuers: IssuerRepository,
-    private readonly staff: StaffUserRepository,
-  ) {}
-
-  async execute(): Promise<IssuerOrganisationView[]> {
-    const rows = await this.issuers.findAll();
-    const labels = await this.labelsFor(rows);
-    return rows.map((organisation) => ({
-      id: organisation.id,
-      legalName: organisation.legalName,
-      registrationNumber: organisation.registrationNumber,
-      contactEmail: organisation.contactEmail,
-      state: organisation.state,
-      appliedAt: organisation.appliedAt.toISOString(),
-      ...(organisation.decidedAt ? { decidedAt: organisation.decidedAt.toISOString() } : {}),
-      ...(organisation.decidedBy ? { decidedBy: organisation.decidedBy } : {}),
-      ...labelOf(labels, organisation),
-      ...(organisation.rejectionReason ? { rejectionReason: organisation.rejectionReason } : {}),
-      canSubmitAssets: organisation.canSubmitAssets(),
-    }));
-  }
-
-  // One lookup per distinct officer in the batch, not per row — the queue is
-  // read often and one officer decides many applications.
-  private async labelsFor(
-    rows: readonly IssuerOrganisation[],
-  ): Promise<ReadonlyMap<string, string>> {
-    const ids = new Set(
-      rows.map((row) => row.decidedBy).filter((id): id is string => id !== undefined),
-    );
-    const labels = new Map<string, string>();
-    for (const id of ids) {
-      const email = (await this.staff.findById(id))?.email.value;
-      if (email !== undefined) {
-        labels.set(id, email);
-      }
-    }
-    return labels;
-  }
-}
+// One definition of "an organisation as a reader sees it", so the queue and a
+// single organisation can never drift apart.
+const toIssuerView = (
+  organisation: IssuerOrganisation,
+  labels: ReadonlyMap<string, string>,
+): IssuerOrganisationView => ({
+  id: organisation.id,
+  legalName: organisation.legalName,
+  registrationNumber: organisation.registrationNumber,
+  contactEmail: organisation.contactEmail,
+  state: organisation.state,
+  appliedAt: organisation.appliedAt.toISOString(),
+  ...(organisation.decidedAt ? { decidedAt: organisation.decidedAt.toISOString() } : {}),
+  ...(organisation.decidedBy ? { decidedBy: organisation.decidedBy } : {}),
+  ...labelOf(labels, organisation),
+  ...(organisation.rejectionReason ? { rejectionReason: organisation.rejectionReason } : {}),
+  canSubmitAssets: organisation.canSubmitAssets(),
+});
 
 const labelOf = (
   labels: ReadonlyMap<string, string>,
@@ -85,6 +61,52 @@ const labelOf = (
     organisation.decidedBy === undefined ? undefined : labels.get(organisation.decidedBy);
   return label === undefined ? {} : { decidedByLabel: label };
 };
+
+// One lookup per distinct officer, not per row — the queue is read often and
+// one officer decides many applications. An unresolved account keeps its id.
+const staffLabelsFor = async (
+  staff: StaffUserRepository,
+  rows: readonly IssuerOrganisation[],
+): Promise<ReadonlyMap<string, string>> => {
+  const ids = new Set(
+    rows.map((row) => row.decidedBy).filter((id): id is string => id !== undefined),
+  );
+  const labels = new Map<string, string>();
+  for (const id of ids) {
+    const email = (await staff.findById(id))?.email.value;
+    if (email !== undefined) {
+      labels.set(id, email);
+    }
+  }
+  return labels;
+};
+
+export class ListIssuers {
+  constructor(
+    private readonly issuers: IssuerRepository,
+    private readonly staff: StaffUserRepository,
+  ) {}
+
+  async execute(): Promise<IssuerOrganisationView[]> {
+    const rows = await this.issuers.findAll();
+    const labels = await staffLabelsFor(this.staff, rows);
+    return rows.map((organisation) => toIssuerView(organisation, labels));
+  }
+}
+
+// One organisation, for its own page. Unknown ids are refused rather than
+// returning an empty shell a screen would render as a real record.
+export class GetIssuer {
+  constructor(
+    private readonly issuers: IssuerRepository,
+    private readonly staff: StaffUserRepository,
+  ) {}
+
+  async execute(input: { organisationId: string }): Promise<IssuerOrganisationView> {
+    const organisation = await loadIssuer(this.issuers, input.organisationId);
+    return toIssuerView(organisation, await staffLabelsFor(this.staff, [organisation]));
+  }
+}
 
 export class ListIssuerTeam {
   constructor(

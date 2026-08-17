@@ -13,7 +13,7 @@ import { RemoveTeamMember } from "../../application/issuers/remove-team-member.j
 import { ApplyAsIssuer } from "../../application/issuers/apply-as-issuer.js";
 import { DecideIssuerApplication } from "../../application/issuers/decide-issuer-application.js";
 import { IssuerTeamAccess } from "../../application/issuers/issuer-team-access.js";
-import { ListIssuerTeam, ListIssuers } from "../../application/issuers/issuer-views.js";
+import { GetIssuer, ListIssuerTeam, ListIssuers } from "../../application/issuers/issuer-views.js";
 import type {
   IssuerMemberView,
   IssuerOrganisationView,
@@ -60,6 +60,7 @@ export class IssuersController {
     private readonly addTeamMember: AddTeamMember,
     private readonly removeTeamMember: RemoveTeamMember,
     private readonly listIssuers: ListIssuers,
+    private readonly getIssuer: GetIssuer,
     private readonly listTeam: ListIssuerTeam,
     private readonly access: IssuerTeamAccess,
   ) {}
@@ -81,6 +82,17 @@ export class IssuersController {
   @RequirePermission(PERMISSIONS.ISSUER_MANAGE)
   list(): Promise<IssuerOrganisationView[]> {
     return this.listIssuers.execute();
+  }
+
+  // One organisation's own record. Staff read any; an issuer's people read
+  // theirs — the same rule as their team, since the two are read together.
+  @Get(":id")
+  async get(
+    @Param("id") id: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<IssuerOrganisationView> {
+    await this.authorize(id, principal, "read");
+    return this.getIssuer.execute({ organisationId: id });
   }
 
   @Post(":id/start-review")

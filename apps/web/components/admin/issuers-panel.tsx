@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import type { ApiClient, IssuerOrganisationDto, IssuerStateDto } from "../../lib/api";
 import { formatDate } from "../../lib/format";
 import { dictionaries } from "../../lib/i18n";
@@ -156,7 +157,13 @@ export const IssuersPanel = ({
               <tbody>
                 {rows.map((organisation) => (
                   <tr key={organisation.id} data-testid={`issuer-${organisation.id}`}>
-                    <td>{organisation.legalName}</td>
+                    {/* The name opens the organisation's own page, where its
+                        team lives — every entity is a page in this console. */}
+                    <td>
+                      <Link href={`/${locale}/admin/issuers/${organisation.id}`}>
+                        {organisation.legalName}
+                      </Link>
+                    </td>
                     <td className="num">{organisation.registrationNumber}</td>
                     <td>{organisation.contactEmail}</td>
                     <td>{formatDate(organisation.appliedAt)}</td>

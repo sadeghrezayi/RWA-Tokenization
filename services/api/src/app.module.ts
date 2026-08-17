@@ -126,7 +126,7 @@ import { DecideIssuerApplication } from "./application/issuers/decide-issuer-app
 import { AddTeamMember } from "./application/issuers/add-team-member.js";
 import { RemoveTeamMember } from "./application/issuers/remove-team-member.js";
 import { IssuerTeamAccess } from "./application/issuers/issuer-team-access.js";
-import { ListIssuerTeam, ListIssuers } from "./application/issuers/issuer-views.js";
+import { GetIssuer, ListIssuerTeam, ListIssuers } from "./application/issuers/issuer-views.js";
 import { InvestorPersonVerification } from "./application/issuers/investor-person-verification.js";
 import { InvestorPersonDirectory } from "./application/issuers/investor-person-directory.js";
 import { PrismaFundingRepository } from "./infrastructure/persistence/prisma-funding-repository.js";
@@ -1810,6 +1810,12 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       // (raw client), which is why it is not the tenant-scoped one.
       useFactory: (issuers: IssuerRepository, staff: StaffUserRepository) =>
         new ListIssuers(issuers, staff),
+      inject: [ISSUER_REPOSITORY, STAFF_USER_REPOSITORY],
+    },
+    {
+      provide: GetIssuer,
+      useFactory: (issuers: IssuerRepository, staff: StaffUserRepository) =>
+        new GetIssuer(issuers, staff),
       inject: [ISSUER_REPOSITORY, STAFF_USER_REPOSITORY],
     },
     {

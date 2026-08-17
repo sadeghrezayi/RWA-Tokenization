@@ -173,6 +173,24 @@ describe("Issuers API (e2e, real Postgres)", () => {
     expect(mine?.decidedByLabel).toBe(OFFICER.email);
   });
 
+  it("gives one organisation its own record, and 404 for one that does not exist", async () => {
+    const id = await approved();
+
+    const res = await request(server).get(`/issuers/${id}`).set(auth(officer)).expect(200);
+    const view = res.body as IssuerOrganisationView;
+    expect(view.legalName).toBe("Vanak Property Holdings PJSC");
+    expect(view.canSubmitAssets).toBe(true);
+    expect(view.decidedByLabel).toBe(OFFICER.email);
+
+    await request(server).get(`/issuers/${randomUUID()}`).set(auth(officer)).expect(404);
+  });
+
+  it("keeps an applicant out of another organisation's record (403)", async () => {
+    const id = await applied();
+
+    await request(server).get(`/issuers/${id}`).set(auth(stranger)).expect(403);
+  });
+
   it("refuses approval of something nobody reviewed (409)", async () => {
     const id = await applied();
 

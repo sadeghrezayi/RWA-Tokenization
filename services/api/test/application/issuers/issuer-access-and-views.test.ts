@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { IssuerTeamAccess } from "../../../src/application/issuers/issuer-team-access.js";
-import { ListIssuerTeam, ListIssuers } from "../../../src/application/issuers/issuer-views.js";
 import {
+  GetIssuer,
+  ListIssuerTeam,
+  ListIssuers,
+} from "../../../src/application/issuers/issuer-views.js";
+import {
+  IssuerOrganisationNotFoundError,
   NotIssuerAdminError,
   NotIssuerTeamMemberError,
 } from "../../../src/application/issuers/errors.js";
@@ -136,6 +141,27 @@ describe("ListIssuers", () => {
     await new ListIssuers(issuers, staff).execute();
 
     expect(staff.lookups).toBe(0);
+  });
+});
+
+describe("GetIssuer", () => {
+  it("gives one organisation, named the same way the queue names it", async () => {
+    await issuers.save(
+      organisation("org-2").startReview(DECIDED_AT).approve(DECIDED_AT, "officer-1"),
+    );
+
+    const view = await new GetIssuer(issuers, staff).execute({ organisationId: "org-2" });
+
+    expect(view.legalName).toBe("Holdings org-2");
+    expect(view.state).toBe("approved");
+    expect(view.canSubmitAssets).toBe(true);
+    expect(view.decidedByLabel).toBe("compliance@platform.local");
+  });
+
+  it("refuses an organisation that does not exist", async () => {
+    await expect(
+      new GetIssuer(issuers, staff).execute({ organisationId: "ghost" }),
+    ).rejects.toThrow(IssuerOrganisationNotFoundError);
   });
 });
 

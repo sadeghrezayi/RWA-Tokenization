@@ -26,7 +26,7 @@ export class AddTeamMember {
     if (userId === undefined) {
       throw new PersonNotFoundError(input.email.trim());
     }
-    await requireVerifiedPerson(this.verification, userId);
+    await requireVerifiedPerson(this.verification, userId, input.email.trim());
     await this.issuers.addMember(
       IssuerMembership.of({
         organisationId: input.organisationId,
