@@ -75,14 +75,22 @@ export class AssetsController {
     private readonly listAssets: ListAssets,
   ) {}
 
+  // 3.3: an asset may be brought by an approved issuer. Omitting the
+  // organisation is not an oversight — the platform onboards assets itself.
   @Post()
   propose(
     @Body() body: unknown,
     @CurrentPrincipal() principal: Principal,
   ): Promise<{ assetId: string }> {
+    const organisationId = (body as { organisationId?: unknown } | null | undefined)
+      ?.organisationId;
+    if (organisationId !== undefined && typeof organisationId !== "string") {
+      throw new BadRequestException('"organisationId" must be a string when given');
+    }
     return this.proposeAsset.execute({
       name: requireString(body, "name"),
       actor: actorOf(principal),
+      ...(typeof organisationId === "string" ? { organisationId } : {}),
     });
   }
 

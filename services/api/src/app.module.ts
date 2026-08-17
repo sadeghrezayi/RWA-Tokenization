@@ -611,13 +611,14 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     },
     {
       provide: GetAsset,
-      useFactory: (repo: AssetRepository) => new GetAsset(repo),
-      inject: [ASSET_REPOSITORY],
+      useFactory: (repo: AssetRepository, issuers: IssuerRepository) => new GetAsset(repo, issuers),
+      inject: [ASSET_REPOSITORY, ISSUER_REPOSITORY],
     },
     {
       provide: ListAssets,
-      useFactory: (repo: AssetRepository) => new ListAssets(repo),
-      inject: [ASSET_REPOSITORY],
+      useFactory: (repo: AssetRepository, issuers: IssuerRepository) =>
+        new ListAssets(repo, issuers),
+      inject: [ASSET_REPOSITORY, ISSUER_REPOSITORY],
     },
     {
       // Real per-asset ERC-3643 deployment when the devnet env is configured;

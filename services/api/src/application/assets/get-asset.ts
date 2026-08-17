@@ -1,6 +1,7 @@
 import type { Asset, AssetState, AssetType } from "../../domain/assets/asset.js";
 import type { DossierDocumentKind } from "../../domain/assets/legal-dossier.js";
 import type { ChecklistItem } from "../../domain/assets/onboarding-checklist.js";
+import type { IssuerRepository } from "../issuers/ports.js";
 import { loadAsset } from "./load-asset.js";
 import type { AssetRepository } from "./ports.js";
 
@@ -21,6 +22,11 @@ export interface AssetView {
     builtInYear?: number;
   };
   rights: { kind: string; note: string }[];
+  // 3.3: who brought this asset. Both absent means the platform onboarded it
+  // itself — a real answer, not a blank. The NAME is what an officer checks
+  // against a company registry; the id is for links.
+  organisationId?: string;
+  organisationName?: string;
   dossier: {
     complete: boolean;
     missingKinds: DossierDocumentKind[];
@@ -34,7 +40,20 @@ export interface AssetView {
   };
 }
 
-export const toAssetView = (asset: Asset): AssetView => ({
+// An organisation whose name cannot be resolved leaves the asset with its id
+// and no name — which issuer brought it is never hidden.
+const organisationNameOf = (
+  asset: Asset,
+  names: ReadonlyMap<string, string>,
+): { organisationName?: string } => {
+  const name = asset.organisationId === undefined ? undefined : names.get(asset.organisationId);
+  return name === undefined ? {} : { organisationName: name };
+};
+
+export const toAssetView = (
+  asset: Asset,
+  organisationNames: ReadonlyMap<string, string> = new Map(),
+): AssetView => ({
   id: asset.id,
   name: asset.name,
   type: asset.type,
@@ -67,6 +86,8 @@ export const toAssetView = (asset: Asset): AssetView => ({
       }
     : {}),
   rights: asset.rights.conveyed().map((right) => ({ kind: right.kind, note: right.note })),
+  ...(asset.organisationId !== undefined ? { organisationId: asset.organisationId } : {}),
+  ...organisationNameOf(asset, organisationNames),
   dossier: {
     complete: asset.dossier.isComplete(),
     missingKinds: asset.dossier.missingKinds(),
@@ -80,18 +101,47 @@ export const toAssetView = (asset: Asset): AssetView => ({
   },
 });
 
+// One lookup per distinct organisation, not per asset: one issuer brings many.
+// An organisation that cannot be resolved leaves the asset with its id and no
+// name, rather than hiding which issuer brought it.
+const organisationNamesFor = async (
+  issuers: IssuerRepository,
+  assets: readonly Asset[],
+): Promise<ReadonlyMap<string, string>> => {
+  const ids = new Set(
+    assets.map((a) => a.organisationId).filter((id): id is string => id !== undefined),
+  );
+  const names = new Map<string, string>();
+  for (const id of ids) {
+    const organisation = await issuers.findById(id);
+    if (organisation !== undefined) {
+      names.set(id, organisation.legalName);
+    }
+  }
+  return names;
+};
+
 export class GetAsset {
-  constructor(private readonly assets: AssetRepository) {}
+  constructor(
+    private readonly assets: AssetRepository,
+    private readonly issuers: IssuerRepository,
+  ) {}
 
   async execute(input: { assetId: string }): Promise<AssetView> {
-    return toAssetView(await loadAsset(this.assets, input.assetId));
+    const asset = await loadAsset(this.assets, input.assetId);
+    return toAssetView(asset, await organisationNamesFor(this.issuers, [asset]));
   }
 }
 
 export class ListAssets {
-  constructor(private readonly assets: AssetRepository) {}
+  constructor(
+    private readonly assets: AssetRepository,
+    private readonly issuers: IssuerRepository,
+  ) {}
 
   async execute(): Promise<AssetView[]> {
-    return (await this.assets.findAll()).map(toAssetView);
+    const assets = await this.assets.findAll();
+    const names = await organisationNamesFor(this.issuers, assets);
+    return assets.map((asset) => toAssetView(asset, names));
   }
 }

@@ -42,8 +42,8 @@ const setup = () => {
     recordCustody: new RecordCustody(assets, events),
     confirmItem: new ConfirmChecklistItem(assets, events),
     approve: new ApproveAsset(assets, events),
-    getAsset: new GetAsset(assets),
-    listAssets: new ListAssets(assets),
+    getAsset: new GetAsset(assets, issuers),
+    listAssets: new ListAssets(assets, issuers),
   };
 };
 
@@ -249,5 +249,43 @@ describe("Proposing an asset for an issuer", () => {
     await expect(
       s.propose.execute({ name: "Villa", actor: ACTOR, organisationId: "ghost" }),
     ).rejects.toThrow();
+  });
+
+  // An officer reading an asset needs to know WHO brought it. "org-1" answers
+  // nothing; the legal name is what they check against a registry.
+  it("names the organisation on the asset, not its id", async () => {
+    const s = setup();
+    await s.issuers.save(organisation().startReview(DECIDED_AT).approve(DECIDED_AT, "officer-1"));
+    const { assetId } = await s.propose.execute({
+      name: "Villa",
+      actor: ACTOR,
+      organisationId: "org-1",
+    });
+
+    const view = await s.getAsset.execute({ assetId });
+
+    expect(view.organisationId).toBe("org-1");
+    expect(view.organisationName).toBe("Vanak Property Holdings PJSC");
+  });
+
+  it("says nothing about an organisation when the platform onboarded the asset", async () => {
+    const s = setup();
+    const { assetId } = await s.propose.execute({ name: "Villa", actor: ACTOR });
+
+    const view = await s.getAsset.execute({ assetId });
+
+    expect(view.organisationId).toBeUndefined();
+    expect(view.organisationName).toBeUndefined();
+  });
+
+  it("names organisations across a list with one lookup each", async () => {
+    const s = setup();
+    await s.issuers.save(organisation().startReview(DECIDED_AT).approve(DECIDED_AT, "officer-1"));
+    await s.propose.execute({ name: "One", actor: ACTOR, organisationId: "org-1" });
+    await s.propose.execute({ name: "Two", actor: ACTOR, organisationId: "org-1" });
+
+    const views = await s.listAssets.execute();
+
+    expect(views.every((v) => v.organisationName === "Vanak Property Holdings PJSC")).toBe(true);
   });
 });

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
@@ -422,5 +423,86 @@ describe("Assets API (e2e, real Postgres, fake document store)", () => {
 
   it("returns_404_for_an_unknown_asset", async () => {
     await request(server).get("/assets/nope").set(auth(officerToken)).expect(404);
+  });
+
+  // 3.3: an asset brought by an issuer, over HTTP. The rule that matters is
+  // that an organisation the platform has not approved is refused.
+  describe("assets brought by an issuer", () => {
+    const applyAndApprove = async (): Promise<string> => {
+      const email = `issuer-asset-${randomUUID()}@example.com`;
+      await request(server).post("/investors").send({ email, password: "s3cure-pass" }).expect(201);
+      await prisma.investor.updateMany({
+        where: { email: email.toLowerCase() },
+        data: { kycState: "approved" },
+      });
+      const login = await request(server)
+        .post("/auth/login")
+        .send({ email, password: "s3cure-pass" })
+        .expect(200);
+      const applicant = (login.body as { token: string }).token;
+      const applied = await request(server)
+        .post("/issuers")
+        .set({ authorization: `Bearer ${applicant}` })
+        .send({
+          legalName: "Vanak Property Holdings PJSC",
+          registrationNumber: `IR-${randomUUID().slice(0, 8)}`,
+          contactEmail: "ops@vanak.example",
+        })
+        .expect(201);
+      return (applied.body as { organisationId: string }).organisationId;
+    };
+
+    it("names the issuer that brought the asset", async () => {
+      const organisationId = await applyAndApprove();
+      await request(server)
+        .post(`/issuers/${organisationId}/start-review`)
+        .set(auth(officerToken))
+        .expect(204);
+      await request(server)
+        .post(`/issuers/${organisationId}/approve`)
+        .set(auth(officerToken))
+        .expect(204);
+
+      const created = await request(server)
+        .post("/assets")
+        .set(auth(officerToken))
+        .send({ name: "Vanak Villa", organisationId })
+        .expect(201);
+      const { assetId } = created.body as { assetId: string };
+
+      const view = await request(server)
+        .get(`/assets/${assetId}`)
+        .set(auth(officerToken))
+        .expect(200);
+      const body = view.body as { organisationId?: string; organisationName?: string };
+      expect(body.organisationId).toBe(organisationId);
+      // The legal name, not the id — an officer checks it against a registry.
+      expect(body.organisationName).toBe("Vanak Property Holdings PJSC");
+    });
+
+    it("refuses an organisation the platform has not approved (409)", async () => {
+      const organisationId = await applyAndApprove();
+
+      await request(server)
+        .post("/assets")
+        .set(auth(officerToken))
+        .send({ name: "Premature Villa", organisationId })
+        .expect(409);
+    });
+
+    it("still onboards an asset with no organisation at all", async () => {
+      const created = await request(server)
+        .post("/assets")
+        .set(auth(officerToken))
+        .send({ name: "Platform Villa" })
+        .expect(201);
+      const { assetId } = created.body as { assetId: string };
+
+      const view = await request(server)
+        .get(`/assets/${assetId}`)
+        .set(auth(officerToken))
+        .expect(200);
+      expect((view.body as { organisationId?: string }).organisationId).toBeUndefined();
+    });
   });
 });
