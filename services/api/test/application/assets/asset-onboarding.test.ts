@@ -6,11 +6,17 @@ import { RecordCustody } from "../../../src/application/assets/record-custody.js
 import { ConfirmChecklistItem } from "../../../src/application/assets/confirm-checklist-item.js";
 import { ApproveAsset } from "../../../src/application/assets/approve-asset.js";
 import { GetAsset, ListAssets } from "../../../src/application/assets/get-asset.js";
-import { AssetNotFoundError, EmptyDocumentError } from "../../../src/application/assets/errors.js";
+import {
+  AssetNotFoundError,
+  EmptyDocumentError,
+  IssuerCannotSubmitAssetsError,
+} from "../../../src/application/assets/errors.js";
 import { IncompleteDossierError } from "../../../src/domain/assets/errors.js";
 import { REQUIRED_DOSSIER_KINDS } from "../../../src/domain/assets/legal-dossier.js";
 import { CHECKLIST_ITEMS } from "../../../src/domain/assets/onboarding-checklist.js";
 import { SequentialIdGenerator } from "../../fakes/identity-fakes.js";
+import { InMemoryIssuerRepository } from "../../fakes/issuer-fakes.js";
+import { IssuerOrganisation } from "../../../src/domain/issuers/issuer-organisation.js";
 import {
   FakeDocumentStore,
   InMemoryAssetRepository,
@@ -24,11 +30,13 @@ const setup = () => {
   const assets = new InMemoryAssetRepository();
   const documents = new FakeDocumentStore();
   const events = new RecordingAssetEventLog();
+  const issuers = new InMemoryIssuerRepository();
   return {
     assets,
     documents,
     events,
-    propose: new ProposeAsset(assets, new SequentialIdGenerator(), events),
+    issuers,
+    propose: new ProposeAsset(assets, new SequentialIdGenerator(), events, issuers),
     startStructuring: new StartStructuring(assets, events),
     attach: new AttachDossierDocument(assets, documents, events),
     recordCustody: new RecordCustody(assets, events),
@@ -167,5 +175,79 @@ describe("Asset onboarding flow (FR-AO)", () => {
     );
     expect(names.at(-1)).toBe("asset_approved");
     expect(s.events.events.every((e) => e.actor === ACTOR && e.assetId === assetId)).toBe(true);
+  });
+});
+
+// 3.3: an asset may be brought by an approved issuer. This is where
+// IssuerOrganisation.canSubmitAssets() finally decides something: an
+// organisation that has not been approved — or has been suspended — cannot have
+// assets submitted in its name.
+describe("Proposing an asset for an issuer", () => {
+  const APPLIED_AT = new Date("2026-08-01T09:00:00Z");
+  const DECIDED_AT = new Date("2026-08-02T09:00:00Z");
+
+  const organisation = () =>
+    IssuerOrganisation.apply({
+      id: "org-1",
+      legalName: "Vanak Property Holdings PJSC",
+      registrationNumber: "IR-448120",
+      contactEmail: "ops@vanak.example",
+      appliedAt: APPLIED_AT,
+    });
+
+  it("records which organisation brought it", async () => {
+    const s = setup();
+    await s.issuers.save(organisation().startReview(DECIDED_AT).approve(DECIDED_AT, "officer-1"));
+
+    const { assetId } = await s.propose.execute({
+      name: "Villa",
+      actor: ACTOR,
+      organisationId: "org-1",
+    });
+
+    expect((await s.assets.findById(assetId))?.organisationId).toBe("org-1");
+  });
+
+  it("still lets the platform onboard an asset itself", async () => {
+    // Every pilot asset is staff-onboarded; no organisation is not an error.
+    const s = setup();
+
+    const { assetId } = await s.propose.execute({ name: "Villa", actor: ACTOR });
+
+    expect((await s.assets.findById(assetId))?.organisationId).toBeUndefined();
+  });
+
+  it("refuses an organisation the platform has not approved", async () => {
+    const s = setup();
+    await s.issuers.save(organisation());
+
+    await expect(
+      s.propose.execute({ name: "Villa", actor: ACTOR, organisationId: "org-1" }),
+    ).rejects.toThrow(IssuerCannotSubmitAssetsError);
+
+    expect(await s.assets.findAll()).toEqual([]);
+  });
+
+  it("refuses a suspended organisation", async () => {
+    // Suspension has to bite here, not at the next submission.
+    const s = setup();
+    await s.issuers.save(
+      organisation()
+        .startReview(DECIDED_AT)
+        .approve(DECIDED_AT, "officer-1")
+        .suspend(DECIDED_AT, "officer-2", "under investigation"),
+    );
+
+    await expect(
+      s.propose.execute({ name: "Villa", actor: ACTOR, organisationId: "org-1" }),
+    ).rejects.toThrow(IssuerCannotSubmitAssetsError);
+  });
+
+  it("refuses an organisation that does not exist", async () => {
+    const s = setup();
+
+    await expect(
+      s.propose.execute({ name: "Villa", actor: ACTOR, organisationId: "ghost" }),
+    ).rejects.toThrow();
   });
 });

@@ -17,16 +17,24 @@ const structuredAsset = (id: string) =>
     .recordCustody(CustodyArrangement.of({ custodianName: "Trust Co.", location: "Vault 12" }))
     .confirmChecklistItem("legal_right_clear");
 
+const ORGANISATION_ID = "org-contract-1";
+
 // LSP contract: every AssetRepository implementation must pass unchanged.
+//
+// `seedOrganisation` exists because the Prisma implementation enforces a real
+// foreign key to issuer_organisations while the in-memory one has no such
+// notion. The CONTRACT is identical; only the arranging differs.
 export const assetRepositoryContract = (
   name: string,
   makeRepo: () => Promise<AssetRepository>,
+  seedOrganisation: (id: string) => Promise<void> = () => Promise.resolve(),
 ): void => {
   describe(`AssetRepository contract — ${name}`, () => {
     let repo: AssetRepository;
 
     beforeEach(async () => {
       repo = await makeRepo();
+      await seedOrganisation(ORGANISATION_ID);
     });
 
     it("returns_undefined_for_an_unknown_id", async () => {
@@ -157,6 +165,29 @@ export const assetRepositoryContract = (
 
       expect(loaded?.realEstate).toBeUndefined();
       expect(loaded?.rights.isEstablished()).toBe(false);
+    });
+
+    // 3.3: who brought the asset. This contract has twice caught a new field
+    // being saved by the domain and silently dropped by the repository.
+    it("remembers the organisation that brought the asset", async () => {
+      await repo.save(Asset.propose("asset-9", "Vanak Villa", "asset_backed", ORGANISATION_ID));
+
+      expect((await repo.findById("asset-9"))?.organisationId).toBe(ORGANISATION_ID);
+    });
+
+    it("keeps a platform-onboarded asset without an organisation", async () => {
+      // NULL is the true answer for an asset the platform onboarded itself, not
+      // a value waiting to be filled in.
+      await repo.save(Asset.propose("asset-10", "Platform Villa", "asset_backed"));
+
+      expect((await repo.findById("asset-10"))?.organisationId).toBeUndefined();
+    });
+
+    it("carries the organisation across a state change", async () => {
+      const asset = Asset.propose("asset-11", "Vanak Villa", "asset_backed", ORGANISATION_ID);
+      await repo.save(asset.startStructuring());
+
+      expect((await repo.findById("asset-11"))?.organisationId).toBe(ORGANISATION_ID);
     });
 
     it("lists_all_saved_assets", async () => {

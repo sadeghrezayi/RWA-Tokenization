@@ -23,3 +23,12 @@ export class NoPositionInAssetError extends ApplicationError {
     super(`you hold no position in asset "${assetId}"`);
   }
 }
+
+// 3.3: an organisation that has not been approved — or has been suspended —
+// cannot have assets submitted in its name. Named by legal name and state, not
+// by id: the person reading this is looking at a list of organisations.
+export class IssuerCannotSubmitAssetsError extends ApplicationError {
+  constructor(legalName: string, state: string) {
+    super(`"${legalName}" may not submit assets while it is ${state}`);
+  }
+}

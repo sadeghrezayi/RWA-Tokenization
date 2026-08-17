@@ -241,3 +241,36 @@ describe("Persistence seam", () => {
     expect(restored.markTokenized("0xToken1").state).toBe("tokenized");
   });
 });
+
+// 3.3: an asset brought by an issuer belongs to that organisation. Ownership is
+// settled when the asset is proposed and never changes afterwards — moving an
+// asset between issuers is a different operation nobody has asked for, and
+// silently reassigning one would rewrite who is answerable for it.
+describe("Asset ownership", () => {
+  it("has no organisation when the platform onboards it itself", () => {
+    // The pilot's assets are staff-onboarded. Absent is a real answer here, not
+    // a missing value to be filled in later.
+    expect(Asset.propose("asset-1", "Villa", "asset_backed").organisationId).toBeUndefined();
+  });
+
+  it("belongs to the organisation that brought it", () => {
+    const asset = Asset.propose("asset-1", "Villa", "asset_backed", "org-1");
+
+    expect(asset.organisationId).toBe("org-1");
+  });
+
+  it("carries its organisation through the whole lifecycle", () => {
+    const asset = Asset.restore({
+      id: "asset-1",
+      name: "Villa",
+      type: "asset_backed",
+      state: "approved",
+      dossier: readyForApproval().dossier,
+      checklist: readyForApproval().checklist,
+      custody: readyForApproval().custody,
+      organisationId: "org-1",
+    });
+
+    expect(asset.markTokenized("0xToken1").organisationId).toBe("org-1");
+  });
+});

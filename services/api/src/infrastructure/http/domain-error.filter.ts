@@ -21,6 +21,7 @@ import {
 } from "../../domain/identity/errors.js";
 import {
   AssetNotFoundError,
+  IssuerCannotSubmitAssetsError,
   EmptyDocumentError,
   InvalidTokenSymbolError,
   NoPositionInAssetError,
@@ -300,5 +301,8 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof InvalidIssuerTransitionError) return 409;
   if (exception instanceof InvalidIssuerOrganisationError) return 400;
   if (exception instanceof InvalidIssuerMembershipError) return 400;
+  // 3.3: the organisation exists but its state forbids submitting — a conflict
+  // with current state, not bad input.
+  if (exception instanceof IssuerCannotSubmitAssetsError) return 409;
   return 500;
 };

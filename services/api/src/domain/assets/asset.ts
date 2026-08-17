@@ -36,9 +36,14 @@ export class Asset {
     // Both are undefined/empty until a human records them — neither is inferred.
     public readonly realEstate: RealEstateProfile | undefined,
     public readonly rights: RightsMatrix,
+    // 3.3: the issuer organisation that brought this asset. UNDEFINED IS A REAL
+    // ANSWER — the platform onboards assets itself, and every pilot asset was
+    // staff-onboarded. Settled at proposal and never reassigned: moving an asset
+    // between issuers would rewrite who is answerable for it.
+    public readonly organisationId: string | undefined,
   ) {}
 
-  static propose(id: string, name: string, type: AssetType): Asset {
+  static propose(id: string, name: string, type: AssetType, organisationId?: string): Asset {
     return new Asset(
       id,
       name,
@@ -50,6 +55,7 @@ export class Asset {
       undefined,
       undefined,
       RightsMatrix.empty(),
+      organisationId,
     );
   }
 
@@ -64,6 +70,7 @@ export class Asset {
     tokenAddress?: string;
     realEstate?: RealEstateProfile;
     rights?: RightsMatrix;
+    organisationId?: string;
   }): Asset {
     return new Asset(
       fields.id,
@@ -78,6 +85,7 @@ export class Asset {
       // An asset stored before rights were modelled restores as "not
       // established", which is the honest reading: nobody recorded them.
       fields.rights ?? RightsMatrix.empty(),
+      fields.organisationId,
     );
   }
 
@@ -207,6 +215,9 @@ export class Asset {
       changes.tokenAddress ?? this.tokenAddress,
       changes.realEstate ?? this.realEstate,
       changes.rights ?? this.rights,
+      // Deliberately not a `change`: who is answerable for an asset is settled
+      // at proposal and carried unaltered through every transition.
+      this.organisationId,
     );
   }
 }

@@ -571,9 +571,15 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     },
     {
       provide: ProposeAsset,
-      useFactory: (repo: AssetRepository, ids: IdGenerator, events: AssetEventLog) =>
-        new ProposeAsset(repo, ids, events),
-      inject: [ASSET_REPOSITORY, ID_GENERATOR, ASSET_EVENT_LOG],
+      // The issuer repository is here so an asset cannot be submitted in the
+      // name of an organisation the platform has not approved.
+      useFactory: (
+        repo: AssetRepository,
+        ids: IdGenerator,
+        events: AssetEventLog,
+        issuers: IssuerRepository,
+      ) => new ProposeAsset(repo, ids, events, issuers),
+      inject: [ASSET_REPOSITORY, ID_GENERATOR, ASSET_EVENT_LOG, ISSUER_REPOSITORY],
     },
     {
       provide: StartStructuring,

@@ -259,31 +259,37 @@ model Attestation {
 }
 
 model Asset {
-  id               String          @id
-  tenantId         String          @default("default") @map("tenant_id")
-  tenant           Tenant          @relation(fields: [tenantId], references: [id])
+  id               String              @id
+  tenantId         String              @default("default") @map("tenant_id")
+  tenant           Tenant              @relation(fields: [tenantId], references: [id])
   name             String
   type             String
   state            AssetState
-  custodianName    String?         @map("custodian_name")
-  custodyLocation  String?         @map("custody_location")
-  tokenAddress     String?         @map("token_address")
+  custodianName    String?             @map("custodian_name")
+  custodyLocation  String?             @map("custody_location")
+  tokenAddress     String?             @map("token_address")
   checklist        String[]
   documents        AssetDocument[]
   // 3.1: the property a real-estate token is issued against. Nullable because
   // not every asset is a building — an asset with no profile has simply not
   // had one recorded.
-  addressLine      String?         @map("address_line")
+  addressLine      String?             @map("address_line")
   city             String?
-  propertyType     String?         @map("property_type")
-  areaSquareMetres Int?            @map("area_square_metres")
-  titleReference   String?         @map("title_reference")
-  builtInYear      Int?            @map("built_in_year")
+  propertyType     String?             @map("property_type")
+  areaSquareMetres Int?                @map("area_square_metres")
+  titleReference   String?             @map("title_reference")
+  builtInYear      Int?                @map("built_in_year")
+  // 3.3: the issuer organisation that brought this asset. NULLABLE ON PURPOSE —
+  // the platform onboards assets itself and every pilot asset was staff-
+  // onboarded, so NULL means "the platform", not "not yet filled in".
+  organisationId   String?             @map("organisation_id")
+  organisation     IssuerOrganisation? @relation(fields: [organisationId], references: [id])
   rights           AssetRight[]
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
 
   @@index([tenantId])
+  @@index([organisationId])
   @@map("assets")
 }
 
@@ -696,6 +702,7 @@ model IssuerOrganisation {
   decidedBy          String?            @map("decided_by")
   rejectionReason    String?            @map("rejection_reason")
   members            IssuerMembership[]
+  assets             Asset[]
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 

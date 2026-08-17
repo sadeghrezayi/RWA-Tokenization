@@ -16,12 +16,31 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-assetRepositoryContract("Prisma/Postgres", async () => {
-  await prisma.assetEvent.deleteMany();
-  await prisma.assetDocument.deleteMany();
-  await prisma.asset.deleteMany();
-  return new PrismaAssetRepository(prisma);
-});
+assetRepositoryContract(
+  "Prisma/Postgres",
+  async () => {
+    await prisma.assetEvent.deleteMany();
+    await prisma.assetDocument.deleteMany();
+    await prisma.asset.deleteMany();
+    return new PrismaAssetRepository(prisma);
+  },
+  // The organisation FK is real here, so the row has to exist before an asset
+  // can point at it.
+  async (id) => {
+    await prisma.issuerOrganisation.upsert({
+      where: { id },
+      update: {},
+      create: {
+        id,
+        legalName: "Contract Holdings",
+        registrationNumber: `IR-${id}`,
+        contactEmail: "ops@contract.example",
+        state: "approved",
+        appliedAt: new Date("2026-08-01T09:00:00Z"),
+      },
+    });
+  },
+);
 
 describe("PrismaAssetEventLog", () => {
   it("appends_events_with_actor_and_details", async () => {

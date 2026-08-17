@@ -52,6 +52,8 @@ export class PrismaAssetRepository implements AssetRepository {
       areaSquareMetres: asset.realEstate?.areaSquareMetres ?? null,
       titleReference: asset.realEstate?.titleReference ?? null,
       builtInYear: asset.realEstate?.builtInYear ?? null,
+      // 3.3: who brought the asset. NULL means the platform onboarded it.
+      organisationId: asset.organisationId ?? null,
     };
     const rights = asset.rights.conveyed().map((right) => ({
       assetId: asset.id,
@@ -168,6 +170,8 @@ const toDomain = (row: AssetRow & { documents: DocRow[]; rights: RightRow[] }): 
     rights: RightsMatrix.restore(
       row.rights.map((right) => ({ kind: right.kind as RightKind, note: right.note })),
     ),
+    // Absent stays absent: a platform-onboarded asset has no organisation.
+    ...(row.organisationId !== null ? { organisationId: row.organisationId } : {}),
     custody:
       row.custodianName !== null && row.custodyLocation !== null
         ? CustodyArrangement.of({
