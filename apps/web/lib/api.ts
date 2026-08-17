@@ -33,7 +33,10 @@ export interface ApprovalViewDto {
   action: string;
   status: ApprovalStatusDto;
   summary: string;
+  // The account id is the audit reference; the label is the colleague who
+  // asked. Unresolved accounts keep the id.
   makerId: string;
+  makerLabel?: string;
   checkerId?: string;
   reason?: string;
   createdAt: string;

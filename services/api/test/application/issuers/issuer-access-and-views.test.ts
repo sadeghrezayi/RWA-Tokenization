@@ -12,7 +12,6 @@ import { PasswordHash } from "../../../src/domain/identity/password-hash.js";
 import { StaffUser } from "../../../src/domain/identity/staff-user.js";
 import { InMemoryIssuerRepository } from "../../fakes/issuer-fakes.js";
 import { InMemoryStaffUserRepository } from "../../fakes/identity-fakes.js";
-import type { StaffUserRepository } from "../../../src/application/identity/ports.js";
 
 const APPLIED_AT = new Date("2026-08-01T09:00:00Z");
 const DECIDED_AT = new Date("2026-08-02T09:00:00Z");
@@ -32,22 +31,6 @@ let staff: InMemoryStaffUserRepository;
 
 const officer = (id: string, email: string) =>
   StaffUser.create(id, EmailAddress.of(email), PasswordHash.of("x"), ["compliance_analyst"]);
-
-// Counts the id lookups so a per-row query cannot creep back in. A spread of the
-// class instance would drop its prototype methods, so it delegates explicitly.
-const countingStaff = (source: InMemoryStaffUserRepository) => {
-  const counter = { lookups: 0 };
-  const repository: StaffUserRepository = {
-    findById: (id) => {
-      counter.lookups += 1;
-      return source.findById(id);
-    },
-    findByEmail: (email) => source.findByEmail(email),
-    findAll: () => source.findAll(),
-    save: (user) => source.save(user),
-  };
-  return { repository, counter };
-};
 
 const organisation = (id: string) =>
   IssuerOrganisation.apply({
@@ -137,22 +120,22 @@ describe("ListIssuers", () => {
 
   it("looks each officer up once, however many rows they decided", async () => {
     // The queue is read often; a lookup per row would multiply with the backlog.
-    const { repository, counter } = countingStaff(staff);
     for (const id of ["org-2", "org-3", "org-4"]) {
       await issuers.save(organisation(id).startReview(DECIDED_AT).approve(DECIDED_AT, "officer-1"));
     }
+    staff.lookups = 0;
 
-    await new ListIssuers(issuers, repository).execute();
+    await new ListIssuers(issuers, staff).execute();
 
-    expect(counter.lookups).toBe(1);
+    expect(staff.lookups).toBe(1);
   });
 
   it("asks for nothing when no application has been decided", async () => {
-    const { repository, counter } = countingStaff(staff);
+    staff.lookups = 0;
 
-    await new ListIssuers(issuers, repository).execute();
+    await new ListIssuers(issuers, staff).execute();
 
-    expect(counter.lookups).toBe(0);
+    expect(staff.lookups).toBe(0);
   });
 });
 

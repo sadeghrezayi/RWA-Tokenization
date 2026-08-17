@@ -44,12 +44,16 @@ export class InMemoryInvestorRepository implements InvestorRepository {
 
 export class InMemoryStaffUserRepository implements StaffUserRepository {
   private readonly byId = new Map<string, StaffUser>();
+  // Read models resolve staff ids to human labels. Counting the by-id lookups
+  // lets a test pin "once per distinct id", so a per-row query cannot creep in.
+  lookups = 0;
 
   findByEmail(email: EmailAddress): Promise<StaffUser | undefined> {
     return Promise.resolve([...this.byId.values()].find((u) => u.email.equals(email)));
   }
 
   findById(id: string): Promise<StaffUser | undefined> {
+    this.lookups += 1;
     return Promise.resolve(this.byId.get(id));
   }
 

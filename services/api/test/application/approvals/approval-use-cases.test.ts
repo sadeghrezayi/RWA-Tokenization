@@ -12,8 +12,13 @@ import type {
 } from "../../../src/application/approvals/ports.js";
 import { SelfApprovalError } from "../../../src/domain/approvals/errors.js";
 import type { Approval, ApprovalStatus } from "../../../src/domain/approvals/approval.js";
-import { InMemoryInvestorRepository, SequentialIdGenerator } from "../../fakes/identity-fakes.js";
+import {
+  InMemoryInvestorRepository,
+  InMemoryStaffUserRepository,
+  SequentialIdGenerator,
+} from "../../fakes/identity-fakes.js";
 import { Investor } from "../../../src/domain/identity/investor.js";
+import { StaffUser } from "../../../src/domain/identity/staff-user.js";
 import { EmailAddress } from "../../../src/domain/identity/email-address.js";
 import { PasswordHash } from "../../../src/domain/identity/password-hash.js";
 import { KycStatus } from "../../../src/domain/identity/kyc-status.js";
@@ -63,6 +68,7 @@ class RecordingParkedNotifier implements ApprovalParkedNotifier {
 const setup = () => {
   const approvals = new InMemoryApprovals();
   const investors = new InMemoryInvestorRepository();
+  const staff = new InMemoryStaffUserRepository();
   const rail = new RecordingRail();
   const executor = new RecordingExecutor();
   const parkedNotifier = new RecordingParkedNotifier();
@@ -74,6 +80,7 @@ const setup = () => {
   return {
     approvals,
     investors,
+    staff,
     rail,
     executor,
     parkedNotifier,
@@ -86,7 +93,7 @@ const setup = () => {
       parkedNotifier,
     ),
     decide: new DecideApproval(approvals, commit, clock),
-    list: new ListApprovals(approvals, investors),
+    list: new ListApprovals(approvals, investors, staff),
   };
 };
 
@@ -195,5 +202,52 @@ describe("ListApprovals", () => {
     expect(views[0]?.summary).toContain("5,000");
     expect(views[0]?.summary).toContain("sara@demo.com");
     expect(views[0]?.summary).not.toContain("inv-1");
+  });
+
+  // The four-eyes queue is the most compliance-sensitive screen in the console:
+  // it must say WHO asked for the money to move, not print an account id.
+  //
+  // Only the MAKER is named. This view returns pending approvals, which by
+  // definition nobody has decided yet — a checker label would have no caller.
+  it("names the maker who asked for the credit", async () => {
+    const s = setup();
+    await s.staff.save(
+      StaffUser.create("officer-a", EmailAddress.of("maker@platform.local"), PasswordHash.of("x"), [
+        "treasury",
+      ]),
+    );
+    await s.credit.execute({ investorId: "inv-1", amountRial: 5000n, makerId: "officer-a" });
+
+    const [pending] = await s.list.pending();
+
+    expect(pending?.makerId).toBe("officer-a");
+    expect(pending?.makerLabel).toBe("maker@platform.local");
+  });
+
+  it("looks each maker up once, however many rows they raised", async () => {
+    const s = setup();
+    await s.staff.save(
+      StaffUser.create("officer-a", EmailAddress.of("maker@platform.local"), PasswordHash.of("x"), [
+        "treasury",
+      ]),
+    );
+    for (const investorId of ["inv-1", "inv-2", "inv-3"]) {
+      await s.credit.execute({ investorId, amountRial: 5000n, makerId: "officer-a" });
+    }
+
+    await s.list.pending();
+
+    expect(s.staff.lookups).toBe(1);
+  });
+
+  it("falls back to the account id when a staff account cannot be resolved", async () => {
+    // An approval must never lose who asked for it because an account was
+    // disabled or removed.
+    const s = setup();
+    await s.credit.execute({ investorId: "inv-1", amountRial: 5000n, makerId: "officer-gone" });
+
+    const [pending] = await s.list.pending();
+    expect(pending?.makerId).toBe("officer-gone");
+    expect(pending?.makerLabel).toBeUndefined();
   });
 });

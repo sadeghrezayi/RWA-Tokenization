@@ -67,7 +67,8 @@ export const ApprovalsPanel = ({
               {pending.map((approval) => (
                 <tr key={approval.id}>
                   <td>{approval.summary}</td>
-                  <td>{approval.makerId}</td>
+                  {/* The colleague who asked, not their account id. */}
+                  <td>{approval.makerLabel ?? approval.makerId}</td>
                   <td>
                     <div className="table__actions">
                       <Button

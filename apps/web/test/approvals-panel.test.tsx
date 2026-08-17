@@ -24,6 +24,22 @@ describe("ApprovalsPanel", () => {
     expect(listApprovals).toHaveBeenCalledWith("csrf");
   });
 
+  // A checker decides about money; "officer-1" tells them nothing about who
+  // asked for it.
+  it("names the maker who asked, falling back to the id when unresolved", async () => {
+    const named = { ...pending, makerLabel: "treasury@platform.local" };
+    render(
+      <ApprovalsPanel
+        locale="en"
+        api={stubApi({ listApprovals: vi.fn().mockResolvedValue([named]) })}
+        token="csrf"
+      />,
+    );
+
+    expect(await screen.findByText("treasury@platform.local")).toBeInTheDocument();
+    expect(screen.queryByText("officer-1")).toBeNull();
+  });
+
   it("approves_a_request_and_refreshes", async () => {
     const listApprovals = vi.fn().mockResolvedValueOnce([pending]).mockResolvedValueOnce([]);
     const approveApproval = vi.fn().mockResolvedValue(undefined);

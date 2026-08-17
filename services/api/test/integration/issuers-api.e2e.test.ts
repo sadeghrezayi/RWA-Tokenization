@@ -62,9 +62,15 @@ describe("Issuers API (e2e, real Postgres)", () => {
         contactEmail: "ops@vanak.example",
       });
 
+  // Every organisation this suite creates, so cleanup removes exactly its own
+  // rows. Wiping the whole table would destroy any local demo data alongside it.
+  const created: string[] = [];
+
   const applied = async (): Promise<string> => {
     const res = await applyAsIssuer(founder).expect(201);
-    return (res.body as { organisationId: string }).organisationId;
+    const { organisationId } = res.body as { organisationId: string };
+    created.push(organisationId);
+    return organisationId;
   };
 
   const approved = async (): Promise<string> => {
@@ -106,8 +112,8 @@ describe("Issuers API (e2e, real Postgres)", () => {
   }, 30_000);
 
   afterAll(async () => {
-    await prisma.issuerMembership.deleteMany({});
-    await prisma.issuerOrganisation.deleteMany({});
+    await prisma.issuerMembership.deleteMany({ where: { organisationId: { in: created } } });
+    await prisma.issuerOrganisation.deleteMany({ where: { id: { in: created } } });
     for (const address of everyone) {
       const investor = await prisma.investor.findFirst({ where: { email: address.toLowerCase() } });
       if (investor) {

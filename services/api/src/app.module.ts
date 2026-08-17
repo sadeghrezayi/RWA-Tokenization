@@ -688,9 +688,12 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     },
     {
       provide: ListApprovals,
-      useFactory: (approvals: ApprovalRepository, investors: InvestorRepository) =>
-        new ListApprovals(approvals, investors),
-      inject: [APPROVAL_REPOSITORY, INVESTOR_REPOSITORY],
+      useFactory: (
+        approvals: ApprovalRepository,
+        investors: InvestorRepository,
+        staff: StaffUserRepository,
+      ) => new ListApprovals(approvals, investors, staff),
+      inject: [APPROVAL_REPOSITORY, INVESTOR_REPOSITORY, STAFF_USER_REPOSITORY],
     },
     // Notifications (1.7). Tenant-scoped repository; the read/mark use-cases back
     // the self-scoped API; NotificationService (the Notifier) is what event
