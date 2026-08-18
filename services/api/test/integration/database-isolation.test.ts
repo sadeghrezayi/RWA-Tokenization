@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
+import { setup } from "./use-a-separate-database.js";
 
 /**
  * The guard on the thing that protects a developer's data.
@@ -33,6 +34,19 @@ describe("the integration suite's database", () => {
       expect(`/${connected ?? ""}`).not.toBe(configured);
     } finally {
       await prisma.$disconnect();
+    }
+  });
+
+  // The refusal matters more than it looks: with no URL there is nothing to
+  // derive a test database FROM, and a setup that shrugged and carried on
+  // would hand the suite back to whatever Prisma defaults to.
+  it("refuses to run at all when no database is configured", async () => {
+    const saved = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    try {
+      await expect(setup()).rejects.toThrow(/DATABASE_URL must be set/);
+    } finally {
+      process.env.DATABASE_URL = saved;
     }
   });
 });
