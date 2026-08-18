@@ -196,6 +196,23 @@ jobs:
           API_LOG_PATH: /tmp/api.log
         run: pnpm --filter @tokenization/web test:layout
 
+      # Playwright keeps a trace for every failed test (trace: retain-on-failure).
+      # Without this upload that trace dies with the runner, and a CI-only
+      # failure has to be guessed at from the outside — job logs need admin
+      # rights to read, and step summaries are not exposed through the API at
+      # all. The trace names the exact call that hung, which is the one fact
+      # worth having.
+      - name: Keep the Playwright trace when the browser tests fail
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-trace
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 7
+          if-no-files-found: warn
+
       - name: Surface the API log when the browser tests fail
         if: failure()
         run: |
