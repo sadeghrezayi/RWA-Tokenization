@@ -120,6 +120,33 @@ jobs:
       - name: Integration tests (Postgres + IPFS + anvil)
         run: pnpm --filter @tokenization/api test:integration
 
+      # A FRESH devnet for the browser journey, for the same reason the
+      # integration suite gets its own database: a suite must not inherit a
+      # resource the previous suite exhausted. By this point anvil has carried
+      # the whole integration run, and a node in that state answers reads in
+      # milliseconds while taking SECONDS per transaction — measured 2026-08-18
+      # on two nodes side by side, 101 ms fresh against 4121 ms aged for the
+      # identical one-contract deploy (KNOWN_ISSUES K-23). Tokenizing an asset
+      # is dozens of transactions, so the exit journey burns its 240-second
+      # budget inside POST /assets/:id/tokenize and dies with a timeout that
+      # names nothing. Same code against a fresh node: 3 journeys in 45 s.
+      - name: Restart the devnet before the browser journey
+        working-directory: contracts
+        run: |
+          pkill -f 'anvil --mnemonic' || true
+          anvil --mnemonic "$PLATFORM_OPERATOR_MNEMONIC" &
+          for i in $(seq 1 30); do
+            if curl -sf -X POST -H 'Content-Type: application/json' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
+              http://127.0.0.1:8545 >/dev/null; then break; fi
+            sleep 1
+          done
+          # New chain, new addresses — the API must be told, and it has not
+          # started yet, so these land before it reads its environment.
+          forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast | tee redeploy.log
+          grep -E '^\s*(ONCHAINID_CLAIM_ISSUER_ADDRESS|ATTESTATION_REGISTRY_ADDRESS)=' redeploy.log \
+            | sed 's/^ *//' >> "$GITHUB_ENV"
+
       # Layout-regression harness: assertion-based contracts (no pixel
       # baselines — a macOS render would never match this runner's). Needs the
       # API and the web build actually serving, so it runs after both are built.
