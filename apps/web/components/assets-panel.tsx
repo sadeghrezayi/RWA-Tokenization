@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "../lib/api";
-import type { ApiClient, AssetViewDto } from "../lib/api";
+import type { ApiClient, AssetViewDto, IssuerOrganisationDto } from "../lib/api";
 import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { Address } from "./ui/address";
 import { Badge } from "./ui/badge";
-import { Button, Card, EmptyState, Field } from "./ui/primitives";
+import { Button, Card, EmptyState, Field, SelectField } from "./ui/primitives";
 import { assetStatus } from "./ui/status";
 import { useToast } from "./ui/toast";
 
@@ -28,6 +28,10 @@ export const AssetsPanel = ({
   const toast = useToast();
   const [assets, setAssets] = useState<AssetViewDto[]>([]);
   const [name, setName] = useState("");
+  // Only organisations the platform has approved: anything else would be
+  // refused by the server, and offering it would be a fake choice.
+  const [issuers, setIssuers] = useState<IssuerOrganisationDto[]>([]);
+  const [organisationId, setOrganisationId] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
 
   const refresh = useCallback(async () => {
@@ -40,12 +44,31 @@ export const AssetsPanel = ({
     });
   }, [refresh, t.authFailed]);
 
+  useEffect(() => {
+    // A role with asset.manage but not issuer.manage gets a 403 here. That is
+    // not an error on this screen — it just means no issuer can be chosen, so
+    // the selector stays hidden and assets are platform-onboarded.
+    void api
+      .issuers()
+      .then((all) => {
+        setIssuers(all.filter((organisation) => organisation.canSubmitAssets));
+      })
+      .catch(() => {
+        setIssuers([]);
+      });
+  }, [api]);
+
   const propose = () => {
     setError(undefined);
     void (async () => {
       try {
-        const created = await api.proposeAsset(token, name.trim());
+        const created = await api.proposeAsset(
+          token,
+          name.trim(),
+          organisationId === "" ? undefined : organisationId,
+        );
         setName("");
+        setOrganisationId("");
         await refresh();
         toast.show(t.assetProposed, "success");
         onOpenAsset(created.assetId);
@@ -76,6 +99,24 @@ export const AssetsPanel = ({
               setName(e.target.value);
             }}
           />
+          {issuers.length > 0 && (
+            <SelectField
+              id="asset-issuer"
+              label={t.assetIssuerLabel}
+              value={organisationId}
+              onChange={(e) => {
+                setOrganisationId(e.target.value);
+              }}
+            >
+              {/* Leaving it as the platform is a real choice, not a blank. */}
+              <option value="">{t.assetIssuerPlatform}</option>
+              {issuers.map((organisation) => (
+                <option key={organisation.id} value={organisation.id}>
+                  {organisation.legalName}
+                </option>
+              ))}
+            </SelectField>
+          )}
           <Button type="submit">{t.proposeAssetButton}</Button>
         </form>
       }
@@ -108,6 +149,13 @@ export const AssetsPanel = ({
                         }}
                       >
                         <strong>{asset.name}</strong>
+                        {/* Who brought it. Absent means the platform did. */}
+                        {asset.organisationName !== undefined && (
+                          <span className="muted">
+                            {" "}
+                            · {t.assetBroughtByLabel} {asset.organisationName}
+                          </span>
+                        )}
                       </button>
                     </td>
                     <td>

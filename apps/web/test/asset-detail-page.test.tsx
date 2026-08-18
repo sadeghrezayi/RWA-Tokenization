@@ -377,4 +377,25 @@ describe("AssetDetailPage property and rights refusals", () => {
     // successful one.
     expect(screen.getByTestId("right-income")).toBeTruthy();
   });
+
+  // 3.3: who brought this asset. An officer reading the file needs the issuer's
+  // legal name, and absent means the platform onboarded it itself.
+  it("names the issuer that brought the asset", async () => {
+    const brought: AssetViewDto = {
+      ...structuring,
+      organisationId: "org-1",
+      organisationName: "Vanak Property Holdings PJSC",
+    };
+    renderPage(apiWith(brought));
+
+    expect(await screen.findByText(/Vanak Property Holdings PJSC/)).toBeInTheDocument();
+  });
+
+  it("says nothing about an issuer for a platform-onboarded asset", async () => {
+    // Absent is a real answer: the platform onboarded it. No empty row.
+    renderPage(apiWith(structuring));
+
+    await screen.findByRole("heading", { name: "Vanak Tower SPV" });
+    expect(screen.queryByText(/brought by/i)).toBeNull();
+  });
 });

@@ -108,6 +108,13 @@ export const AssetDetailPage = ({
           <Badge tone={status.tone}>{status.label}</Badge>
         </div>
         <div className="row">
+          {/* 3.3: who brought this asset. Absent means the platform did — a
+              real answer, so there is no empty row for it. */}
+          {asset.organisationName !== undefined && (
+            <span className="text-sm muted">
+              {t.assetBroughtByLabel} {asset.organisationName}
+            </span>
+          )}
           {asset.tokenAddress !== undefined && (
             <span className="row text-sm muted">
               {t.tokenAddressLabel}: <Address value={asset.tokenAddress} />

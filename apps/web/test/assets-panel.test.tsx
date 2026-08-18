@@ -16,10 +16,29 @@ const asset = (overrides: Partial<AssetViewDto>): AssetViewDto => ({
   ...overrides,
 });
 
+const approvedIssuer = {
+  id: "org-1",
+  legalName: "Vanak Property Holdings PJSC",
+  registrationNumber: "IR-448120",
+  contactEmail: "ops@vanak.example",
+  state: "approved" as const,
+  appliedAt: "2026-08-15T09:00:00.000Z",
+  canSubmitAssets: true,
+};
+
+const unapprovedIssuer = {
+  ...approvedIssuer,
+  id: "org-2",
+  legalName: "Not Yet Approved Ltd",
+  state: "applied" as const,
+  canSubmitAssets: false,
+};
+
 const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
   ({
     listAssets: vi.fn().mockResolvedValue([]),
     proposeAsset: vi.fn().mockResolvedValue({ assetId: "asset-1" }),
+    issuers: vi.fn().mockResolvedValue([approvedIssuer, unapprovedIssuer]),
     ...overrides,
   }) as ApiClient;
 
@@ -61,7 +80,8 @@ describe("AssetsPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Propose asset" }));
 
     await waitFor(() => {
-      expect(proposeAsset).toHaveBeenCalledWith("tok", "Pilot Real Estate SPV");
+      // The third argument is the issuer; undefined means the platform brought it.
+      expect(proposeAsset).toHaveBeenCalledWith("tok", "Pilot Real Estate SPV", undefined);
     });
     expect(onOpenAsset).toHaveBeenCalledWith("asset-9");
   });
@@ -82,5 +102,86 @@ describe("AssetsPanel", () => {
     render(<AssetsPanel locale="en" api={api} token="tok" onOpenAsset={vi.fn()} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("officer role required");
+  });
+
+  // 3.3: an officer can say which approved issuer brought the asset. Leaving it
+  // as the platform is a first-class choice, not an empty field.
+  it("offers only the issuers that may actually submit assets", async () => {
+    render(<AssetsPanel locale="en" api={apiWith({})} token="tok" onOpenAsset={vi.fn()} />);
+
+    const select = await screen.findByLabelText(/issuer/i);
+    expect(within(select).getByRole("option", { name: /Vanak Property Holdings/ })).toBeTruthy();
+    // An organisation the platform has not approved would be refused by the
+    // server, so it is never offered.
+    expect(within(select).queryByRole("option", { name: /Not Yet Approved/ })).toBeNull();
+  });
+
+  it("proposes an asset for the chosen issuer", async () => {
+    const proposeAsset = vi.fn().mockResolvedValue({ assetId: "asset-9" });
+    render(
+      <AssetsPanel locale="en" api={apiWith({ proposeAsset })} token="tok" onOpenAsset={vi.fn()} />,
+    );
+
+    await userEvent.type(await screen.findByLabelText(/name/i), "Vanak Villa");
+    await userEvent.selectOptions(await screen.findByLabelText(/issuer/i), "org-1");
+    await userEvent.click(screen.getByRole("button", { name: /propose/i }));
+
+    await waitFor(() => {
+      expect(proposeAsset).toHaveBeenCalledWith("tok", "Vanak Villa", "org-1");
+    });
+  });
+
+  it("proposes a platform-onboarded asset when no issuer is chosen", async () => {
+    const proposeAsset = vi.fn().mockResolvedValue({ assetId: "asset-9" });
+    render(
+      <AssetsPanel locale="en" api={apiWith({ proposeAsset })} token="tok" onOpenAsset={vi.fn()} />,
+    );
+
+    await userEvent.type(await screen.findByLabelText(/name/i), "Platform Villa");
+    await userEvent.click(screen.getByRole("button", { name: /propose/i }));
+
+    await waitFor(() => {
+      // No third argument: the platform brought this one.
+      expect(proposeAsset).toHaveBeenCalledWith("tok", "Platform Villa", undefined);
+    });
+  });
+
+  it("still proposes assets when the issuer list cannot be read", async () => {
+    // A role with asset.manage but not issuer.manage gets a 403 here. That must
+    // not take the whole screen down — it just means no issuer can be chosen.
+    const proposeAsset = vi.fn().mockResolvedValue({ assetId: "asset-9" });
+    render(
+      <AssetsPanel
+        locale="en"
+        api={apiWith({
+          proposeAsset,
+          issuers: vi.fn().mockRejectedValue(new ApiError(403, "requires issuer.manage")),
+        })}
+        token="tok"
+        onOpenAsset={vi.fn()}
+      />,
+    );
+
+    await userEvent.type(await screen.findByLabelText(/name/i), "Platform Villa");
+    await userEvent.click(screen.getByRole("button", { name: /propose/i }));
+
+    await waitFor(() => {
+      expect(proposeAsset).toHaveBeenCalledWith("tok", "Platform Villa", undefined);
+    });
+    expect(screen.queryByLabelText(/issuer/i)).toBeNull();
+  });
+
+  it("names the issuer that brought an asset in the list", async () => {
+    const api = apiWith({
+      listAssets: vi
+        .fn()
+        .mockResolvedValue([
+          asset({ organisationId: "org-1", organisationName: "Vanak Property Holdings PJSC" }),
+        ]),
+    });
+    render(<AssetsPanel locale="en" api={api} token="tok" onOpenAsset={vi.fn()} />);
+
+    const row = await screen.findByTestId("asset-asset-1");
+    expect(row.textContent).toContain("Vanak Property Holdings PJSC");
   });
 });

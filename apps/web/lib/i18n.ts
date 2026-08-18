@@ -124,6 +124,9 @@ export interface Dictionary {
   assetsTitle: string;
   proposeAssetButton: string;
   assetNameLabel: string;
+  assetIssuerLabel: string;
+  assetIssuerPlatform: string;
+  assetBroughtByLabel: string;
   startStructuringButton: string;
   attachDocumentButton: string;
   documentKindLabel: string;
@@ -646,6 +649,9 @@ export const dictionaries: Record<Locale, Dictionary> = {
     assetsTitle: "Asset Onboarding",
     proposeAssetButton: "Propose asset",
     assetNameLabel: "Asset name",
+    assetIssuerLabel: "Issuer",
+    assetIssuerPlatform: "The platform",
+    assetBroughtByLabel: "Brought by",
     startStructuringButton: "Start structuring",
     attachDocumentButton: "Attach document",
     documentKindLabel: "Document kind",

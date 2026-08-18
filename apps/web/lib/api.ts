@@ -128,6 +128,10 @@ export interface AssetViewDto {
   tokenAddress?: string;
   realEstate?: RealEstateProfileDto;
   rights: ConveyedRightDto[];
+  // 3.3: who brought this asset. Both absent means the platform onboarded it
+  // itself — a real answer, not a blank. The name is what a reader sees.
+  organisationId?: string;
+  organisationName?: string;
   custody?: { custodianName: string; location: string };
   checklist: { confirmed: string[]; unconfirmed: string[] };
   dossier: {
@@ -452,7 +456,11 @@ export interface ApiClient {
   reject(officerToken: string, investorId: string, reason: string): Promise<void>;
   listAssets(officerToken: string): Promise<AssetViewDto[]>;
   getAsset(officerToken: string, assetId: string): Promise<AssetViewDto>;
-  proposeAsset(officerToken: string, name: string): Promise<{ assetId: string }>;
+  proposeAsset(
+    officerToken: string,
+    name: string,
+    organisationId?: string,
+  ): Promise<{ assetId: string }>;
   startStructuring(officerToken: string, assetId: string): Promise<void>;
   attachAssetDocument(
     officerToken: string,
@@ -996,8 +1004,14 @@ export const createApiClient = (
     },
     listAssets: (officerToken) => json(call("/assets", { token: officerToken })),
     getAsset: (officerToken, assetId) => json(call(`/assets/${assetId}`, { token: officerToken })),
-    proposeAsset: (officerToken, name) =>
-      json(call("/assets", { method: "POST", token: officerToken, body: { name } })),
+    proposeAsset: (officerToken, name, organisationId) =>
+      json(
+        call("/assets", {
+          method: "POST",
+          token: officerToken,
+          body: { name, ...(organisationId !== undefined ? { organisationId } : {}) },
+        }),
+      ),
     startStructuring: async (officerToken, assetId) => {
       await call(`/assets/${assetId}/start-structuring`, { method: "POST", token: officerToken });
     },
