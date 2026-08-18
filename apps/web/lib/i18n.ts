@@ -445,6 +445,9 @@ export interface Dictionary {
   issuerOrganisationNav: string;
   issuerNoMembership: string;
   issuerMayBringAssets: string;
+  issuerAssetsTitle: string;
+  issuerAssetsSubtitle: string;
+  issuerNoAssetsYet: string;
   issuerCannotBringAssetsYet: string;
   issuerInviteEmailLabel: string;
   issuerInviteEmailHint: string;
@@ -1000,6 +1003,10 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerNoMembership:
       "You do not act for an issuer organisation yet. Once an organisation adds you to its team, it appears here.",
     issuerMayBringAssets: "May bring assets",
+    issuerAssetsTitle: "Assets you brought",
+    issuerAssetsSubtitle: "Where each one stands in the platform's review.",
+    issuerNoAssetsYet:
+      "You have not brought any assets yet. Once the platform records one for your organisation, it appears here.",
     issuerCannotBringAssetsYet: "This organisation cannot bring assets yet",
     issuerInviteEmailLabel: "Email",
     issuerInviteEmailHint: "They must already hold a verified platform account.",

@@ -9,9 +9,8 @@ const asset = (over: Partial<AssetViewDto> = {}): AssetViewDto => ({
   name: "Vanak Tower Floor 7",
   type: "real_estate",
   state: "proposed",
-  documents: [],
-  missingDocuments: [],
-  checklist: [],
+  checklist: { confirmed: [], unconfirmed: [] },
+  dossier: { complete: false, missingKinds: ["ownership_evidence"], documents: [] },
   rights: [],
   organisationId: "org-1",
   organisationName: "Vanak Property Holdings PJSC",
@@ -25,9 +24,7 @@ const renderAssets = (rows: AssetViewDto[] | Error) =>
       organisationId="org-1"
       api={stubApi({
         issuerAssets:
-          rows instanceof Error
-            ? vi.fn().mockRejectedValue(rows)
-            : vi.fn().mockResolvedValue(rows),
+          rows instanceof Error ? vi.fn().mockRejectedValue(rows) : vi.fn().mockResolvedValue(rows),
       })}
     />,
   );

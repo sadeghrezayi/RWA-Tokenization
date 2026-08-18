@@ -70,7 +70,7 @@ export const IssuerAssets = ({
             <tr>
               <th>{t.assetLabel}</th>
               <th>{t.statusLabel}</th>
-              <th>{t.legalDossierLabel}</th>
+              <th>{t.dossierLabel}</th>
             </tr>
           </thead>
           <tbody>
@@ -84,13 +84,18 @@ export const IssuerAssets = ({
                   <td>
                     <Badge tone={status.tone}>{status.label}</Badge>
                   </td>
-                  {/* Counted, not listed: which documents are missing is the
-                      platform's review detail, and the count is what tells an
-                      issuer whether anything is owed. */}
+                  {/* Counted, not listed: WHICH documents are missing is the
+                      platform's review detail; the count is what tells an
+                      issuer whether anything is owed. Same wording the admin
+                      screen uses, so the two sides cannot drift apart. */}
                   <td>
-                    {asset.missingDocuments.length === 0
-                      ? t.issuerDossierComplete
-                      : `${t.missingLabel}: ${String(asset.missingDocuments.length)}`}
+                    {asset.dossier.complete ? (
+                      <Badge tone="success">{t.dossierCompleteLabel}</Badge>
+                    ) : (
+                      <span className="muted">
+                        {t.missingKindsLabel}: {asset.dossier.missingKinds.length}
+                      </span>
+                    )}
                   </td>
                 </tr>
               );
