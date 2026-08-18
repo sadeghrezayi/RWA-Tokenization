@@ -240,8 +240,16 @@ jobs:
                 for (const test of spec.tests ?? []) {
                   for (const result of test.results ?? []) {
                     if (result.status === 'failed' || result.status === 'timedOut') {
-                      const first = (result.error?.message ?? '').split('\n')[0];
-                      failures.push(`${spec.title} :: ${first}`.slice(0, 130));
+                      // The first line is often just "expect(locator).toBeVisible()".
+                      // The line that names WHAT went wrong is the custom message,
+                      // so prefer any line that reads like prose.
+                      const lines = (result.error?.message ?? '')
+                        .replace(/\u001b\[[0-9;]*m/g, '')
+                        .split('\n')
+                        .map((line) => line.trim())
+                        .filter(Boolean);
+                      const prose = lines.find((line) => /\s(never|but|not|->)\s/.test(line));
+                      failures.push(`${spec.title.slice(0, 40)} :: ${prose ?? lines[0] ?? ''}`.slice(0, 130));
                     }
                   }
                 }

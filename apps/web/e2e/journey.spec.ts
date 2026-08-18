@@ -176,16 +176,36 @@ test.describe("Phase 2 exit journey", () => {
       const closed = await closeWhenWindowEnds(officer, shortOffering);
       expect(closed.state).toBe("closed_success");
 
+      // Ask the API first, and say so in the failure message. "The link is not
+      // on the page" cannot distinguish a backend that never granted the
+      // holding from a page that did not show one it was given — and this
+      // assertion has failed in CI while passing locally, so the difference is
+      // exactly what needs naming (KNOWN_ISSUES K-24).
+      await expect
+        .poll(
+          async () => {
+            const response = await holder.api.get("/portfolio/me");
+            if (!response.ok()) return `GET /portfolio/me -> ${String(response.status())}`;
+            const portfolio = (await response.json()) as {
+              holdings: { assetName: string; tokens: string }[];
+            };
+            return portfolio.holdings.map((h) => `${h.assetName}=${h.tokens}`).join(",") || "none";
+          },
+          {
+            timeout: 30_000,
+            message: `the API never reported a holding in ${assetName} after the close`,
+          },
+        )
+        .toContain(assetName);
+
       await page.goto("/en/portfolio");
       const holdingLink = page.getByRole("link", { name: new RegExp(assetName) });
-      // Longer than the 5s default on purpose. The holding is read from the
-      // CHAIN (GetMyHoldings -> balanceOf), so this waits on a devnet round
-      // trip on top of navigation and render — and on a loaded CI runner that
-      // has exceeded five seconds, failing a test whose subject was correct
-      // (KNOWN_ISSUES K-24: the close itself awaits the mint receipt, so the
-      // balance is already final by the time this asks for it). Still a real
-      // assertion: if the holding never appears, this fails.
-      await expect(holdingLink).toBeVisible({ timeout: 30_000 });
+      // The API has already confirmed the holding above, so anything that fails
+      // here is the PAGE failing to show what it was given.
+      await expect(
+        holdingLink,
+        "the API reported the holding but the page did not show it",
+      ).toBeVisible({ timeout: 15_000 });
       await holdingLink.click();
 
       // The position page: what went in, and what came of it.
