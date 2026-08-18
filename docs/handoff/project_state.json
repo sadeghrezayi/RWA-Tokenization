@@ -513,6 +513,11 @@
       "id": "K-22",
       "severity": "medium",
       "title": "A CI run can end as 'cancelled' at the 25-minute job timeout while stuck on 'Install Playwright browser'; not a code failure"
+    },
+    {
+      "id": "K-23",
+      "severity": "medium",
+      "title": "A long-lived anvil degrades 40x per transaction (101ms fresh vs 4121ms at 2119 blocks) and times out the chain suites; restart it"
     }
   ],
   "current_milestone": {

@@ -172,10 +172,21 @@ pnpm --filter @tokenization/web test:layout
 > Chrome. Do not copy CI's empty value into a local run.
 
 Notes:
+- The integration suite runs against **its own database**, not the one the dev server serves.
+  `test/integration/use-a-separate-database.ts` takes `DATABASE_URL`, suffixes the database name
+  (`tokenization` → `tokenization_test`), creates it if missing, and applies the same migrations
+  with `migrate deploy`. Override with `TEST_DATABASE_URL`. This is why the suite may clear whole
+  tables: it owns everything in there. **Your demo data is no longer destroyed by running the
+  tests** — before this, fifteen files called `deleteMany()` on the shared database.
 - The **integration suite requires Postgres, IPFS and a running anvil with deployed contracts**.
   Without anvil the six chain suites self-skip **and two e2e tests fail** (KYC approve and the
   work queue) because the real ONCHAINID adapter cannot reach the chain — that is an environment
   failure, not a regression.
+- **If the chain suites start timing out**, restart anvil before suspecting the code. A node left
+  running for days degrades badly: measured 2026-08-18 with the identical one-contract deploy,
+  **101 ms on a fresh anvil against 4121 ms on one with 2119 blocks** — 40× slower per
+  transaction, which blows the 30/60/90-second hooks a T-REX deployment needs (KNOWN_ISSUES
+  K-23). Reads stayed instant throughout, so the node looks healthy right up until you time it.
 - The integration config runs files **serially** (`fileParallelism: false`).
 
 ## 9. Lint, format, typecheck, build
