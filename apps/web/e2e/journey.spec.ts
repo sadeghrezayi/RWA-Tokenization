@@ -199,13 +199,44 @@ test.describe("Phase 2 exit journey", () => {
         .toContain(assetName);
 
       await page.goto("/en/portfolio");
+      // The API has already confirmed the holding above, so anything failing
+      // here is the PAGE failing to show what it was given — and "the link is
+      // not there" does not say whether the page errored, is still loading, or
+      // rendered a portfolio without it. So report what the page IS showing.
+      await expect
+        .poll(
+          async () => {
+            // This probe must never throw: a predicate that throws reports
+            // only "timeout exceeded", which is how the last round told me
+            // nothing at all.
+            try {
+              const alerts = await page.getByRole("alert").allInnerTexts();
+              const spoken = alerts.map((text) => text.trim()).filter(Boolean);
+              if (spoken.length > 0) return `ALERT: ${spoken.join(" | ").slice(0, 70)}`;
+              // Not `main`: the portal shell does not always render that
+              // landmark, and innerText on a missing element never resolves —
+              // which reports "timeout" and no value, the least useful outcome.
+              const body = (await page.locator("body").innerText()).replace(/\s+/g, " ").trim();
+              const marker = "self-hosted";
+              const at = body.indexOf(marker);
+              const content = at === -1 ? body : body.slice(at + marker.length).trim();
+              // The WHOLE content, not a slice: this string is what the
+              // assertion matches against, and truncating it here would make
+              // the test unpassable no matter what the page showed.
+              const empty = alerts.length > 0 ? `EMPTY-ALERTx${String(alerts.length)} ` : "";
+              return `${empty}CONTENT: ${content}`;
+            } catch (probeFailure) {
+              return `PROBE FAILED: ${String(probeFailure).slice(0, 80)}`;
+            }
+          },
+          {
+            timeout: 15_000,
+            message: "the API reported the holding but the page did not show it",
+          },
+        )
+        .toContain(assetName);
+
       const holdingLink = page.getByRole("link", { name: new RegExp(assetName) });
-      // The API has already confirmed the holding above, so anything that fails
-      // here is the PAGE failing to show what it was given.
-      await expect(
-        holdingLink,
-        "the API reported the holding but the page did not show it",
-      ).toBeVisible({ timeout: 15_000 });
       await holdingLink.click();
 
       // The position page: what went in, and what came of it.

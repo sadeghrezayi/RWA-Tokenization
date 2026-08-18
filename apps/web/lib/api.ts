@@ -905,7 +905,15 @@ export const createApiClient = (
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { message?: string };
-      throw new ApiError(res.status, body.message ?? res.statusText);
+      // Never an errorless error. `??` lets an empty string through, and
+      // statusText is empty over HTTP/2, so a failure could reach the screen
+      // as a red box containing nothing — which tells the reader that
+      // something broke and not one thing more. The status is the last
+      // resort, and it is still worth more than silence.
+      const explanation = [body.message, res.statusText]
+        .map((candidate) => candidate?.trim())
+        .find((candidate) => candidate !== undefined && candidate !== "");
+      throw new ApiError(res.status, explanation ?? `the request failed (${String(res.status)})`);
     }
     return res;
   };
