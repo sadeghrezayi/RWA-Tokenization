@@ -224,6 +224,19 @@ test.describe("Phase 2 exit journey", () => {
               // assertion matches against, and truncating it here would make
               // the test unpassable no matter what the page showed.
               const empty = alerts.length > 0 ? `EMPTY-ALERTx${String(alerts.length)} ` : "";
+              // The portal shows its sign-in panel whenever /auth/session does
+              // not answer. Which of the two reasons it is — the browser has no
+              // cookie, or the API rejected the one it has — cannot be told
+              // apart from outside, so ask from INSIDE the page.
+              if (/sign in/i.test(content)) {
+                const probe = await page.evaluate(async () => {
+                  const res = await fetch("http://localhost:3001/auth/session", {
+                    credentials: "include",
+                  });
+                  return { status: res.status, csrf: /tk_csrf/.test(document.cookie) };
+                });
+                return `SIGNED OUT: /auth/session -> ${String(probe.status)}, csrf-cookie=${String(probe.csrf)}`;
+              }
               return `${empty}CONTENT: ${content}`;
             } catch (probeFailure) {
               return `PROBE FAILED: ${String(probeFailure).slice(0, 80)}`;
