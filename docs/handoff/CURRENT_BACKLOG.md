@@ -74,9 +74,14 @@ the deciding officer (P1-9).
   test that asserts the **excluded** fields are absent from the response.
 - **Risks:** this is a PII exposure to a third party. Do not infer the list.
 
-### P1-3 — Issuer portal (roadmap 3.3)
-13-step tokenization wizard with drafts, completeness %, validation, review comments, status
-history. Large; scope it into slices as before.
+### P1-3 — Issuer portal (roadmap 3.3) — **partly delivered**
+- **Done:** the portal shell and landing page (3.3e), "which organisations are mine" (3.3d), and an
+  issuer's view of the assets it brought (3.3f backend + 3.3g screen).
+- **Remaining:** the 13-step tokenization wizard with drafts, completeness %, validation, review
+  comments and status history. Large, and its scope is a **product decision** — how much of the
+  wizard belongs in the first slice is the owner's call, not an engineering one.
+- **Still uncalled:** `IssuerMembership.canWorkOnAssets()`. The per-person gate gets its caller when
+  an issuer's own people can act on assets, which is the wizard.
 
 ### P1-4 — Officer-side gaps flagged during Phase 2
 - An onboarding application waiting on the **applicant** still appears in the officer queue

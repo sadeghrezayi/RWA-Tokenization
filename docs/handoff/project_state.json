@@ -1,6 +1,6 @@
 {
   "handoff_version": "1.1.0",
-  "generated_at": "2026-08-18T01:30:00Z",
+  "generated_at": "2026-08-18T14:00:00Z",
   "project": {
     "name": "Tokenization Platform",
     "repository_name": "RWA-Tokenization",
@@ -20,9 +20,9 @@
   "repository": {
     "root": "/Users/sadeghrezayi/Projects/RWA-Tokenization",
     "branch": "main",
-    "commit": "1caaa68d9ca4ccec605906769df1523a05b139a5",
-    "working_tree": "handoff docs updated for 3.3, not yet committed",
-    "commit_count": 134,
+    "commit": "b2c9d06e26896d2683f14ecbc53007baabb5e7ae",
+    "working_tree": "clean",
+    "commit_count": 158,
     "first_commit_date": "2026-07-10",
     "last_commit_date": "2026-08-18",
     "workspace_manager": "pnpm@10.12.1",
@@ -31,8 +31,8 @@
     "ci": {
       "provider": "github-actions",
       "workflow": ".github/workflows/ci.yml",
-      "last_run_conclusion": "cancelled (job hit the 25-minute workflow timeout during 'Install Playwright browser'; not a code failure — see known issue K-22)",
-      "last_run_commit": "1caaa68"
+      "last_run_conclusion": "success",
+      "last_run_commit": "b2c9d06"
     }
   },
   "architecture": {
@@ -518,12 +518,32 @@
       "id": "K-23",
       "severity": "medium",
       "title": "A long-lived anvil degrades 40x per transaction (101ms fresh vs 4121ms at 2119 blocks) and times out the chain suites; restart it"
+    },
+    {
+      "id": "K-24",
+      "severity": "low",
+      "title": "The exit journey's post-close check reads through to the chain; it carries an explicit 30s timeout"
+    },
+    {
+      "id": "K-25",
+      "severity": "medium",
+      "title": "CI-only failures were undiagnosable (logs 403, artifacts 401); the workflow now publishes failing specs as commit statuses"
+    },
+    {
+      "id": "K-26",
+      "severity": "medium",
+      "title": "A failed request could render as an error box with no words; the API client now always carries a message"
+    },
+    {
+      "id": "K-27",
+      "severity": "high",
+      "title": "FIXED: GET /auth/session shared the 20/min credential budget, so browsing logged people out - worse behind CGNAT"
     }
   ],
   "current_milestone": {
     "phase": "3.3",
     "name": "Assets belong to issuer organisations",
-    "state": "3.2 complete (team panel shipped, deciding officer named). 3.3a-c shipped: an asset carries its issuer from the domain through to both screens.",
+    "state": "3.3a-g shipped. CI green again after a five-commit investigation that ended in K-27 (the session read shared the brute-force budget). Remaining: the issuer submission wizard, whose scope is the owner's call.",
     "completed_slices": [
       "3.2a domain",
       "3.2b persistence",
@@ -537,7 +557,8 @@
       "3.3c officer picks the issuer on the onboarding screen; both screens name it",
       "3.3d which organisations are mine",
       "3.3e issuer portal shell + landing page",
-      "3.3f an issuer reads the assets its organisation brought (backend)"
+      "3.3f an issuer reads the assets its organisation brought (backend)",
+      "3.3g an issuer sees the assets it brought (web, browser-verified)"
     ],
     "exit_criteria_remaining": [
       "an issuer-facing SCREEN for its own assets (the 3.3f endpoint has no UI yet)",
@@ -583,6 +604,7 @@
     "OD-13 fa/RTL locale pack",
     "Queue semantics for applications waiting on the applicant",
     "Should a KYC-rejected applicant be able to re-apply?",
-    "Should draft offerings be visible to signed-in investors?"
+    "Should draft offerings be visible to signed-in investors?",
+    "K-27 remainder: the 20/min credential budget is per-IP, so a CGNAT population shares one login budget (K-9). Per-account throttling, a shared store, or accept-for-pilot?"
   ]
 }
