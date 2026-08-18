@@ -217,6 +217,16 @@ describe("IssuerTeamAccess", () => {
     ).rejects.toThrow(NotIssuerTeamMemberError);
   });
 
+  // Same rule as LastIssuerAdminError: the reader is the person being refused,
+  // so naming them by their own account UUID tells them nothing they could act
+  // on. This refusal is read in the issuer portal, where it is the whole page.
+  it("refuses without reciting the reader's account id back at them", () => {
+    const message = new NotIssuerTeamMemberError().message;
+
+    expect(message).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i);
+    expect(message.toLowerCase()).toContain("do not act for");
+  });
+
   it("lets an administrator staff the team", async () => {
     await expect(
       access.assertCanManageTeam({ organisationId: "org-1", userId: "user-founder" }),

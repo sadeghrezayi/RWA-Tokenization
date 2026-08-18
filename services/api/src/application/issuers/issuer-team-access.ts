@@ -27,7 +27,7 @@ export class IssuerTeamAccess {
     // a stranger to every other.
     const membership = memberships.find((m) => m.organisationId === input.organisationId);
     if (!membership) {
-      throw new NotIssuerTeamMemberError(input.userId, input.organisationId);
+      throw new NotIssuerTeamMemberError();
     }
     return membership;
   }

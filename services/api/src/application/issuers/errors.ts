@@ -25,9 +25,14 @@ export class PersonNotFoundError extends ApplicationError {
 
 // Resource-level authorization: acting for an issuer is membership, which no
 // platform-wide permission can express.
+//
+// The message names NOBODY by id. The person reading it is the person being
+// refused — reciting their own account UUID back at them is noise, and the
+// organisation's id is already in the address bar they typed. Same reasoning
+// as LastIssuerAdminError; this is a recurring trap in this codebase (K-19).
 export class NotIssuerTeamMemberError extends ApplicationError {
-  constructor(userId: string, organisationId: string) {
-    super(`"${userId}" does not act for issuer organisation "${organisationId}"`);
+  constructor() {
+    super("you do not act for this issuer organisation");
   }
 }
 
