@@ -9,14 +9,17 @@ import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
 import { AuthPanel } from "../auth-panel";
 import { NotificationBell } from "../notification-bell";
-import { InvestorSessionProvider } from "./investor-session";
+import { IssuerSessionProvider } from "./issuer-session";
 
-// Module-level so it is referentially stable across renders.
+// An issuer's people sign in with their own person account — there is no
+// separate issuer login. What makes this portal theirs is a membership, which
+// the landing page reads; someone with none is told so rather than shut out.
 const isPerson = (kind: "investor" | "officer") => kind === "investor";
 
-// FR-PT-1 investor portal shell: the same sidebar chrome as the admin console,
-// with the investor's three areas (portfolio, offerings, profile) as routes.
-export const InvestorShell = ({
+// 3.3e: the issuer portal shell. One nav entry today, because one screen
+// exists. Entries appear as the screens behind them do — a link to nothing is
+// the fake-button rule wearing a different hat.
+export const IssuerShell = ({
   locale,
   children,
 }: {
@@ -26,18 +29,10 @@ export const InvestorShell = ({
   const t = dictionaries[locale];
   const api = useMemo(() => createApiClient(), []);
   const pathname = usePathname();
-  // httpOnly cookie session, verified on mount via /auth/session; `csrf` is the
-  // readable double-submit token threaded to pages for mutations.
   const { status, csrf, reload, clear } = useBrowserSession(api, isPerson);
 
   const base = `/${locale}`;
-  const items = [
-    { href: `${base}/portfolio`, label: t.portfolioNav, icon: "◫" },
-    { href: `${base}/offerings`, label: t.offeringsNav, icon: "◈" },
-    { href: `${base}/funds`, label: t.fundingNav, icon: "⊕" },
-    { href: `${base}/onboarding`, label: t.onboardingNav, icon: "◔" },
-    { href: `${base}/profile`, label: t.profileNav, icon: "◑" },
-  ];
+  const items = [{ href: `${base}/issuer`, label: t.issuerOrganisationNav, icon: "⬡" }];
 
   if (status === "loading") {
     return null;
@@ -68,20 +63,20 @@ export const InvestorShell = ({
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <InvestorSessionProvider value={{ api, token: csrf, locale }}>
+    <IssuerSessionProvider value={{ api, token: csrf, locale }}>
       <div className="shell">
         <aside className="sidebar">
-          <Link href={`${base}/portfolio`} className="brand sidebar__brand">
+          <Link href={`${base}/issuer`} className="brand sidebar__brand">
             <span className="brand__logo" aria-hidden="true">
               ◈
             </span>
             <span className="sidebar__brand-text">
               <span className="sidebar__brand-name">{t.appTitle}</span>
-              <span className="sidebar__brand-sub">{t.investorPortalTitle}</span>
+              <span className="sidebar__brand-sub">{t.issuerPortalTitle}</span>
             </span>
           </Link>
 
-          <nav className="sidebar__nav" aria-label="investor navigation">
+          <nav className="sidebar__nav" aria-label="issuer navigation">
             <div className="sidebar__group">
               {items.map((item) => (
                 <Link
@@ -116,13 +111,14 @@ export const InvestorShell = ({
         </aside>
 
         <div className="shell__main">
-          <header className="shell__topbar">
-            <span className="shell__pill">Pilot · self-hosted</span>
-            <NotificationBell locale={locale} api={api} token={csrf} />
+          <header className="topbar">
+            <div className="topbar__actions">
+              <NotificationBell locale={locale} api={api} token={csrf} />
+            </div>
           </header>
-          <div className="shell__content">{children}</div>
+          <main className="content">{children}</main>
         </div>
       </div>
-    </InvestorSessionProvider>
+    </IssuerSessionProvider>
   );
 };

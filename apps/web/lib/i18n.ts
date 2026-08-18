@@ -441,6 +441,11 @@ export interface Dictionary {
   issuerTeamAddedLabel: string;
   issuerRoleAdmin: string;
   issuerRoleContributor: string;
+  issuerPortalTitle: string;
+  issuerOrganisationNav: string;
+  issuerNoMembership: string;
+  issuerMayBringAssets: string;
+  issuerCannotBringAssetsYet: string;
   issuerInviteEmailLabel: string;
   issuerInviteEmailHint: string;
   issuerInviteButton: string;
@@ -990,6 +995,12 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerTeamAddedLabel: "Added",
     issuerRoleAdmin: "Administrator",
     issuerRoleContributor: "Contributor",
+    issuerPortalTitle: "Issuer Portal",
+    issuerOrganisationNav: "My organisation",
+    issuerNoMembership:
+      "You do not act for an issuer organisation yet. Once an organisation adds you to its team, it appears here.",
+    issuerMayBringAssets: "May bring assets",
+    issuerCannotBringAssetsYet: "This organisation cannot bring assets yet",
     issuerInviteEmailLabel: "Email",
     issuerInviteEmailHint: "They must already hold a verified platform account.",
     issuerInviteButton: "Invite",

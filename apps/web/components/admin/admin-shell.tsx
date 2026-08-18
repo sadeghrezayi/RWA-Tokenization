@@ -1,17 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PERMISSIONS, createApiClient } from "../../lib/api";
+import { useBrowserSession } from "../../lib/use-browser-session";
 import { visibleGroups } from "../../lib/nav-visibility";
 import type { NavGroupDef } from "../../lib/nav-visibility";
-import { readCsrfToken } from "../../lib/session";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
 import { OfficerLogin } from "../officer-login";
 import { NotificationBell } from "../notification-bell";
 import { AdminSessionProvider } from "./admin-session";
+
+// Module-level so it is referentially stable: a fresh arrow on every render
+// would restart the session probe in a loop.
+const isOfficer = (kind: "investor" | "officer") => kind === "officer";
 
 // FR-PT-3 admin console shell: a persistent left sidebar (grouped nav) + a slim
 // top bar + a wide content area. Every section is its own route so the URL,
@@ -24,36 +28,18 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
   // Auth is the httpOnly cookie session — verified once on mount via
   // /auth/session (no token in JS). `csrf` is the readable double-submit token
   // threaded to pages for state-changing requests.
-  const [status, setStatus] = useState<"loading" | "authed" | "anon">("loading");
-  const [csrf, setCsrf] = useState<string>("");
+  const {
+    status,
+    csrf,
+    permissions,
+    reload: loadSession,
+    clear: clearSession,
+  } = useBrowserSession(api, isOfficer);
   // The admin nav has a dozen entries. Wrapped across a phone screen they
   // pushed the actual page below the fold, so on small screens the nav is
   // disclosed on demand. CSS hides this button at desktop widths, where the
   // nav is always visible.
   const [menuOpen, setMenuOpen] = useState(false);
-  const [permissions, setPermissions] = useState<readonly string[]>([]);
-
-  // Loading the session is shared by the initial mount AND a fresh login: the
-  // permissions drive the nav, so logging in must re-read them — flipping the
-  // status alone left a signed-in officer with an empty sidebar until reload.
-  const loadSession = useCallback(async () => {
-    try {
-      const session = await api.getSession();
-      if (session.kind !== "officer") {
-        setStatus("anon");
-        return;
-      }
-      setCsrf(readCsrfToken() ?? "");
-      setPermissions(session.permissions);
-      setStatus("authed");
-    } catch {
-      setStatus("anon");
-    }
-  }, [api]);
-
-  useEffect(() => {
-    void loadSession();
-  }, [loadSession]);
 
   const base = `/${locale}/admin`;
   // Role-aware nav (1.4d): each item declares the permission it needs; the shell
@@ -274,10 +260,7 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
               type="button"
               className="nav-link nav-link--muted"
               onClick={() => {
-                void api.logout(csrf).finally(() => {
-                  setStatus("anon");
-                  setCsrf("");
-                });
+                void api.logout(csrf).finally(clearSession);
               }}
             >
               <span className="nav-link__icon" aria-hidden="true">

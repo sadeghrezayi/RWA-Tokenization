@@ -5,32 +5,14 @@ import Link from "next/link";
 import type { ApiClient, IssuerOrganisationDto, IssuerStateDto } from "../../lib/api";
 import { formatDate } from "../../lib/format";
 import { dictionaries } from "../../lib/i18n";
-import type { Dictionary, Locale } from "../../lib/i18n";
+import type { Locale } from "../../lib/i18n";
 import { Badge } from "../ui/badge";
-import type { BadgeTone } from "../ui/badge";
+import { issuerStateLabel, issuerStateTone } from "../ui/issuer-state";
 import { Modal } from "../ui/modal";
 import { Button, Card, EmptyState, Field, Skeleton } from "../ui/primitives";
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
-
-const stateLabel = (t: Dictionary, state: IssuerStateDto): string =>
-  ({
-    applied: t.issuersStateApplied,
-    in_review: t.issuersStateInReview,
-    approved: t.issuersStateApproved,
-    rejected: t.issuersStateRejected,
-    suspended: t.issuersStateSuspended,
-  })[state];
-
-const stateTone = (state: IssuerStateDto): BadgeTone =>
-  ({
-    applied: "neutral" as const,
-    in_review: "info" as const,
-    approved: "success" as const,
-    rejected: "danger" as const,
-    suspended: "warning" as const,
-  })[state];
 
 // Which decision an officer is offered, and when. Deliberately mirrors the
 // domain's state machine: showing an action the server would refuse with a 409
@@ -169,8 +151,8 @@ export const IssuersPanel = ({
                     <td>{formatDate(organisation.appliedAt)}</td>
                     <td>
                       <div className="stack stack--tight">
-                        <Badge tone={stateTone(organisation.state)}>
-                          {stateLabel(t, organisation.state)}
+                        <Badge tone={issuerStateTone(organisation.state)}>
+                          {issuerStateLabel(t, organisation.state)}
                         </Badge>
                         {organisation.canSubmitAssets && (
                           <span className="muted">{t.issuersCanSubmit}</span>

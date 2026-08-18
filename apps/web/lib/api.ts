@@ -507,6 +507,9 @@ export interface ApiClient {
   // 3.2: issuer organisations. Reviewing and deciding is staff work behind
   // issuer.manage; every decision that refuses carries a reason.
   issuers(): Promise<IssuerOrganisationDto[]>;
+  // Not "the issuers" but "mine": staff read the review queue, a person acting
+  // for an issuer reads only their own.
+  myIssuerOrganisations(): Promise<MyIssuerOrganisationDto[]>;
   issuer(id: string): Promise<IssuerOrganisationDto>;
   issuerTeam(id: string): Promise<IssuerMemberDto[]>;
   addIssuerMember(
@@ -840,6 +843,15 @@ export interface IssuerOrganisationDto {
   canSubmitAssets: boolean;
 }
 
+// 3.3: the same organisation, seen by one of its OWN people. The extra three
+// fields are what the issuer portal must know before it renders anything: who
+// this person is here, and what that lets them do.
+export interface MyIssuerOrganisationDto extends IssuerOrganisationDto {
+  role: "issuer_admin" | "issuer_contributor";
+  canManageTeam: boolean;
+  canWorkOnAssets: boolean;
+}
+
 // A person acting for an issuer. Known by their address; the id is what the
 // remove call needs. An address that cannot be resolved leaves the row without
 // one rather than hiding the person.
@@ -1094,6 +1106,7 @@ export const createApiClient = (
         }),
       ),
     issuers: () => json(call("/issuers")),
+    myIssuerOrganisations: () => json(call("/issuers/mine")),
     issuer: (id) => json(call(`/issuers/${encodeURIComponent(id)}`)),
     issuerTeam: (id) => json(call(`/issuers/${encodeURIComponent(id)}/members`)),
     addIssuerMember: async (csrfToken, id, email, role) => {
