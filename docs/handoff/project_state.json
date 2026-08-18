@@ -534,10 +534,14 @@
       "3.2g issuer detail page + team panel (web)",
       "3.3a Asset.organisationId in the domain and in Postgres (nullable, not backfilled)",
       "3.3b POST /assets accepts the organisation and refuses one that may not submit (409)",
-      "3.3c officer picks the issuer on the onboarding screen; both screens name it"
+      "3.3c officer picks the issuer on the onboarding screen; both screens name it",
+      "3.3d which organisations are mine",
+      "3.3e issuer portal shell + landing page",
+      "3.3f an issuer reads the assets its organisation brought (backend)"
     ],
     "exit_criteria_remaining": [
-      "the ISSUER-facing portal: an issuer's own admin submits and tracks their assets without staff (roadmap 3.3 proper)",
+      "an issuer-facing SCREEN for its own assets (the 3.3f endpoint has no UI yet)",
+      "the submission wizard — scope is an owner decision, not an engineering one",
       "the per-person gate: IssuerMembership.canWorkOnAssets() still has no production caller"
     ]
   },
