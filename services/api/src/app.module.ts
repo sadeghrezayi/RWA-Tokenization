@@ -126,7 +126,12 @@ import { DecideIssuerApplication } from "./application/issuers/decide-issuer-app
 import { AddTeamMember } from "./application/issuers/add-team-member.js";
 import { RemoveTeamMember } from "./application/issuers/remove-team-member.js";
 import { IssuerTeamAccess } from "./application/issuers/issuer-team-access.js";
-import { GetIssuer, ListIssuerTeam, ListIssuers } from "./application/issuers/issuer-views.js";
+import {
+  GetIssuer,
+  ListIssuerTeam,
+  ListIssuers,
+  ListMyIssuerOrganisations,
+} from "./application/issuers/issuer-views.js";
 import { InvestorPersonVerification } from "./application/issuers/investor-person-verification.js";
 import { InvestorPersonDirectory } from "./application/issuers/investor-person-directory.js";
 import { PrismaFundingRepository } from "./infrastructure/persistence/prisma-funding-repository.js";
@@ -1830,6 +1835,14 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       useFactory: (issuers: IssuerRepository, people: PersonDirectory) =>
         new ListIssuerTeam(issuers, people),
       inject: [ISSUER_REPOSITORY, PERSON_DIRECTORY],
+    },
+    {
+      provide: ListMyIssuerOrganisations,
+      // Same two collaborators as the staff-facing list: an issuer's own people
+      // see their organisation described exactly as an officer sees it.
+      useFactory: (issuers: IssuerRepository, staff: StaffUserRepository) =>
+        new ListMyIssuerOrganisations(issuers, staff),
+      inject: [ISSUER_REPOSITORY, STAFF_USER_REPOSITORY],
     },
     {
       provide: IssuerTeamAccess,

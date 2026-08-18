@@ -9,6 +9,7 @@ import { PrismaService } from "../../src/infrastructure/persistence/prisma.servi
 import type {
   IssuerMemberView,
   IssuerOrganisationView,
+  MyIssuerOrganisationView,
 } from "../../src/application/issuers/issuer-views.js";
 
 // 3.2e over the real HTTP + Postgres stack. The rule this exists to protect:
@@ -158,6 +159,45 @@ describe("Issuers API (e2e, real Postgres)", () => {
 
   it("keeps an applicant out of the platform's review queue (403)", async () => {
     await request(server).get("/issuers").set(auth(founder)).expect(403);
+  });
+
+  // 3.3d: what the issuer portal asks first — which organisations are mine?
+  it("tells a person which organisations are theirs, and what their role allows", async () => {
+    const id = await applied();
+    await request(server)
+      .post(`/issuers/${id}/members`)
+      .set(auth(founder))
+      .send({ email: colleagueEmail, role: "issuer_contributor" })
+      .expect(204);
+
+    const asFounder = await request(server).get("/issuers/mine").set(auth(founder)).expect(200);
+    const founderRow = (asFounder.body as MyIssuerOrganisationView[]).find((r) => r.id === id);
+    expect(founderRow?.role).toBe("issuer_admin");
+    expect(founderRow?.canManageTeam).toBe(true);
+    expect(founderRow?.legalName).toBeTruthy();
+
+    const asColleague = await request(server).get("/issuers/mine").set(auth(colleague)).expect(200);
+    const colleagueRow = (asColleague.body as MyIssuerOrganisationView[]).find((r) => r.id === id);
+    expect(colleagueRow?.canManageTeam).toBe(false);
+    expect(colleagueRow?.canWorkOnAssets).toBe(true);
+  });
+
+  it("shows a person nothing when they act for no issuer", async () => {
+    const res = await request(server).get("/issuers/mine").set(auth(stranger)).expect(200);
+
+    // Empty, not an error: acting for no issuer is a legitimate state, and the
+    // portal has to be able to say "you have no organisation yet".
+    expect(res.body).toEqual([]);
+  });
+
+  // "mine" must not be swallowed by the `:id` route. If it ever is, this asks
+  // for an organisation literally named "mine" and gets a 404 or a 403.
+  it("reads /issuers/mine as the person's own list, not as an organisation id", async () => {
+    await applied();
+
+    const res = await request(server).get("/issuers/mine").set(auth(founder)).expect(200);
+
+    expect(Array.isArray(res.body)).toBe(true);
   });
 
   it("walks an application through review to approval", async () => {

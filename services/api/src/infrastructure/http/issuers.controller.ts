@@ -13,10 +13,16 @@ import { RemoveTeamMember } from "../../application/issuers/remove-team-member.j
 import { ApplyAsIssuer } from "../../application/issuers/apply-as-issuer.js";
 import { DecideIssuerApplication } from "../../application/issuers/decide-issuer-application.js";
 import { IssuerTeamAccess } from "../../application/issuers/issuer-team-access.js";
-import { GetIssuer, ListIssuerTeam, ListIssuers } from "../../application/issuers/issuer-views.js";
+import {
+  GetIssuer,
+  ListIssuerTeam,
+  ListIssuers,
+  ListMyIssuerOrganisations,
+} from "../../application/issuers/issuer-views.js";
 import type {
   IssuerMemberView,
   IssuerOrganisationView,
+  MyIssuerOrganisationView,
 } from "../../application/issuers/issuer-views.js";
 import { ISSUER_ROLES } from "../../domain/issuers/issuer-membership.js";
 import type { IssuerRole } from "../../domain/issuers/issuer-membership.js";
@@ -62,6 +68,7 @@ export class IssuersController {
     private readonly listIssuers: ListIssuers,
     private readonly getIssuer: GetIssuer,
     private readonly listTeam: ListIssuerTeam,
+    private readonly listMine: ListMyIssuerOrganisations,
     private readonly access: IssuerTeamAccess,
   ) {}
 
@@ -82,6 +89,18 @@ export class IssuersController {
   @RequirePermission(PERMISSIONS.ISSUER_MANAGE)
   list(): Promise<IssuerOrganisationView[]> {
     return this.listIssuers.execute();
+  }
+
+  // 3.3d: the issuer portal's first question. Declared BEFORE `:id`, because
+  // Nest matches in declaration order and would otherwise read "mine" as an
+  // organisation id — which fails as a 403, not as a 404, so it would look
+  // like a permission bug rather than a routing one.
+  //
+  // No permission decorator: this is a person asking about themselves. Someone
+  // who acts for no issuer gets an empty list, which is the true answer.
+  @Get("mine")
+  mine(@CurrentPrincipal() principal: Principal): Promise<MyIssuerOrganisationView[]> {
+    return this.listMine.execute({ userId: actorOf(principal) });
   }
 
   // One organisation's own record. Staff read any; an issuer's people read

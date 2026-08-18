@@ -4,6 +4,7 @@ import {
   GetIssuer,
   ListIssuerTeam,
   ListIssuers,
+  ListMyIssuerOrganisations,
 } from "../../../src/application/issuers/issuer-views.js";
 import {
   IssuerOrganisationNotFoundError,
@@ -236,5 +237,68 @@ describe("IssuerTeamAccess", () => {
     await expect(
       access.assertCanManageTeam({ organisationId: "org-2", userId: "user-founder" }),
     ).rejects.toThrow(NotIssuerTeamMemberError);
+  });
+});
+
+// 3.3d: the spine of the issuer portal. Before a person can be shown anything
+// about "their" organisation, the platform has to answer which organisations
+// are theirs, and what their role there lets them do.
+describe("ListMyIssuerOrganisations", () => {
+  it("returns only the organisations the person actually belongs to", async () => {
+    await issuers.save(organisation("org-2"));
+    await issuers.addMember(member("org-2", "user-stranger", "issuer_admin"));
+
+    const mine = await new ListMyIssuerOrganisations(issuers, staff).execute({
+      userId: "user-founder",
+    });
+
+    expect(mine.map((row) => row.id)).toEqual(["org-1"]);
+  });
+
+  it("carries the role and what it lets this person do", async () => {
+    const [asAdmin] = await new ListMyIssuerOrganisations(issuers, staff).execute({
+      userId: "user-founder",
+    });
+    const [asContributor] = await new ListMyIssuerOrganisations(issuers, staff).execute({
+      userId: "user-colleague",
+    });
+
+    expect(asAdmin?.role).toBe("issuer_admin");
+    expect(asAdmin?.canManageTeam).toBe(true);
+    expect(asContributor?.role).toBe("issuer_contributor");
+    // A contributor prepares assets but does not staff the organisation.
+    expect(asContributor?.canManageTeam).toBe(false);
+    expect(asContributor?.canWorkOnAssets).toBe(true);
+  });
+
+  it("still describes the organisation itself, exactly as every other reader sees it", async () => {
+    const [view] = await new ListMyIssuerOrganisations(issuers, staff).execute({
+      userId: "user-founder",
+    });
+
+    expect(view?.legalName).toBe("Holdings org-1");
+    expect(view?.state).toBe("applied");
+    // Not approved yet, so this organisation may not submit assets — the
+    // portal must be able to say so rather than offering a dead action.
+    expect(view?.canSubmitAssets).toBe(false);
+  });
+
+  it("returns nothing for a person with no issuer membership at all", async () => {
+    const mine = await new ListMyIssuerOrganisations(issuers, staff).execute({
+      userId: "user-nobody",
+    });
+
+    expect(mine).toEqual([]);
+  });
+
+  it("skips a membership whose organisation has vanished, rather than failing the whole list", async () => {
+    await issuers.addMember(member("org-deleted", "user-founder", "issuer_admin"));
+
+    const mine = await new ListMyIssuerOrganisations(issuers, staff).execute({
+      userId: "user-founder",
+    });
+
+    // One bad row must not cost this person the organisation they do have.
+    expect(mine.map((row) => row.id)).toEqual(["org-1"]);
   });
 });

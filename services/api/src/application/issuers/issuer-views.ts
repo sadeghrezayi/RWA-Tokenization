@@ -26,6 +26,15 @@ export interface IssuerOrganisationView {
   canSubmitAssets: boolean;
 }
 
+// An organisation as one of its OWN people sees it: the same facts every other
+// reader gets, plus the two questions the portal must answer before it renders
+// anything — what is my role here, and what does it let me do?
+export interface MyIssuerOrganisationView extends IssuerOrganisationView {
+  role: IssuerRole;
+  canManageTeam: boolean;
+  canWorkOnAssets: boolean;
+}
+
 export interface IssuerMemberView {
   userId: string;
   email?: string;
@@ -131,5 +140,39 @@ export class ListIssuerTeam {
         };
       }),
     );
+  }
+}
+
+// The spine of the issuer portal: which organisations are this person's, and
+// what may they do in each. Staff read `ListIssuers`; a person acting for an
+// issuer reads this, and never sees an organisation they are not part of.
+export class ListMyIssuerOrganisations {
+  constructor(
+    private readonly issuers: IssuerRepository,
+    private readonly staff: StaffUserRepository,
+  ) {}
+
+  async execute(input: { userId: string }): Promise<MyIssuerOrganisationView[]> {
+    const memberships = await this.issuers.membershipsFor(input.userId);
+    const found = await Promise.all(
+      memberships.map(async (membership) => {
+        const organisation = await this.issuers.findById(membership.organisationId);
+        // A membership pointing at an organisation that is gone is a broken
+        // row, not a reason to deny this person the organisations they do
+        // have. It is skipped, never rendered as an empty shell.
+        return organisation === undefined ? undefined : { membership, organisation };
+      }),
+    );
+    const rows = found.filter((row): row is NonNullable<typeof row> => row !== undefined);
+    const labels = await staffLabelsFor(
+      this.staff,
+      rows.map((row) => row.organisation),
+    );
+    return rows.map(({ membership, organisation }) => ({
+      ...toIssuerView(organisation, labels),
+      role: membership.role,
+      canManageTeam: membership.canManageTeam(),
+      canWorkOnAssets: membership.canWorkOnAssets(),
+    }));
   }
 }
