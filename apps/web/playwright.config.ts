@@ -20,7 +20,12 @@ export default defineConfig({
   // Layout is deterministic; a retry would only hide a real flake.
   retries: 0,
   fullyParallel: true,
-  reporter: process.env.CI ? "github" : "list",
+  // The JSON report is what makes a CI-only failure legible: job logs and
+  // artifacts both need admin rights to read, so the workflow publishes the
+  // failing test names through this file instead (KNOWN_ISSUES K-25).
+  reporter: process.env.CI
+    ? [["github"] as const, ["json", { outputFile: "playwright-report.json" }] as const]
+    : "list",
   use: {
     baseURL: process.env.WEB_BASE_URL ?? "http://localhost:3000",
     trace: "retain-on-failure",
