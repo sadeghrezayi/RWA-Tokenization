@@ -233,7 +233,7 @@ test.describe("Phase 2 exit journey", () => {
                   const res = await fetch("http://localhost:3001/auth/session", {
                     credentials: "include",
                   });
-                  return { status: res.status, csrf: /tk_csrf/.test(document.cookie) };
+                  return { status: res.status, csrf: document.cookie.includes("tk_csrf") };
                 });
                 return `SIGNED OUT: /auth/session -> ${String(probe.status)}, csrf-cookie=${String(probe.csrf)}`;
               }
