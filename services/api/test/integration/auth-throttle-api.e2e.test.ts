@@ -111,3 +111,48 @@ describe("Auth edge rate limit (e2e)", () => {
     expect((rateLimited?.body as { message: string }).message).toMatch(/too many requests/i);
   });
 });
+
+// Its own module: the block above deliberately floods the login bucket, and a
+// signed-in reader has to be able to log in first.
+describe("Auth edge rate limit — reads (e2e)", () => {
+  let app: INestApplication;
+  let server: Parameters<typeof request>[0];
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(AUTH_RATE_LIMITER)
+      .useValue(new InMemoryRateLimiter({ max: 3, windowSeconds: 60 }))
+      .compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+    server = app.getHttpServer() as Parameters<typeof request>[0];
+  }, 30_000);
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // The limiter exists to stop credential GUESSING. Reading "am I signed in?"
+  // guesses nothing, and every page load of every portal asks it — so sharing
+  // the credential budget locks a signed-in person out of their own account
+  // for browsing. Behind a shared address (CGNAT is the norm in the target
+  // market) it would lock out everyone at once. Found in CI, where the browser
+  // journey got 429 on /auth/session and showed the sign-in panel to a holder
+  // who was signed in (KNOWN_ISSUES K-27).
+  it("does_not_spend_the_credential_budget_on_reading_the_session", async () => {
+    // Must be SIGNED IN to be a fair test: an anonymous probe is refused by the
+    // auth guard before the limiter ever counts it, which is why an earlier
+    // version of this test passed while the defect was live.
+    const email = `reader-${randomUUID()}@example.com`;
+    const password = "Passw0rd-reader-1";
+    await request(server).post("/investors").send({ email, password }).expect(201);
+    const login = await request(server).post("/auth/login").send({ email, password }).expect(200);
+    const cookies = login.headers["set-cookie"] as unknown as string[];
+
+    // Twelve page loads in a minute is an ordinary session, not an attack.
+    for (let i = 0; i < 12; i++) {
+      const res = await request(server).get("/auth/session").set("Cookie", cookies);
+      expect(res.status, `session read #${String(i + 1)} was refused`).not.toBe(429);
+    }
+  });
+});

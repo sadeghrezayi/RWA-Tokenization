@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useBrowserSession } from "../lib/use-browser-session";
 import { CSRF_COOKIE } from "../lib/session";
+import { ApiError } from "../lib/api";
 import type { ApiClient } from "../lib/api";
 import { stubApi } from "./auth-panel.test";
 
@@ -51,6 +52,28 @@ describe("useBrowserSession", () => {
     await waitFor(() => {
       expect(result.current.status).toBe("anon");
     });
+  });
+
+  // A rate limit is not a logout. Rendering the sign-in panel to someone who
+  // IS signed in invites them to log in again, which spends the credential
+  // budget that refused them in the first place. Caught in CI: the holder's
+  // portfolio showed the sign-in screen because /auth/session answered 429
+  // while the session cookie was sitting right there (KNOWN_ISSUES K-27).
+  it("does not call a rate-limited reader signed out", async () => {
+    const getSession = vi.fn().mockRejectedValue(new ApiError(429, "too many requests"));
+    const { result } = withSession(getSession);
+
+    // Wait for the probe to have actually SETTLED. Asserting "not anon" while
+    // the status is still its initial "loading" would pass without proving a
+    // thing — which is exactly what the first draft of this test did.
+    await waitFor(() => {
+      expect(getSession).toHaveBeenCalled();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.status).toBe("loading");
   });
 
   it("re-reads the session on demand, because a fresh login changes the answer", async () => {

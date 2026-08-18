@@ -246,10 +246,18 @@ import { DevLogClaimIssuer } from "./infrastructure/chain/dev-log-claim-issuer.j
 import { OnchainidClaimIssuer } from "./infrastructure/chain/onchainid-claim-issuer.js";
 import { AuthController } from "./infrastructure/http/auth.controller.js";
 import { AuthRateLimitGuard } from "./infrastructure/http/rate-limit.guard.js";
-import { AUTH_RATE_LIMITER, LOGIN_THROTTLE_SERVICE } from "./infrastructure/http/http.tokens.js";
+import {
+  AUTH_RATE_LIMITER,
+  AUTH_READ_RATE_LIMITER,
+  LOGIN_THROTTLE_SERVICE,
+} from "./infrastructure/http/http.tokens.js";
 // Re-exported so tests (and other composition entry points) can reference the
 // auth-throttle DI tokens from the module barrel.
-export { AUTH_RATE_LIMITER, LOGIN_THROTTLE_SERVICE } from "./infrastructure/http/http.tokens.js";
+export {
+  AUTH_RATE_LIMITER,
+  AUTH_READ_RATE_LIMITER,
+  LOGIN_THROTTLE_SERVICE,
+} from "./infrastructure/http/http.tokens.js";
 import { InMemoryRateLimiter } from "./infrastructure/auth/rate-limiter.js";
 import {
   DEFAULT_LOGIN_THROTTLE,
@@ -898,6 +906,14 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       // time and leak counts across test modules in the same worker.
       provide: AUTH_RATE_LIMITER,
       useFactory: () => new InMemoryRateLimiter({ max: 20, windowSeconds: 60 }),
+    },
+    {
+      // Reads get their own, far larger ceiling: 20/minute is a sane bound on
+      // password attempts and an absurd one on page loads, since every screen
+      // in every portal asks `GET /auth/session` when it mounts. Still bounded
+      // — 5 a second is generous for a browser and useless for a flood.
+      provide: AUTH_READ_RATE_LIMITER,
+      useFactory: () => new InMemoryRateLimiter({ max: 300, windowSeconds: 60 }),
     },
     AuthRateLimitGuard,
     {

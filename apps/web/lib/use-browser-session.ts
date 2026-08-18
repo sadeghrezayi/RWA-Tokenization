@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ApiError } from "./api";
 import type { ApiClient } from "./api";
 import { readCsrfToken } from "./session";
 
@@ -45,9 +46,16 @@ export const useBrowserSession = (
       setCsrf(readCsrfToken() ?? "");
       setPermissions(session.permissions);
       setStatus("authed");
-    } catch {
-      // A failed probe is "not signed in", not a broken screen: the portals
-      // render their sign-in panel and the person can act.
+    } catch (failure) {
+      // A RATE LIMIT is not a logout. Showing the sign-in panel to someone who
+      // is signed in invites them to log in again, which spends the very
+      // budget that just refused them. Stay as we are and let the next probe
+      // answer; the platform is busy, the person is not signed out (K-27).
+      if (failure instanceof ApiError && failure.status === 429) {
+        return;
+      }
+      // Any other failed probe is "not signed in", not a broken screen: the
+      // portals render their sign-in panel and the person can act.
       setStatus("anon");
     }
     // `accepts` belongs in the deps, so callers must pass a referentially
