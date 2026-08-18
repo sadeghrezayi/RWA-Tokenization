@@ -249,7 +249,12 @@ jobs:
                         .map((line) => line.trim())
                         .filter(Boolean);
                       const prose = lines.find((line) => /\s(never|but|not|->)\s/.test(line));
-                      failures.push(`${spec.title.slice(0, 40)} :: ${prose ?? lines[0] ?? ''}`.slice(0, 130));
+                      failures.push(`${spec.title.slice(0, 30)} :: ${prose ?? lines[0] ?? ''}`.slice(0, 130));
+                      // The message says WHICH expectation broke; the received
+                      // value says what was actually there. Both, or the run
+                      // reports half an answer (KNOWN_ISSUES K-25).
+                      const received = lines.find((line) => line.startsWith('Received string:'));
+                      if (received) failures.push(received.slice(0, 130));
                     }
                   }
                 }
