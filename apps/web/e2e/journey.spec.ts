@@ -178,7 +178,14 @@ test.describe("Phase 2 exit journey", () => {
 
       await page.goto("/en/portfolio");
       const holdingLink = page.getByRole("link", { name: new RegExp(assetName) });
-      await expect(holdingLink).toBeVisible();
+      // Longer than the 5s default on purpose. The holding is read from the
+      // CHAIN (GetMyHoldings -> balanceOf), so this waits on a devnet round
+      // trip on top of navigation and render — and on a loaded CI runner that
+      // has exceeded five seconds, failing a test whose subject was correct
+      // (KNOWN_ISSUES K-24: the close itself awaits the mint receipt, so the
+      // balance is already final by the time this asks for it). Still a real
+      // assertion: if the holding never appears, this fails.
+      await expect(holdingLink).toBeVisible({ timeout: 30_000 });
       await holdingLink.click();
 
       // The position page: what went in, and what came of it.
