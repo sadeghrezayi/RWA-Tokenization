@@ -55,7 +55,7 @@ Foundry contract tests**. CI green on `9e63980`.
 | Approval freezes dossier + rights | **COMPLETE** | domain tests | `asset.ts` (`assertDossierEditable`) | domain | Document **visibility** is deliberately still changeable after approval |
 | Tokenization (per-asset ERC-3643) | **COMPLETE BUT NEEDS HARDENING** | devnet integration | `chain/trex-asset-token-deployer.ts` | `trex-asset-token-deployer.test.ts` | Synchronous; single operator key; anvil only |
 | Documents centre (holder-visible subset) | **COMPLETE** | e2e + both UIs | `set-document-visibility.ts`, `get-my-asset-documents.ts` | `assets-api.e2e`, `portfolio-api.e2e` | No per-holder access log, no watermarking, no versioning |
-| Asset ↔ issuer organisation link | **NOT STARTED** | — | — | — | **This is the next structural step** and a data-migration point |
+| Asset ↔ issuer organisation link | **COMPLETE** (3.3a–3.3c) | domain + repository-contract + `assets-api.e2e` + 7 web tests + a live browser walk | `domain/assets/asset.ts` (`organisationId`), `application/assets/propose-asset.ts`, `get-asset.ts`, `apps/web/components/assets-panel.tsx`, `asset-detail-page.tsx` | `asset.test.ts`, `asset-repository.contract.ts`, `assets-api.e2e`, `assets-panel.test.tsx`, `asset-detail-page.test.tsx` | Nullable and **not** backfilled: NULL is the true answer for a staff-onboarded asset. Settled at proposal and never changed afterwards. **Open (user's call):** must every FUTURE asset belong to an organisation? |
 
 ## Offerings, money and settlement
 
@@ -108,11 +108,11 @@ Foundry contract tests**. CI green on `9e63980`.
 | Feature | Status | Evidence | Key files | Tests | Limitations |
 |---|---|---|---|---|---|
 | Issuer organisation domain + lifecycle | **COMPLETE** | domain tests | `domain/issuers/issuer-organisation.ts` | `issuer-organisation.test.ts` | — |
-| Issuer memberships + roles | **COMPLETE** | domain tests | `issuer-membership.ts` | `issuer-membership.test.ts` | `canWorkOnAssets()` has **no production caller yet** — it gets one when assets link to organisations |
+| Issuer memberships + roles | **COMPLETE** | domain tests | `issuer-membership.ts` | `issuer-membership.test.ts` | `IssuerMembership.canWorkOnAssets()` still has **no production caller** — it is the per-person check the issuer-facing portal will need. The *organisation*-level gate `IssuerOrganisation.canSubmitAssets()` is live in `propose-asset.ts` (3.3b) |
 | Persistence + tenant isolation | **COMPLETE** | contract + isolation tests | `persistence/prisma-issuer-repository.ts` | `prisma-issuer-repository.test.ts`, `tenant-isolation.test.ts` | — |
 | Individual-verification gate | **COMPLETE** | e2e + **mutation-checked** | `application/issuers/require-verified-person.ts`, `investor-person-verification.ts` | `issuers-api.e2e`, `prisma-person-verification.test.ts` | Fails closed for unknown people |
 | Issuer HTTP API (apply/review/decide/team) | **COMPLETE** | `issuers-api.e2e` 18 tests | `http/issuers.controller.ts` | `issuers-api.e2e` | — |
-| Issuer **review screen** (staff) | **COMPLETE** (3.2f) | 14 web tests + a layout contract + a live browser walk of both decision paths | `apps/web/app/[locale]/admin/issuers/`, `components/admin/issuers-panel.tsx` | `issuers-panel.test.tsx`, `layout.spec.ts` | Shows `decidedBy` as a raw officer id (KNOWN_ISSUES K-19) |
+| Issuer **review screen** (staff) | **COMPLETE** (3.2f) | 14 web tests + a layout contract + a live browser walk of both decision paths | `apps/web/app/[locale]/admin/issuers/`, `components/admin/issuers-panel.tsx` | `issuers-panel.test.tsx`, `layout.spec.ts` | Names the deciding officer, not their account id (K-19 fixed 2026-08-17) |
 | Issuer **team** management UI | **NOT STARTED** | — | endpoints exist | — | Add/list/remove members is HTTP-only |
 | Issuer portal (issuer-facing) | **NOT STARTED** | — | — | — | Roadmap 3.3 |
 | What an issuer may see about investors | **DISCUSSED, ANSWERED IN PRINCIPLE, NOT IMPLEMENTED** | decision log | — | — | User answered "all necessary information"; the concrete field list must be proposed and approved before anything is exposed |

@@ -1,6 +1,6 @@
 {
   "handoff_version": "1.1.0",
-  "generated_at": "2026-08-16T09:05:00Z",
+  "generated_at": "2026-08-18T01:30:00Z",
   "project": {
     "name": "Tokenization Platform",
     "repository_name": "RWA-Tokenization",
@@ -20,19 +20,19 @@
   "repository": {
     "root": "/Users/sadeghrezayi/Projects/RWA-Tokenization",
     "branch": "main",
-    "commit": "9e63980ee8c4ea6e052b603546f87dc5af408bf4",
-    "working_tree": "clean",
-    "commit_count": 126,
+    "commit": "1caaa68d9ca4ccec605906769df1523a05b139a5",
+    "working_tree": "handoff docs updated for 3.3, not yet committed",
+    "commit_count": 134,
     "first_commit_date": "2026-07-10",
-    "last_commit_date": "2026-08-16",
+    "last_commit_date": "2026-08-18",
     "workspace_manager": "pnpm@10.12.1",
     "workspaces": ["apps/web", "services/api", "contracts"],
     "packages_dir_exists": false,
     "ci": {
       "provider": "github-actions",
       "workflow": ".github/workflows/ci.yml",
-      "last_run_conclusion": "success",
-      "last_run_commit": "9e63980"
+      "last_run_conclusion": "cancelled (job hit the 25-minute workflow timeout during 'Install Playwright browser'; not a code failure — see known issue K-22)",
+      "last_run_commit": "1caaa68"
     }
   },
   "architecture": {
@@ -255,7 +255,7 @@
     {
       "name": "Issuer review screen (staff)",
       "status": "COMPLETE",
-      "note": "3.2f \u2014 /[locale]/admin/issuers behind issuer.manage; verified live in a browser"
+      "note": "3.2f — /[locale]/admin/issuers behind issuer.manage; verified live in a browser"
     },
     {
       "name": "Issuer team management UI",
@@ -502,36 +502,45 @@
     {
       "id": "K-19",
       "severity": "low",
-      "title": "Issuer queue shows 'Decided by officer-1' \u2014 a raw account id"
+      "title": "Issuer queue shows 'Decided by officer-1' — a raw account id"
+    },
+    {
+      "id": "K-21",
+      "severity": "medium",
+      "title": "Local integration runs report bogus 30s timeouts on the anvil tests because the development Mac sleeps mid-run; CI is the authority"
+    },
+    {
+      "id": "K-22",
+      "severity": "medium",
+      "title": "A CI run can end as 'cancelled' at the 25-minute job timeout while stuck on 'Install Playwright browser'; not a code failure"
     }
   ],
   "current_milestone": {
-    "phase": "3.2",
-    "name": "Issuer org onboarding, team & roles",
-    "state": "API complete and CI-green; staff review screen shipped (3.2f); team management still HTTP-only",
+    "phase": "3.3",
+    "name": "Assets belong to issuer organisations",
+    "state": "3.2 complete (team panel shipped, deciding officer named). 3.3a-c shipped: an asset carries its issuer from the domain through to both screens.",
     "completed_slices": [
       "3.2a domain",
       "3.2b persistence",
       "3.2c use cases + verification gate",
       "3.2d gate bound to KYC pipeline",
       "3.2e HTTP API + team management + DI wiring",
-      "3.2f staff review screen (web)"
+      "3.2f staff review screen (web)",
+      "3.2g issuer detail page + team panel (web)",
+      "3.3a Asset.organisationId in the domain and in Postgres (nullable, not backfilled)",
+      "3.3b POST /assets accepts the organisation and refuses one that may not submit (409)",
+      "3.3c officer picks the issuer on the onboarding screen; both screens name it"
     ],
     "exit_criteria_remaining": [
-      "an officer can manage an issuer's team in a browser",
-      "the deciding officer is named rather than shown as an account id"
+      "the ISSUER-facing portal: an issuer's own admin submits and tracks their assets without staff (roadmap 3.3 proper)",
+      "the per-person gate: IssuerMembership.canWorkOnAssets() still has no production caller"
     ]
   },
   "next_actions": [
     {
       "priority": "P1",
-      "id": "P1-9",
-      "action": "Name the deciding officer in the issuer view (staff-directory lookup in the read model)"
-    },
-    {
-      "priority": "P1",
-      "id": "P1-8",
-      "action": "Build the issuer team panel so the individual-verification gate is reachable in a browser"
+      "id": "P1-3",
+      "action": "Issuer-facing portal (roadmap 3.3): an issuer admin submits and tracks their own assets; this is where IssuerMembership.canWorkOnAssets() finally gets a caller. Large - slice it."
     },
     {
       "priority": "P0",
@@ -547,11 +556,6 @@
       "priority": "P0",
       "id": "P0-4",
       "action": "Address secrets and key management (needs an owner decision on the interim signer)"
-    },
-    {
-      "priority": "P1",
-      "id": "P1-1",
-      "action": "Link assets to issuer organisations (data-migration point; ask the owner what existing assets belong to)"
     },
     {
       "priority": "P1",

@@ -52,20 +52,20 @@ the deciding officer (P1-9).
 
 ## P1 — Important (next milestone)
 
-### P1-1 — Link assets to issuer organisations
-- **What:** an `Asset` has no `organisationId`. Until it does, an approved issuer cannot own or
-  submit anything, and `IssuerMembership.canWorkOnAssets()` has no caller.
-- **Why:** it is the structural join that makes Phase 3 meaningful, and it is the project's
-  identified **data-migration point** (existing assets have no organisation).
-- **Files:** `prisma/schema.prisma`, `domain/assets/asset.ts`, `application/assets/*`,
-  `docs/data-migration-plan.md`.
-- **Prerequisites:** none technically; the review screen (3.2f) already exists, so an approved
-  organisation is visible in the console and the result of this link will be too.
-- **Acceptance:** new assets carry an organisation; existing assets are handled by an explicit,
-  reviewed migration (nullable column + backfill decision, **not** a silent default); an issuer's
-  contributor can work on their organisation's assets and no one else's; tenant isolation intact.
-- **Risks:** a careless backfill would attribute existing assets to the wrong entity. Ask the
-  owner what existing assets belong to before writing the migration.
+### P1-1 — Link assets to issuer organisations — **DONE** (3.3a–3.3c, 2026-08-18)
+- **Delivered:** `Asset.organisationId` settled at proposal and never changed afterwards
+  (`domain/assets/asset.ts`); `propose-asset.ts` refuses an organisation that may not submit
+  (409 via `IssuerOrganisation.canSubmitAssets()`); `AssetView` carries `organisationId` +
+  `organisationName` resolved in one batch lookup; `POST /assets` accepts the organisation; the
+  onboarding screen offers only issuers that may submit, and both the asset list and the asset
+  page read "Brought by <issuer>".
+- **Migration:** `20260817090000_asset_issuer_organisation` — nullable, **not** backfilled, per
+  `docs/data-migration-plan.md` §1 ("there is no production data yet") and OD-15. NULL means the
+  platform onboarded the asset itself, which is a true answer rather than a missing one.
+- **Still open (the owner's call, not an engineering one):** must every FUTURE asset belong to an
+  organisation? Today "The platform" stays a valid choice.
+- **Not covered here:** `IssuerMembership.canWorkOnAssets()` still has no caller — the per-person
+  "may this contributor work on this asset" check belongs to the issuer-facing portal (P1-3).
 
 ### P1-2 — Decide and implement what an issuer may see about investors
 - **What:** the owner answered "all necessary information"; nothing is implemented.
