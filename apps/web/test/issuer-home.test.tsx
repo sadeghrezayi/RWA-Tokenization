@@ -37,6 +37,16 @@ const renderHome = (rows: MyIssuerOrganisationDto[], overrides: Partial<ApiClien
   );
 
 describe("IssuerHome", () => {
+  // 3.3g: the card is the way in. Without this the assets screen exists but is
+  // reachable only by typing a URL, which is the same as not existing.
+  it("leads from an organisation to the assets it brought", async () => {
+    renderHome([approved]);
+
+    const card = await screen.findByTestId("my-issuer-org-1");
+    const link = card.querySelector("a");
+    expect(link?.getAttribute("href")).toBe("/en/issuer/org-1");
+  });
+
   it("names the organisation this person acts for, and their role in it", async () => {
     renderHome([approved]);
 

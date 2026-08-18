@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ApiClient, MyIssuerOrganisationDto } from "../../lib/api";
 import { formatDate } from "../../lib/format";
@@ -62,7 +63,14 @@ export const IssuerHome = ({ locale, api }: { locale: Locale; api: ApiClient }) 
     <div className="stack">
       {organisations.map((organisation) => (
         <div key={organisation.id} data-testid={`my-issuer-${organisation.id}`}>
-          <Card title={organisation.legalName} subtitle={organisation.contactEmail}>
+          <Card
+            title={
+              // The name is the way in: everything this organisation has
+              // brought, on one page.
+              <Link href={`/${locale}/issuer/${organisation.id}`}>{organisation.legalName}</Link>
+            }
+            subtitle={organisation.contactEmail}
+          >
             <div className="stack">
               <div className="row">
                 <Badge tone={issuerStateTone(organisation.state)}>
