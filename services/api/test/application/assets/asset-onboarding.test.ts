@@ -5,7 +5,11 @@ import { AttachDossierDocument } from "../../../src/application/assets/attach-do
 import { RecordCustody } from "../../../src/application/assets/record-custody.js";
 import { ConfirmChecklistItem } from "../../../src/application/assets/confirm-checklist-item.js";
 import { ApproveAsset } from "../../../src/application/assets/approve-asset.js";
-import { GetAsset, ListAssets } from "../../../src/application/assets/get-asset.js";
+import {
+  GetAsset,
+  ListAssets,
+  ListIssuerAssets,
+} from "../../../src/application/assets/get-asset.js";
 import {
   AssetNotFoundError,
   EmptyDocumentError,
@@ -44,6 +48,7 @@ const setup = () => {
     approve: new ApproveAsset(assets, events),
     getAsset: new GetAsset(assets, issuers),
     listAssets: new ListAssets(assets, issuers),
+    listIssuerAssets: new ListIssuerAssets(assets, issuers),
   };
 };
 
@@ -287,5 +292,70 @@ describe("Proposing an asset for an issuer", () => {
     const views = await s.listAssets.execute();
 
     expect(views.every((v) => v.organisationName === "Vanak Property Holdings PJSC")).toBe(true);
+  });
+});
+
+// 3.3f: an issuer's own view of the assets it brought. Staff read every asset;
+// an issuer must read exactly the ones belonging to its organisation and
+// nothing else — this is a confidentiality boundary, not a convenience filter.
+describe("ListIssuerAssets", () => {
+  const approvedOrganisation = (id: string) =>
+    IssuerOrganisation.apply({
+      id,
+      legalName: `Holdings ${id}`,
+      registrationNumber: `IR-${id}`,
+      contactEmail: `ops-${id}@vanak.example`,
+      appliedAt: new Date("2026-08-01T09:00:00Z"),
+    })
+      .startReview(new Date("2026-08-02T09:00:00Z"))
+      .approve(new Date("2026-08-02T09:00:00Z"), "officer-1");
+
+  it("returns only the assets of the organisation asked about", async () => {
+    const app = setup();
+    await app.issuers.save(approvedOrganisation("org-1"));
+    await app.issuers.save(approvedOrganisation("org-2"));
+    await app.propose.execute({ name: "Mine", actor: ACTOR, organisationId: "org-1" });
+    await app.propose.execute({ name: "Theirs", actor: ACTOR, organisationId: "org-2" });
+    await app.propose.execute({ name: "The platform's", actor: ACTOR });
+
+    const mine = await app.listIssuerAssets.execute({ organisationId: "org-1" });
+
+    expect(mine.map((asset) => asset.name)).toEqual(["Mine"]);
+  });
+
+  it("never leaks the assets the platform onboarded itself", async () => {
+    const app = setup();
+    await app.issuers.save(approvedOrganisation("org-1"));
+    await app.propose.execute({ name: "The platform's", actor: ACTOR });
+
+    const mine = await app.listIssuerAssets.execute({ organisationId: "org-1" });
+
+    // A NULL organisation means the platform brought it. It belongs to nobody
+    // else, and must not fall into an issuer's list by accident.
+    expect(mine).toEqual([]);
+  });
+
+  it("describes each asset exactly as every other reader sees it", async () => {
+    const app = setup();
+    await app.issuers.save(approvedOrganisation("org-1"));
+    const { assetId } = await app.propose.execute({
+      name: "Vanak Tower Floor 7",
+      actor: ACTOR,
+      organisationId: "org-1",
+    });
+
+    const [mine] = await app.listIssuerAssets.execute({ organisationId: "org-1" });
+
+    expect(mine?.id).toBe(assetId);
+    expect(mine?.state).toBe("proposed");
+    expect(mine?.organisationId).toBe("org-1");
+    expect(mine?.organisationName).toBe("Holdings org-1");
+  });
+
+  it("returns nothing for an organisation that has brought nothing yet", async () => {
+    const app = setup();
+    await app.issuers.save(approvedOrganisation("org-1"));
+
+    expect(await app.listIssuerAssets.execute({ organisationId: "org-1" })).toEqual([]);
   });
 });

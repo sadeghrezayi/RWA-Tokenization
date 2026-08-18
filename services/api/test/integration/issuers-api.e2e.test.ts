@@ -190,6 +190,44 @@ describe("Issuers API (e2e, real Postgres)", () => {
     expect(res.body).toEqual([]);
   });
 
+  // 3.3f: an issuer reads the assets it brought — and only those.
+  it("lets an issuer's person read the assets their organisation brought", async () => {
+    const id = await approved();
+    const created = await request(server)
+      .post("/assets")
+      .set(auth(officer))
+      .send({ name: "Vanak Tower Floor 7", organisationId: id })
+      .expect(201);
+    const assetId = (created.body as { assetId: string }).assetId;
+
+    const mine = await request(server).get(`/issuers/${id}/assets`).set(auth(founder)).expect(200);
+
+    const rows = mine.body as { id: string; name: string; organisationName?: string }[];
+    expect(rows.map((row) => row.id)).toEqual([assetId]);
+    expect(rows[0]?.organisationName).toBeTruthy();
+  });
+
+  it("shows an issuer nothing of what the platform or another issuer brought", async () => {
+    const id = await approved();
+    await request(server)
+      .post("/assets")
+      .set(auth(officer))
+      .send({ name: "Platform's" })
+      .expect(201);
+
+    const mine = await request(server).get(`/issuers/${id}/assets`).set(auth(founder)).expect(200);
+
+    expect(mine.body).toEqual([]);
+  });
+
+  it("refuses the asset list to someone outside the organisation (403)", async () => {
+    const id = await approved();
+
+    // The confidentiality boundary: a stranger must not learn what an issuer
+    // is preparing, not even that the list is empty.
+    await request(server).get(`/issuers/${id}/assets`).set(auth(stranger)).expect(403);
+  });
+
   // "mine" must not be swallowed by the `:id` route. If it ever is, this asks
   // for an organisation literally named "mine" and gets a 404 or a 403.
   it("reads /issuers/mine as the person's own list, not as an organisation id", async () => {

@@ -24,6 +24,8 @@ import type {
   IssuerOrganisationView,
   MyIssuerOrganisationView,
 } from "../../application/issuers/issuer-views.js";
+import { ListIssuerAssets } from "../../application/assets/get-asset.js";
+import type { AssetView } from "../../application/assets/get-asset.js";
 import { ISSUER_ROLES } from "../../domain/issuers/issuer-membership.js";
 import type { IssuerRole } from "../../domain/issuers/issuer-membership.js";
 import { PERMISSIONS, principalHasPermission } from "../../application/identity/authorization.js";
@@ -69,6 +71,7 @@ export class IssuersController {
     private readonly getIssuer: GetIssuer,
     private readonly listTeam: ListIssuerTeam,
     private readonly listMine: ListMyIssuerOrganisations,
+    private readonly listIssuerAssets: ListIssuerAssets,
     private readonly access: IssuerTeamAccess,
   ) {}
 
@@ -172,6 +175,18 @@ export class IssuersController {
   ): Promise<IssuerMemberView[]> {
     await this.authorize(id, principal, "read");
     return this.listTeam.execute({ organisationId: id });
+  }
+
+  // 3.3f: the assets this organisation brought. Same authorisation as its team
+  // — staff read any, an issuer's own people read theirs — because "what are we
+  // preparing" is exactly as confidential as "who works here".
+  @Get(":id/assets")
+  async assets(
+    @Param("id") id: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<AssetView[]> {
+    await this.authorize(id, principal, "read");
+    return this.listIssuerAssets.execute({ organisationId: id });
   }
 
   // Invitations are by email, because that is how a colleague is known. The

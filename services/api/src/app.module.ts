@@ -53,7 +53,7 @@ import { SetConveyedRight } from "./application/assets/set-conveyed-right.js";
 import { GetMyAssetDocuments } from "./application/assets/get-my-asset-documents.js";
 import { AttachDossierDocument } from "./application/assets/attach-dossier-document.js";
 import { ConfirmChecklistItem } from "./application/assets/confirm-checklist-item.js";
-import { GetAsset, ListAssets } from "./application/assets/get-asset.js";
+import { GetAsset, ListAssets, ListIssuerAssets } from "./application/assets/get-asset.js";
 import { ProposeAsset } from "./application/assets/propose-asset.js";
 import { RecordCustody } from "./application/assets/record-custody.js";
 import { StartStructuring } from "./application/assets/start-structuring.js";
@@ -1843,6 +1843,12 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       useFactory: (issuers: IssuerRepository, staff: StaffUserRepository) =>
         new ListMyIssuerOrganisations(issuers, staff),
       inject: [ISSUER_REPOSITORY, STAFF_USER_REPOSITORY],
+    },
+    {
+      provide: ListIssuerAssets,
+      useFactory: (assets: AssetRepository, issuers: IssuerRepository) =>
+        new ListIssuerAssets(assets, issuers),
+      inject: [ASSET_REPOSITORY, ISSUER_REPOSITORY],
     },
     {
       provide: IssuerTeamAccess,

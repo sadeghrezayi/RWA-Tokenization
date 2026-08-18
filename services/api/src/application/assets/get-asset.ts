@@ -133,6 +133,27 @@ export class GetAsset {
   }
 }
 
+// 3.3f: what an issuer may read — the assets of ONE organisation, never the
+// platform's own and never another issuer's. The caller proves membership
+// before asking; this use case's job is that the answer contains nothing else.
+//
+// Filtered here rather than in the repository: at pilot scale the whole set is
+// small, and adding a port method plus two adapters plus a contract case buys
+// nothing a real requirement has asked for yet.
+export class ListIssuerAssets {
+  constructor(
+    private readonly assets: AssetRepository,
+    private readonly issuers: IssuerRepository,
+  ) {}
+
+  async execute(input: { organisationId: string }): Promise<AssetView[]> {
+    const all = await this.assets.findAll();
+    const mine = all.filter((asset) => asset.organisationId === input.organisationId);
+    const names = await organisationNamesFor(this.issuers, mine);
+    return mine.map((asset) => toAssetView(asset, names));
+  }
+}
+
 export class ListAssets {
   constructor(
     private readonly assets: AssetRepository,
