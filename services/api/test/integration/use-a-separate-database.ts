@@ -62,6 +62,10 @@ export const setup = async (): Promise<void> => {
     stdio: "inherit",
   });
 
-  // Worker processes are forked after this returns, so they inherit it.
+  // Worker processes are forked after this returns, so they inherit both.
+  // The original is kept so `database-isolation.test.ts` can assert we really
+  // did redirect away from it — the redirect is what makes the suite's
+  // wholesale deletes safe, so it is worth a test of its own.
+  process.env.DATABASE_URL_BEFORE_TESTS = configured;
   process.env.DATABASE_URL = testUrl;
 };
