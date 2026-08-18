@@ -123,7 +123,12 @@ jobs:
       # Layout-regression harness: assertion-based contracts (no pixel
       # baselines — a macOS render would never match this runner's). Needs the
       # API and the web build actually serving, so it runs after both are built.
+      # Bounded on purpose: this download has hung on the CDN before, and with
+      # no step timeout it ate the whole 25-minute job budget and reported the
+      # run as "cancelled" with no failing test to point at (KNOWN_ISSUES K-22).
+      # A step that dies at 8 minutes names itself.
       - name: Install Playwright browser
+        timeout-minutes: 8
         run: pnpm --filter @tokenization/web exec playwright install --with-deps chromium
 
       - name: Start API and web for layout tests
