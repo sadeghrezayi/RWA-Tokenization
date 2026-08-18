@@ -31,6 +31,24 @@ test.describe("public pages", () => {
   });
 });
 
+// 3.3e: the issuer portal is the third shell. A person with no issuer
+// membership reaches it legitimately — the landing must say so and still be a
+// usable screen, sign-out included, at every width.
+test.describe("issuer portal", () => {
+  test("a person with no membership gets a readable answer, not an empty shell", async ({
+    page,
+  }) => {
+    const { email, password } = await registerInvestor(page);
+    await page.goto("/en/issuer");
+    await signIn(page, email, password);
+
+    await expect(page.getByTestId("no-issuer-membership")).toBeVisible();
+    await expectReachable(page.getByRole("button", { name: /log out/i }), "log out");
+    await expectNoHorizontalPageScroll(page);
+    await expectNothingOverflowsItsContainer(page);
+  });
+});
+
 test.describe("investor portal", () => {
   test("a signed-in holder can always reach log out", async ({ page }) => {
     // The regression this exists for: the sidebar footer was display:none below
