@@ -1,3 +1,4 @@
+import { asDocumentKind } from "./dossier-kind.js";
 import {
   BadRequestException,
   Body,
@@ -26,6 +27,7 @@ import type {
 } from "../../application/issuers/issuer-views.js";
 import { ListIssuerAssets } from "../../application/assets/get-asset.js";
 import { ProposeAsset } from "../../application/assets/propose-asset.js";
+import { AttachIssuerDocument } from "../../application/assets/attach-issuer-document.js";
 import type { AssetView } from "../../application/assets/get-asset.js";
 import { ISSUER_ROLES } from "../../domain/issuers/issuer-membership.js";
 import type { IssuerRole } from "../../domain/issuers/issuer-membership.js";
@@ -74,6 +76,7 @@ export class IssuersController {
     private readonly listMine: ListMyIssuerOrganisations,
     private readonly listIssuerAssets: ListIssuerAssets,
     private readonly proposeAsset: ProposeAsset,
+    private readonly attachIssuerDocument: AttachIssuerDocument,
     private readonly access: IssuerTeamAccess,
   ) {}
 
@@ -207,6 +210,28 @@ export class IssuersController {
       name: typeof body.name === "string" ? body.name : "",
       actor: actorOf(principal),
       organisationId: id,
+    });
+  }
+
+  // 3.3i: the issuer files its own dossier. TWO gates, and both are needed:
+  // `authorize` says this person acts for this organisation, and the use case
+  // says this organisation brought this asset. Membership alone would let an
+  // issuer file documents against a rival's asset by naming their own id.
+  @Post(":id/assets/:assetId/documents")
+  async attachAssetDocument(
+    @Param("id") id: string,
+    @Param("assetId") assetId: string,
+    @Body() body: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<{ cid: string; sha256: string }> {
+    await this.authorize(id, principal, "assets");
+    return this.attachIssuerDocument.execute({
+      organisationId: id,
+      assetId,
+      kind: asDocumentKind(requireString(body, "kind")),
+      title: requireString(body, "title"),
+      contentBase64: requireString(body, "contentBase64"),
+      actor: actorOf(principal),
     });
   }
 

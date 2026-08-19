@@ -32,3 +32,14 @@ export class IssuerCannotSubmitAssetsError extends ApplicationError {
     super(`"${legalName}" may not submit assets while it is ${state}`);
   }
 }
+
+// 3.3i: the boundary between issuers. A membership grants power over YOUR
+// organisation's assets and nobody else's — and an asset the platform brought
+// itself belongs to no organisation, so it belongs to none of them. The
+// message names neither id: the reader is the person being refused, and the
+// asset they asked about is already on their screen (K-19).
+export class AssetNotBroughtByOrganisationError extends ApplicationError {
+  constructor() {
+    super("this asset was not brought by your organisation");
+  }
+}

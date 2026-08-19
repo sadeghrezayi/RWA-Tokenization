@@ -53,6 +53,7 @@ import { RecordRealEstateProfile } from "./application/assets/record-real-estate
 import { SetConveyedRight } from "./application/assets/set-conveyed-right.js";
 import { GetMyAssetDocuments } from "./application/assets/get-my-asset-documents.js";
 import { AttachDossierDocument } from "./application/assets/attach-dossier-document.js";
+import { AttachIssuerDocument } from "./application/assets/attach-issuer-document.js";
 import { ConfirmChecklistItem } from "./application/assets/confirm-checklist-item.js";
 import { GetAsset, ListAssets, ListIssuerAssets } from "./application/assets/get-asset.js";
 import { ProposeAsset } from "./application/assets/propose-asset.js";
@@ -1878,6 +1879,14 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       useFactory: (issuers: IssuerRepository, staff: StaffUserRepository) =>
         new ListMyIssuerOrganisations(issuers, staff),
       inject: [ISSUER_REPOSITORY, STAFF_USER_REPOSITORY],
+    },
+    {
+      // The issuer's door to the SAME attach use case staff use, with the
+      // ownership question in front of it (3.3i).
+      provide: AttachIssuerDocument,
+      useFactory: (assets: AssetRepository, attach: AttachDossierDocument) =>
+        new AttachIssuerDocument(assets, attach),
+      inject: [ASSET_REPOSITORY, AttachDossierDocument],
     },
     {
       provide: ListIssuerAssets,

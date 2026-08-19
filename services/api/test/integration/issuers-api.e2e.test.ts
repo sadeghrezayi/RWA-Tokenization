@@ -261,6 +261,56 @@ describe("Issuers API (e2e, real Postgres)", () => {
       .expect(409);
   });
 
+  // 3.3i: the issuer files its own dossier. Both gates matter, and the e2e is
+  // where they meet — the application test proves the ownership rule, this
+  // proves the HTTP door enforces membership as well.
+  it("lets an issuer file a dossier document for the asset it brought", async () => {
+    const id = await approved();
+    const created = await request(server)
+      .post(`/issuers/${id}/assets`)
+      .set(auth(founder))
+      .send({ name: "Vanak Tower Floor 7" })
+      .expect(201);
+    const { assetId } = created.body as { assetId: string };
+
+    const stored = await request(server)
+      .post(`/issuers/${id}/assets/${assetId}/documents`)
+      .set(auth(founder))
+      .send({
+        kind: "ownership_evidence",
+        title: "Title deed",
+        contentBase64: Buffer.from("deed bytes").toString("base64"),
+      })
+      .expect(201);
+
+    expect((stored.body as { sha256: string }).sha256).toMatch(/^[0-9a-f]{64}$/);
+
+    // And it shows up as no longer missing, on the issuer's own screen.
+    const mine = await request(server).get(`/issuers/${id}/assets`).set(auth(founder)).expect(200);
+    const rows = mine.body as { id: string; dossier: { missingKinds: string[] } }[];
+    expect(rows[0]?.dossier.missingKinds).not.toContain("ownership_evidence");
+  });
+
+  it("refuses a stranger filing documents against an organisation's asset (403)", async () => {
+    const id = await approved();
+    const created = await request(server)
+      .post(`/issuers/${id}/assets`)
+      .set(auth(founder))
+      .send({ name: "Vanak Tower Floor 7" })
+      .expect(201);
+    const { assetId } = created.body as { assetId: string };
+
+    await request(server)
+      .post(`/issuers/${id}/assets/${assetId}/documents`)
+      .set(auth(stranger))
+      .send({
+        kind: "ownership_evidence",
+        title: "Not mine to file",
+        contentBase64: Buffer.from("x").toString("base64"),
+      })
+      .expect(403);
+  });
+
   it("refuses the asset list to someone outside the organisation (403)", async () => {
     const id = await approved();
 

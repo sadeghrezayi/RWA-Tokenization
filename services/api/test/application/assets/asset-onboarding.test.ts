@@ -10,6 +10,8 @@ import {
   ListAssets,
   ListIssuerAssets,
 } from "../../../src/application/assets/get-asset.js";
+import { AttachIssuerDocument } from "../../../src/application/assets/attach-issuer-document.js";
+import { AssetNotBroughtByOrganisationError } from "../../../src/application/assets/errors.js";
 import {
   AssetNotFoundError,
   EmptyDocumentError,
@@ -49,6 +51,10 @@ const setup = () => {
     getAsset: new GetAsset(assets, issuers),
     listAssets: new ListAssets(assets, issuers),
     listIssuerAssets: new ListIssuerAssets(assets, issuers),
+    attachAsIssuer: new AttachIssuerDocument(
+      assets,
+      new AttachDossierDocument(assets, documents, events),
+    ),
   };
 };
 
@@ -357,5 +363,86 @@ describe("ListIssuerAssets", () => {
     await app.issuers.save(approvedOrganisation("org-1"));
 
     expect(await app.listIssuerAssets.execute({ organisationId: "org-1" })).toEqual([]);
+  });
+});
+
+// 3.3i: an issuer can see "Missing: 6" on the asset it brought, and until now
+// could do nothing about it — only staff could attach a dossier document. The
+// documents, the kinds and the rules are unchanged; what is new is that the
+// organisation which brought the asset can supply them.
+describe("AttachIssuerDocument", () => {
+  const approvedOrg = (id: string) =>
+    IssuerOrganisation.apply({
+      id,
+      legalName: `Holdings ${id}`,
+      registrationNumber: `IR-${id}`,
+      contactEmail: `ops-${id}@vanak.example`,
+      appliedAt: new Date("2026-08-01T09:00:00Z"),
+    })
+      .startReview(new Date("2026-08-02T09:00:00Z"))
+      .approve(new Date("2026-08-02T09:00:00Z"), "officer-1");
+
+  const brought = async (app: ReturnType<typeof setup>, organisationId: string) => {
+    await app.issuers.save(approvedOrg(organisationId));
+    const { assetId } = await app.propose.execute({
+      name: `Asset for ${organisationId}`,
+      actor: ACTOR,
+      organisationId,
+    });
+    return assetId;
+  };
+
+  it("lets the organisation that brought an asset supply its dossier", async () => {
+    const app = setup();
+    const assetId = await brought(app, "org-1");
+
+    const stored = await app.attachAsIssuer.execute({
+      organisationId: "org-1",
+      assetId,
+      kind: "ownership_evidence",
+      title: "Title deed",
+      contentBase64: CONTENT,
+      actor: "issuer-person-1",
+    });
+
+    expect(stored.sha256).toMatch(/^[0-9a-f]{64}$/);
+    const asset = await app.assets.findById(assetId);
+    expect(asset?.dossier.missingKinds()).not.toContain("ownership_evidence");
+  });
+
+  // The security boundary: holding a membership somewhere is not permission to
+  // put documents on somebody else's asset.
+  it("refuses an asset another organisation brought", async () => {
+    const app = setup();
+    await app.issuers.save(approvedOrg("org-1"));
+    const theirs = await brought(app, "org-2");
+
+    await expect(
+      app.attachAsIssuer.execute({
+        organisationId: "org-1",
+        assetId: theirs,
+        kind: "ownership_evidence",
+        title: "Not mine to file",
+        contentBase64: CONTENT,
+        actor: "issuer-person-1",
+      }),
+    ).rejects.toThrow(AssetNotBroughtByOrganisationError);
+  });
+
+  it("refuses an asset the platform brought itself", async () => {
+    const app = setup();
+    await app.issuers.save(approvedOrg("org-1"));
+    const { assetId } = await app.propose.execute({ name: "Platform's own", actor: ACTOR });
+
+    await expect(
+      app.attachAsIssuer.execute({
+        organisationId: "org-1",
+        assetId,
+        kind: "ownership_evidence",
+        title: "Not mine either",
+        contentBase64: CONTENT,
+        actor: "issuer-person-1",
+      }),
+    ).rejects.toThrow(AssetNotBroughtByOrganisationError);
   });
 });

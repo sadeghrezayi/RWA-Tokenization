@@ -1,3 +1,4 @@
+import { asDocumentKind } from "./dossier-kind.js";
 import {
   BadRequestException,
   Body,
@@ -22,8 +23,6 @@ import type { AssetView } from "../../application/assets/get-asset.js";
 import { ProposeAsset } from "../../application/assets/propose-asset.js";
 import { RecordCustody } from "../../application/assets/record-custody.js";
 import { StartStructuring } from "../../application/assets/start-structuring.js";
-import { REQUIRED_DOSSIER_KINDS } from "../../domain/assets/legal-dossier.js";
-import type { DossierDocumentKind } from "../../domain/assets/legal-dossier.js";
 import { CHECKLIST_ITEMS } from "../../domain/assets/onboarding-checklist.js";
 import type { ChecklistItem } from "../../domain/assets/onboarding-checklist.js";
 import type { Principal } from "../../application/identity/ports.js";
@@ -36,13 +35,6 @@ const requireString = (body: unknown, field: string): string => {
     throw new BadRequestException(`"${field}" is required and must be a non-empty string`);
   }
   return value;
-};
-
-const asDocumentKind = (raw: string): DossierDocumentKind => {
-  if (!(REQUIRED_DOSSIER_KINDS as readonly string[]).includes(raw)) {
-    throw new BadRequestException(`"kind" must be one of: ${REQUIRED_DOSSIER_KINDS.join(", ")}`);
-  }
-  return raw as DossierDocumentKind;
 };
 
 const asChecklistItem = (raw: string): ChecklistItem => {
