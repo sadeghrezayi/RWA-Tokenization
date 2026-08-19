@@ -1,6 +1,6 @@
 {
   "handoff_version": "1.1.0",
-  "generated_at": "2026-08-19T09:00:00Z",
+  "generated_at": "2026-08-19T16:00:00Z",
   "project": {
     "name": "Tokenization Platform",
     "repository_name": "RWA-Tokenization",
@@ -20,9 +20,9 @@
   "repository": {
     "root": "/Users/sadeghrezayi/Projects/RWA-Tokenization",
     "branch": "main",
-    "commit": "355ce3a66a1d26a5824c50cee39689295a1cd6f9",
+    "commit": "2f664eff1557a7f934fbef726663c39d659b439c",
     "working_tree": "clean",
-    "commit_count": 162,
+    "commit_count": 184,
     "first_commit_date": "2026-07-10",
     "last_commit_date": "2026-08-19",
     "workspace_manager": "pnpm@10.12.1",
@@ -32,7 +32,7 @@
       "provider": "github-actions",
       "workflow": ".github/workflows/ci.yml",
       "last_run_conclusion": "success",
-      "last_run_commit": "355ce3a"
+      "last_run_commit": "2f664ef"
     }
   },
   "architecture": {
@@ -538,12 +538,42 @@
       "id": "K-27",
       "severity": "high",
       "title": "FIXED: GET /auth/session shared the 20/min credential budget, so browsing logged people out - worse behind CGNAT"
+    },
+    {
+      "id": "K-28",
+      "severity": "medium",
+      "title": "FIXED: the issuer shell used CSS class names that do not exist, so its header was unstyled from the day it shipped"
+    },
+    {
+      "id": "K-29",
+      "severity": "low",
+      "title": "The class-name guard does not check classes assembled into a variable; closing it needs a parser. Do NOT retry the dead-CSS measurement with a hand-rolled scanner"
+    },
+    {
+      "id": "K-30",
+      "severity": "high",
+      "title": "FIXED: a devnet outage killed the API process; providers now state their network and unhandled rejections are logged rather than fatal"
+    },
+    {
+      "id": "K-31",
+      "severity": "medium",
+      "title": "The exit journey intermittently fails at tokenize with a 500; proven non-deterministic by the diff between a green and a red run"
+    },
+    {
+      "id": "K-32",
+      "severity": "medium",
+      "title": "FIXED: the devnet-restart step I added was unbounded and hung for 21 minutes until the job budget expired"
+    },
+    {
+      "id": "K-33",
+      "severity": "high",
+      "title": "FIXED: the legal dossier stored placeholder text instead of the chosen file, so an asset could be approved and tokenized with no evidence"
     }
   ],
   "current_milestone": {
     "phase": "3.3",
     "name": "Assets belong to issuer organisations",
-    "state": "3.3a-h shipped and CI-green. The issuer portal is a place an issuer can act, not only watch. Remaining in 3.3: the submission wizard (documents, rights, completeness, review comments), whose scope is the owner's call.",
+    "state": "3.3a-i shipped and CI-green: an issuer applies, is reviewed, staffs a team, brings assets, sees them, and files their dossier with real documents. Remaining in 3.3: the rest of the submission wizard (drafts, completeness, validation, review comments, status history) — the owner's scope call.",
     "completed_slices": [
       "3.2a domain",
       "3.2b persistence",
@@ -559,7 +589,11 @@
       "3.3e issuer portal shell + landing page",
       "3.3f an issuer reads the assets its organisation brought (backend)",
       "3.3g an issuer sees the assets it brought (web, browser-verified)",
-      "3.3h an issuer brings its own asset (canWorkOnAssets finally has a caller; K-13 closed)"
+      "3.3h an issuer brings its own asset (canWorkOnAssets finally has a caller; K-13 closed)",
+      "3.3i an issuer files the dossier for the asset it brought (two gates: membership + ownership)",
+      "K-33 the dossier could not hold a real document — placeholder bytes replaced by real file upload",
+      "K-30 a devnet outage no longer kills the API (provider factory + unhandled-rejection guard)",
+      "K-2 recovery: reissue a claim whose issuance failed, and a count of who needs it"
     ],
     "exit_criteria_remaining": [
       "the submission wizard — a product decision, not an engineering one"

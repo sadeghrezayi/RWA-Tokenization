@@ -75,8 +75,10 @@ the deciding officer (P1-9).
 - **Risks:** this is a PII exposure to a third party. Do not infer the list.
 
 ### P1-3 — Issuer portal (roadmap 3.3) — **partly delivered**
-- **Done:** the portal shell and landing page (3.3e), "which organisations are mine" (3.3d), and an
-  issuer's view of the assets it brought (3.3f backend + 3.3g screen).
+- **Done:** the portal shell and landing page (3.3e), "which organisations are mine" (3.3d), an
+  issuer's view of the assets it brought (3.3f backend + 3.3g screen), an issuer **bringing** its own
+  asset (3.3h — where `canWorkOnAssets()` finally decides something), and an issuer **filing the
+  dossier** for it (3.3i — membership at the door, ownership in the use case, real files only).
 - **Remaining:** the 13-step tokenization wizard with drafts, completeness %, validation, review
   comments and status history. Large, and its scope is a **product decision** — how much of the
   wizard belongs in the first slice is the owner's call, not an engineering one.
