@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { IssuerAssets } from "../components/issuer/issuer-assets";
 import type { ApiClient, AssetViewDto } from "../lib/api";
 import { stubApi } from "./auth-panel.test";
@@ -120,5 +120,91 @@ describe("IssuerAssets — bringing one", () => {
     fireEvent.click(screen.getByRole("button", { name: /bring/i }));
 
     expect(bringIssuerAsset).not.toHaveBeenCalled();
+  });
+});
+
+// 3.3i: the issuer supplies the dossier for its own asset. Until now the
+// portal showed "Missing: 6" and offered nothing to do about it.
+describe("IssuerAssets — filing the dossier", () => {
+  const withMissing = (over: Partial<AssetViewDto> = {}) =>
+    asset({
+      id: "asset-1",
+      name: "Vanak Tower Floor 7",
+      dossier: {
+        complete: false,
+        missingKinds: ["ownership_evidence", "valuation_report"],
+        documents: [],
+      },
+      ...over,
+    });
+
+  it("files the chosen file's bytes, not a name typed into a box", async () => {
+    const attachIssuerAssetDocument = vi.fn().mockResolvedValue({ cid: "c", sha256: "s" });
+    renderAssets([withMissing()], { attachIssuerAssetDocument });
+
+    fireEvent.click(await screen.findByRole("button", { name: /vanak tower floor 7/i }));
+    const deed = new File(["the actual deed bytes"], "deed.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText(/document title/i), { target: { value: "Title deed" } });
+    fireEvent.change(screen.getByLabelText(/^file$/i), { target: { files: [deed] } });
+    fireEvent.click(screen.getByRole("button", { name: /attach/i }));
+
+    await waitFor(() => {
+      expect(attachIssuerAssetDocument).toHaveBeenCalledWith("csrf-token", "org-1", "asset-1", {
+        kind: "ownership_evidence",
+        title: "Title deed",
+        contentBase64: btoa("the actual deed bytes"),
+      });
+    });
+  });
+
+  it("will not file a document with no file behind it", async () => {
+    const attachIssuerAssetDocument = vi.fn();
+    renderAssets([withMissing()], { attachIssuerAssetDocument });
+
+    fireEvent.click(await screen.findByRole("button", { name: /vanak tower floor 7/i }));
+    fireEvent.change(screen.getByLabelText(/document title/i), { target: { value: "Nothing" } });
+    fireEvent.click(screen.getByRole("button", { name: /attach/i }));
+
+    expect(attachIssuerAssetDocument).not.toHaveBeenCalled();
+    // And it must REFUSE, not fall over: without the guard the reader throws on
+    // a missing file, which ALSO results in no call — so "not called" alone
+    // passes whether the rule exists or not. The absence of an error is what
+    // tells a clean refusal from a crash.
+    // The wait has to come BEFORE the assertion, not inside a waitFor: an
+    // assertion that something is ABSENT succeeds on the first tick, before any
+    // rejection has landed, so waitFor(() => expect(...).toBeNull()) passes
+    // instantly either way. It did, and it hid the missing guard through two
+    // rounds of mutation-checking.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows the platform's refusal instead of pretending it filed", async () => {
+    renderAssets([withMissing()], {
+      attachIssuerAssetDocument: vi
+        .fn()
+        .mockRejectedValue(new Error("a dossier document may be at most 10 MB")),
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: /vanak tower floor 7/i }));
+    const big = new File(["x"], "big.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText(/document title/i), { target: { value: "Too big" } });
+    fireEvent.change(screen.getByLabelText(/^file$/i), { target: { files: [big] } });
+    fireEvent.click(screen.getByRole("button", { name: /attach/i }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("at most 10 MB");
+  });
+
+  it("offers nothing to file for an asset whose dossier is complete", async () => {
+    renderAssets(
+      [withMissing({ dossier: { complete: true, missingKinds: [], documents: [] } })],
+      {},
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /vanak tower floor 7/i }));
+
+    expect(screen.queryByLabelText(/document title/i)).toBeNull();
   });
 });

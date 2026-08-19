@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import type { ApiClient, AssetViewDto } from "../../lib/api";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
 import { Badge } from "../ui/badge";
-import { Button, Card, EmptyState, Field, Skeleton } from "../ui/primitives";
+import { Button, Card, EmptyState, Field, SelectField, Skeleton } from "../ui/primitives";
+import { base64Of } from "../../lib/file-bytes";
 import { useToast } from "../ui/toast";
 import { assetStatus } from "../ui/status";
 
@@ -29,6 +30,12 @@ export const IssuerAssets = ({
   const t = dictionaries[locale];
   const toast = useToast();
   const [name, setName] = useState("");
+  // Which asset the person is filing for. One at a time: a form per row would
+  // put six file pickers on screen for an issuer with three assets.
+  const [openAssetId, setOpenAssetId] = useState<string | undefined>(undefined);
+  const [docTitle, setDocTitle] = useState("");
+  const [docKind, setDocKind] = useState("");
+  const [docFile, setDocFile] = useState<File | undefined>(undefined);
   // Undefined means "not answered yet". Distinguishing that from an empty
   // answer is the difference between "nothing yet" and "we could not ask".
   const [assets, setAssets] = useState<AssetViewDto[] | undefined>(undefined);
@@ -46,6 +53,32 @@ export const IssuerAssets = ({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // K-33 applies here too: a dossier entry with no document behind it is worse
+  // than a missing one, because it marks the requirement satisfied. The bytes
+  // stored are the file's, and without a file nothing is sent.
+  const file = async (assetId: string): Promise<void> => {
+    const title = docTitle.trim();
+    if (title === "" || !docFile || docKind === "") {
+      return;
+    }
+    setError(undefined);
+    try {
+      await api.attachIssuerAssetDocument(csrf, organisationId, assetId, {
+        kind: docKind,
+        title,
+        contentBase64: await base64Of(docFile),
+      });
+      setDocTitle("");
+      setDocFile(undefined);
+      await refresh();
+      toast.show(t.documentAttached, "success");
+    } catch (cause: unknown) {
+      // The platform's own words — "at most 10 MB", "not brought by your
+      // organisation" — rather than a shrug.
+      setError(messageOf(cause));
+    }
+  };
 
   const bring = () => {
     const trimmed = name.trim();
@@ -137,27 +170,99 @@ export const IssuerAssets = ({
             {assets.map((asset) => {
               const status = assetStatus(asset.state);
               return (
-                <tr key={asset.id} data-testid={`issuer-asset-${asset.id}`}>
-                  <td>
-                    <strong>{asset.name}</strong>
-                  </td>
-                  <td>
-                    <Badge tone={status.tone}>{status.label}</Badge>
-                  </td>
-                  {/* Counted, not listed: WHICH documents are missing is the
+                // A fragment because the open asset renders a SECOND row
+                // beneath its own; a table cannot nest the form inside the row
+                // it belongs to without breaking the column alignment.
+                <Fragment key={asset.id}>
+                  <tr data-testid={`issuer-asset-${asset.id}`}>
+                    <td>
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => {
+                          const next = openAssetId === asset.id ? undefined : asset.id;
+                          setOpenAssetId(next);
+                          // The first thing still missing, so the common case is
+                          // one click and a file.
+                          setDocKind(asset.dossier.missingKinds[0] ?? "");
+                          setDocTitle("");
+                          setDocFile(undefined);
+                          setError(undefined);
+                        }}
+                      >
+                        <strong>{asset.name}</strong>
+                      </button>
+                    </td>
+                    <td>
+                      <Badge tone={status.tone}>{status.label}</Badge>
+                    </td>
+                    {/* Counted, not listed: WHICH documents are missing is the
                       platform's review detail; the count is what tells an
                       issuer whether anything is owed. Same wording the admin
                       screen uses, so the two sides cannot drift apart. */}
-                  <td>
-                    {asset.dossier.complete ? (
-                      <Badge tone="success">{t.dossierCompleteLabel}</Badge>
-                    ) : (
-                      <span className="muted">
-                        {t.missingKindsLabel}: {asset.dossier.missingKinds.length}
-                      </span>
-                    )}
-                  </td>
-                </tr>
+                    <td>
+                      {asset.dossier.complete ? (
+                        <Badge tone="success">{t.dossierCompleteLabel}</Badge>
+                      ) : (
+                        <span className="muted">
+                          {t.missingKindsLabel}: {asset.dossier.missingKinds.length}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                  {openAssetId === asset.id && (
+                    <tr>
+                      <td colSpan={3}>
+                        {asset.dossier.missingKinds.length === 0 ? (
+                          <p className="text-sm muted">{t.issuerNothingMissing}</p>
+                        ) : (
+                          <form
+                            className="row row--bottom"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              void file(asset.id);
+                            }}
+                          >
+                            <Field
+                              id="issuer-doc-file"
+                              label={t.documentFileLabel}
+                              type="file"
+                              onChange={(e) => {
+                                setDocFile(e.target.files?.[0]);
+                              }}
+                            />
+                            <SelectField
+                              id="issuer-doc-kind"
+                              label={t.documentKindLabel}
+                              value={docKind}
+                              onChange={(e) => {
+                                setDocKind(e.target.value);
+                              }}
+                            >
+                              {/* Only what is still missing: offering a kind the
+                                platform already holds invites a refusal the
+                                issuer could not have predicted. */}
+                              {asset.dossier.missingKinds.map((kind) => (
+                                <option key={kind} value={kind}>
+                                  {kind}
+                                </option>
+                              ))}
+                            </SelectField>
+                            <Field
+                              id="issuer-doc-title"
+                              label={t.documentTitleLabel}
+                              value={docTitle}
+                              onChange={(e) => {
+                                setDocTitle(e.target.value);
+                              }}
+                            />
+                            <Button type="submit">{t.attachDocumentButton}</Button>
+                          </form>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>

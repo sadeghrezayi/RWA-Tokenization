@@ -449,6 +449,8 @@ export interface Dictionary {
   issuerAssetsSubtitle: string;
   issuerNoAssetsYet: string;
   documentFileLabel: string;
+  issuerFileDossierTitle: string;
+  issuerNothingMissing: string;
   documentTooLarge: string;
   claimsOwedLabel: string;
   reissueClaimButton: string;
@@ -1017,6 +1019,8 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerNoAssetsYet:
       "You have not brought any assets yet. Once the platform records one for your organisation, it appears here.",
     documentFileLabel: "File",
+    issuerFileDossierTitle: "Supply a document",
+    issuerNothingMissing: "Every required document has been supplied.",
     documentTooLarge: "That file is larger than 10 MB.",
     claimsOwedLabel: "Approved investors awaiting an on-chain claim",
     reissueClaimButton: "Reissue on-chain claim",

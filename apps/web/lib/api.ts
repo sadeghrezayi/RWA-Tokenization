@@ -519,6 +519,14 @@ export interface ApiClient {
   // 3.3h: the issuer brings its own asset. The organisation is the path, not a
   // field — nobody may bring an asset in another organisation's name.
   bringIssuerAsset(csrfToken: string, id: string, name: string): Promise<{ assetId: string }>;
+  // 3.3i: the issuer files the dossier for the asset it brought. The
+  // organisation is in the path, so nobody can file against another's asset.
+  attachIssuerAssetDocument(
+    csrfToken: string,
+    id: string,
+    assetId: string,
+    doc: { kind: string; title: string; contentBase64: string },
+  ): Promise<{ cid: string; sha256: string }>;
   addIssuerMember(
     csrfToken: string,
     id: string,
@@ -1128,6 +1136,14 @@ export const createApiClient = (
     issuer: (id) => json(call(`/issuers/${encodeURIComponent(id)}`)),
     issuerTeam: (id) => json(call(`/issuers/${encodeURIComponent(id)}/members`)),
     issuerAssets: (id) => json(call(`/issuers/${encodeURIComponent(id)}/assets`)),
+    attachIssuerAssetDocument: (csrfToken, id, assetId, doc) =>
+      json(
+        call(`/issuers/${encodeURIComponent(id)}/assets/${encodeURIComponent(assetId)}/documents`, {
+          method: "POST",
+          token: csrfToken,
+          body: doc,
+        }),
+      ),
     bringIssuerAsset: (csrfToken, id, name) =>
       json(
         call(`/issuers/${encodeURIComponent(id)}/assets`, {
