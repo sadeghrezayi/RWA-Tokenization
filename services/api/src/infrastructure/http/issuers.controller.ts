@@ -25,6 +25,7 @@ import type {
   MyIssuerOrganisationView,
 } from "../../application/issuers/issuer-views.js";
 import { ListIssuerAssets } from "../../application/assets/get-asset.js";
+import { ProposeAsset } from "../../application/assets/propose-asset.js";
 import type { AssetView } from "../../application/assets/get-asset.js";
 import { ISSUER_ROLES } from "../../domain/issuers/issuer-membership.js";
 import type { IssuerRole } from "../../domain/issuers/issuer-membership.js";
@@ -72,6 +73,7 @@ export class IssuersController {
     private readonly listTeam: ListIssuerTeam,
     private readonly listMine: ListMyIssuerOrganisations,
     private readonly listIssuerAssets: ListIssuerAssets,
+    private readonly proposeAsset: ProposeAsset,
     private readonly access: IssuerTeamAccess,
   ) {}
 
@@ -189,6 +191,25 @@ export class IssuersController {
     return this.listIssuerAssets.execute({ organisationId: id });
   }
 
+  // 3.3h: the issuer brings its own asset. Delegates to the SAME use case the
+  // admin console calls, so "what proposing an asset means" — including the
+  // organisation-level gate that refuses an issuer who may not submit yet —
+  // has one definition. What is new here is the per-person check: this is
+  // where IssuerMembership.canWorkOnAssets() finally decides something.
+  @Post(":id/assets")
+  async bringAsset(
+    @Param("id") id: string,
+    @Body() body: { name?: unknown },
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<{ assetId: string }> {
+    await this.authorize(id, principal, "assets");
+    return this.proposeAsset.execute({
+      name: typeof body.name === "string" ? body.name : "",
+      actor: actorOf(principal),
+      organisationId: id,
+    });
+  }
+
   // Invitations are by email, because that is how a colleague is known. The
   // person must already hold a verified platform account.
   @Post(":id/members")
@@ -224,7 +245,7 @@ export class IssuersController {
   private async authorize(
     organisationId: string,
     principal: Principal,
-    need: "read" | "manage",
+    need: "read" | "manage" | "assets",
   ): Promise<void> {
     if (principalHasPermission(principal, PERMISSIONS.ISSUER_MANAGE)) {
       return;
@@ -232,6 +253,10 @@ export class IssuersController {
     const userId = actorOf(principal);
     if (need === "manage") {
       await this.access.assertCanManageTeam({ organisationId, userId });
+      return;
+    }
+    if (need === "assets") {
+      await this.access.assertCanWorkOnAssets({ organisationId, userId });
       return;
     }
     await this.access.assertMember({ organisationId, userId });

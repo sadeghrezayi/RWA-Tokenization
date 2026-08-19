@@ -515,6 +515,9 @@ export interface ApiClient {
   // 3.3g: the assets this organisation brought. Membership-authorised, so a
   // person who does not act for it gets a 403 rather than an empty list.
   issuerAssets(id: string): Promise<AssetViewDto[]>;
+  // 3.3h: the issuer brings its own asset. The organisation is the path, not a
+  // field — nobody may bring an asset in another organisation's name.
+  bringIssuerAsset(csrfToken: string, id: string, name: string): Promise<{ assetId: string }>;
   addIssuerMember(
     csrfToken: string,
     id: string,
@@ -1121,6 +1124,14 @@ export const createApiClient = (
     issuer: (id) => json(call(`/issuers/${encodeURIComponent(id)}`)),
     issuerTeam: (id) => json(call(`/issuers/${encodeURIComponent(id)}/members`)),
     issuerAssets: (id) => json(call(`/issuers/${encodeURIComponent(id)}/assets`)),
+    bringIssuerAsset: (csrfToken, id, name) =>
+      json(
+        call(`/issuers/${encodeURIComponent(id)}/assets`, {
+          method: "POST",
+          token: csrfToken,
+          body: { name },
+        }),
+      ),
     addIssuerMember: async (csrfToken, id, email, role) => {
       await call(`/issuers/${encodeURIComponent(id)}/members`, {
         method: "POST",

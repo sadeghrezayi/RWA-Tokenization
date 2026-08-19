@@ -21,6 +21,18 @@ export class IssuerTeamAccess {
     }
   }
 
+  // 3.3h: may THIS person prepare an asset for this organisation? Membership is
+  // necessary but not sufficient — the domain splits inviting colleagues from
+  // preparing assets, and this is the second half of that split finally being
+  // asked. Both roles pass today; the point is that the question is now put to
+  // the membership rather than assumed.
+  async assertCanWorkOnAssets(input: { organisationId: string; userId: string }): Promise<void> {
+    const membership = await this.membershipIn(input);
+    if (!membership.canWorkOnAssets()) {
+      throw new NotIssuerTeamMemberError();
+    }
+  }
+
   private async membershipIn(input: { organisationId: string; userId: string }) {
     const memberships = await this.issuers.membershipsFor(input.userId);
     // Membership never carries across organisations: an admin of one issuer is

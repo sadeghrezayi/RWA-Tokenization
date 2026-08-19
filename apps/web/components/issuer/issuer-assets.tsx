@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ApiClient, AssetViewDto } from "../../lib/api";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
 import { Badge } from "../ui/badge";
-import { Card, EmptyState, Skeleton } from "../ui/primitives";
+import { Button, Card, EmptyState, Field, Skeleton } from "../ui/primitives";
+import { useToast } from "../ui/toast";
 import { assetStatus } from "../ui/status";
 
 const messageOf = (error: unknown): string =>
@@ -17,28 +18,77 @@ const messageOf = (error: unknown): string =>
 export const IssuerAssets = ({
   locale,
   organisationId,
+  csrf,
   api,
 }: {
   locale: Locale;
   organisationId: string;
+  csrf: string;
   api: ApiClient;
 }) => {
   const t = dictionaries[locale];
+  const toast = useToast();
+  const [name, setName] = useState("");
   // Undefined means "not answered yet". Distinguishing that from an empty
   // answer is the difference between "nothing yet" and "we could not ask".
   const [assets, setAssets] = useState<AssetViewDto[] | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    void api
-      .issuerAssets(organisationId)
-      .then(setAssets)
-      .catch((cause: unknown) => {
-        setError(messageOf(cause));
-      });
+  const refresh = useCallback(async () => {
+    try {
+      setAssets(await api.issuerAssets(organisationId));
+      setError(undefined);
+    } catch (cause: unknown) {
+      setError(messageOf(cause));
+    }
   }, [api, organisationId]);
 
-  if (error !== undefined) {
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const bring = () => {
+    const trimmed = name.trim();
+    // An empty name is not a refusal worth reporting — it is nothing typed yet.
+    if (trimmed === "") {
+      return;
+    }
+    setError(undefined);
+    void (async () => {
+      try {
+        await api.bringIssuerAsset(csrf, organisationId, trimmed);
+        setName("");
+        await refresh();
+        toast.show(t.issuerAssetBrought, "success");
+      } catch (cause: unknown) {
+        // The platform's own words: an organisation that may not submit yet is
+        // told exactly that, rather than left guessing at a silent failure.
+        setError(messageOf(cause));
+      }
+    })();
+  };
+
+  const form = (
+    <form
+      className="row"
+      onSubmit={(event) => {
+        event.preventDefault();
+        bring();
+      }}
+    >
+      <Field
+        id="issuer-asset-name"
+        label={t.issuerBringAssetLabel}
+        value={name}
+        onChange={(event) => {
+          setName(event.target.value);
+        }}
+      />
+      <Button type="submit">{t.issuerBringAssetButton}</Button>
+    </form>
+  );
+
+  if (assets === undefined && error !== undefined) {
     return (
       <Card title={t.issuerAssetsTitle}>
         <p className="field__error" role="alert">
@@ -54,7 +104,12 @@ export const IssuerAssets = ({
 
   if (assets.length === 0) {
     return (
-      <Card title={t.issuerAssetsTitle}>
+      <Card title={t.issuerAssetsTitle} actions={form}>
+        {error !== undefined && (
+          <p className="field__error" role="alert">
+            {error}
+          </p>
+        )}
         <EmptyState icon="▤">
           <span data-testid="no-issuer-assets">{t.issuerNoAssetsYet}</span>
         </EmptyState>
@@ -63,7 +118,12 @@ export const IssuerAssets = ({
   }
 
   return (
-    <Card title={t.issuerAssetsTitle} subtitle={t.issuerAssetsSubtitle}>
+    <Card title={t.issuerAssetsTitle} subtitle={t.issuerAssetsSubtitle} actions={form}>
+      {error !== undefined && (
+        <p className="field__error" role="alert">
+          {error}
+        </p>
+      )}
       <div className="table-wrap">
         <table className="table">
           <thead>

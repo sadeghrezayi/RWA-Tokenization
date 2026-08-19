@@ -227,6 +227,32 @@ describe("IssuerTeamAccess", () => {
     expect(message.toLowerCase()).toContain("do not act for");
   });
 
+  // 3.3h: the per-person gate. Membership alone is not the question — WHICH
+  // membership is. Both roles may prepare an asset today (that is the split
+  // the domain draws: inviting colleagues is the privileged act, preparing an
+  // asset is the ordinary one), but a stranger may not, and the check has to
+  // exist somewhere a caller actually reaches.
+  it("lets either kind of member work on their organisation's assets", async () => {
+    await expect(
+      access.assertCanWorkOnAssets({ organisationId: "org-1", userId: "user-founder" }),
+    ).resolves.toBeUndefined();
+    await expect(
+      access.assertCanWorkOnAssets({ organisationId: "org-1", userId: "user-colleague" }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("keeps a stranger from working on assets they have nothing to do with", async () => {
+    await expect(
+      access.assertCanWorkOnAssets({ organisationId: "org-1", userId: "user-stranger" }),
+    ).rejects.toThrow(NotIssuerTeamMemberError);
+  });
+
+  it("does not let a member of one organisation work on another's assets", async () => {
+    await expect(
+      access.assertCanWorkOnAssets({ organisationId: "org-2", userId: "user-founder" }),
+    ).rejects.toThrow(NotIssuerTeamMemberError);
+  });
+
   it("lets an administrator staff the team", async () => {
     await expect(
       access.assertCanManageTeam({ organisationId: "org-1", userId: "user-founder" }),

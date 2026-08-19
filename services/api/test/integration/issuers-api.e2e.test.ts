@@ -220,6 +220,47 @@ describe("Issuers API (e2e, real Postgres)", () => {
     expect(mine.body).toEqual([]);
   });
 
+  // 3.3h: an issuer brings its own asset. Until now only staff could, which
+  // made the "issuer portal" a place to watch other people work.
+  it("lets an issuer's own person bring an asset for their organisation", async () => {
+    const id = await approved();
+
+    const created = await request(server)
+      .post(`/issuers/${id}/assets`)
+      .set(auth(founder))
+      .send({ name: "Vanak Tower Floor 7" })
+      .expect(201);
+
+    const assetId = (created.body as { assetId: string }).assetId;
+    const mine = await request(server).get(`/issuers/${id}/assets`).set(auth(founder)).expect(200);
+    const rows = mine.body as { id: string; organisationName?: string }[];
+    expect(rows.map((row) => row.id)).toEqual([assetId]);
+    // It belongs to the organisation, not to the person who typed it.
+    expect(rows[0]?.organisationName).toBeTruthy();
+  });
+
+  it("refuses to let a stranger bring an asset in an organisation's name (403)", async () => {
+    const id = await approved();
+
+    await request(server)
+      .post(`/issuers/${id}/assets`)
+      .set(auth(stranger))
+      .send({ name: "Not Theirs To Bring" })
+      .expect(403);
+  });
+
+  it("refuses an asset from an organisation that may not submit yet (409)", async () => {
+    // Applied, not approved: the organisation-level gate still decides, and it
+    // must not be bypassed by coming through the issuer's own door.
+    const id = await applied();
+
+    await request(server)
+      .post(`/issuers/${id}/assets`)
+      .set(auth(founder))
+      .send({ name: "Too Early" })
+      .expect(409);
+  });
+
   it("refuses the asset list to someone outside the organisation (403)", async () => {
     const id = await approved();
 
