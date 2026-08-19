@@ -7,18 +7,22 @@ export interface SystemHealthView {
   services: { api: ServiceState; postgres: ServiceState; ipfs: ServiceState; chain: ServiceState };
   chainBlockNumber?: number;
   pausedTokens: number;
+  approvedWithoutOnchainIdentity: number;
 }
 
 export class GetSystemHealth {
   constructor(private readonly probe: HealthProbe) {}
 
   async execute(): Promise<SystemHealthView> {
-    const [postgres, ipfs, chain, pausedTokens] = await Promise.all([
-      this.probe.postgres(),
-      this.probe.ipfs(),
-      this.probe.chain(),
-      this.probe.pausedTokenCount(),
-    ]);
+    const [postgres, ipfs, chain, pausedTokens, approvedWithoutOnchainIdentity] = await Promise.all(
+      [
+        this.probe.postgres(),
+        this.probe.ipfs(),
+        this.probe.chain(),
+        this.probe.pausedTokenCount(),
+        this.probe.approvedWithoutOnchainIdentity(),
+      ],
+    );
 
     const services = {
       api: "up" as const,
@@ -35,6 +39,10 @@ export class GetSystemHealth {
         ? { chainBlockNumber: chain.blockNumber }
         : {}),
       pausedTokens,
+      // Not part of `overall`: the platform is up, some work is owed. Flipping
+      // health to "degraded" for a backlog would cry wolf during every outage
+      // recovery, exactly when a real signal matters most.
+      approvedWithoutOnchainIdentity,
     };
   }
 }

@@ -448,6 +448,7 @@ export interface Dictionary {
   issuerAssetsTitle: string;
   issuerAssetsSubtitle: string;
   issuerNoAssetsYet: string;
+  claimsOwedLabel: string;
   reissueClaimButton: string;
   reissueClaimHint: string;
   reissueClaimDone: string;
@@ -1013,6 +1014,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerAssetsSubtitle: "Where each one stands in the platform's review.",
     issuerNoAssetsYet:
       "You have not brought any assets yet. Once the platform records one for your organisation, it appears here.",
+    claimsOwedLabel: "Approved investors awaiting an on-chain claim",
     reissueClaimButton: "Reissue on-chain claim",
     reissueClaimHint:
       "Use this if the approval succeeded but the chain was unreachable at the time. Without the claim this investor cannot hold tokens.",

@@ -40,6 +40,7 @@ const health: SystemHealthDto = {
   services: { api: "up", postgres: "up", ipfs: "up", chain: "up" },
   chainBlockNumber: 564,
   pausedTokens: 1,
+  approvedWithoutOnchainIdentity: 0,
 };
 
 const withValuation = (fresh: boolean): AssetOverviewDto =>
@@ -158,5 +159,45 @@ describe("OverviewPanel", () => {
     );
 
     expect(await screen.findByText(/No assets/)).toBeInTheDocument();
+  });
+});
+
+// K-2: after a chain outage, some approved investors have nothing on chain and
+// cannot hold anything until an officer reissues their claim. The recovery
+// exists; this is how anyone learns it is needed. Shown only when there is
+// something to show — a permanent "0" is noise on a screen read at a glance.
+describe("OverviewPanel — approvals the chain never heard about", () => {
+  it("says how many need a reissued claim, and does not call that unhealthy", async () => {
+    render(
+      <OverviewPanel
+        locale="en"
+        api={apiWith({
+          systemHealth: vi.fn().mockResolvedValue({ ...health, approvedWithoutOnchainIdentity: 3 }),
+        })}
+        token="tok"
+      />,
+    );
+
+    const owed = await screen.findByTestId("claims-owed");
+    expect(owed.textContent).toMatch(/3/);
+    expect(owed.textContent.toLowerCase()).toContain("claim");
+    // The platform is up; work is owed. Those are different things.
+    expect(screen.queryByText(/degraded/i)).toBeNull();
+  });
+
+  it("stays quiet when every approval reached the chain", async () => {
+    render(
+      <OverviewPanel
+        locale="en"
+        api={apiWith({
+          systemHealth: vi.fn().mockResolvedValue({ ...health, approvedWithoutOnchainIdentity: 0 }),
+        })}
+        token="tok"
+      />,
+    );
+
+    // Wait for health to have loaded before asserting on an absence.
+    await screen.findByText(/healthy/i);
+    expect(screen.queryByTestId("claims-owed")).toBeNull();
   });
 });

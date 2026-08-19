@@ -44,6 +44,18 @@ export class PlatformHealthProbe implements HealthProbe {
     }
   }
 
+  // Deliberately a DATABASE question, not a chain one: it has to answer while
+  // the chain is unreachable, which is the only time it matters (K-2).
+  async approvedWithoutOnchainIdentity(): Promise<number> {
+    const identified = await this.prisma.onchainIdentity.findMany({ select: { investorId: true } });
+    return this.prisma.investor.count({
+      where: {
+        kycState: "approved",
+        id: { notIn: identified.map((row) => row.investorId) },
+      },
+    });
+  }
+
   async pausedTokenCount(): Promise<number> {
     if (!this.rpcUrl) return 0;
     try {

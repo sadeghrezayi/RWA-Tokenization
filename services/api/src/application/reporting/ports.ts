@@ -22,4 +22,10 @@ export interface HealthProbe {
   ipfs(): Promise<boolean>;
   chain(): Promise<{ reachable: boolean; blockNumber?: number }>;
   pausedTokenCount(): Promise<number>;
+  // K-2 recovery: approved investors with no ONCHAINID identity at all. The
+  // identity is the FIRST chain call an approval makes, so an outage leaves
+  // exactly this trace. A definite subset of who needs a reissued claim —
+  // someone whose identity deployed and whose claim then failed is not counted,
+  // because nothing on this side can tell them from a healthy investor.
+  approvedWithoutOnchainIdentity(): Promise<number>;
 }

@@ -217,6 +217,7 @@ export interface SystemHealthDto {
   services: { api: string; postgres: string; ipfs: string; chain: string };
   chainBlockNumber?: number;
   pausedTokens: number;
+  approvedWithoutOnchainIdentity: number;
 }
 
 export interface HoldingDto {

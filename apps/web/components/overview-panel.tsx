@@ -434,6 +434,14 @@ const HealthStrip = ({ locale, health }: { locale: Locale; health: SystemHealthD
         <span className="text-sm muted">
           {t.pausedTokensLabel}: {health.pausedTokens}
         </span>
+        {/* Only when there is something owed. A permanent "0" on a screen read
+            at a glance is noise, and noise is what gets ignored during the
+            outage this exists for (K-2). */}
+        {health.approvedWithoutOnchainIdentity > 0 && (
+          <span className="text-sm" data-testid="claims-owed">
+            {t.claimsOwedLabel}: {health.approvedWithoutOnchainIdentity}
+          </span>
+        )}
       </div>
     </Card>
   );

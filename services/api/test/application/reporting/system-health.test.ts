@@ -7,6 +7,7 @@ const probe = (overrides: Partial<HealthProbe>): HealthProbe => ({
   ipfs: () => Promise.resolve(true),
   chain: () => Promise.resolve({ reachable: true, blockNumber: 42 }),
   pausedTokenCount: () => Promise.resolve(0),
+  approvedWithoutOnchainIdentity: () => Promise.resolve(0),
   ...overrides,
 });
 
@@ -18,7 +19,23 @@ describe("GetSystemHealth", () => {
       services: { api: "up", postgres: "up", ipfs: "up", chain: "up" },
       chainBlockNumber: 42,
       pausedTokens: 0,
+      approvedWithoutOnchainIdentity: 0,
     });
+  });
+
+  // K-2: an outage during approval leaves an investor approved with nothing on
+  // chain — identity deployment is the first chain call, so it is what fails
+  // first. Those people cannot hold anything until someone reissues the claim,
+  // and until this count existed nobody could tell WHO. Deliberately narrow:
+  // it counts a definite subset, not everyone who might need recovery.
+  it("counts the approved investors the chain never heard about", async () => {
+    const health = await new GetSystemHealth(
+      probe({ approvedWithoutOnchainIdentity: () => Promise.resolve(3) }),
+    ).execute();
+
+    expect(health.approvedWithoutOnchainIdentity).toBe(3);
+    // Not a dependency being down: the platform is up, some work is owed.
+    expect(health.overall).toBe("healthy");
   });
 
   it("reports_degraded_when_a_dependency_is_down", async () => {
