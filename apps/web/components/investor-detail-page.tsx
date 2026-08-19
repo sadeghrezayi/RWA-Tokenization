@@ -91,6 +91,21 @@ export const InvestorDetailPage = ({
           <h1 className="page-title">{detail.investor.email}</h1>
           <div className="row" style={{ marginTop: "var(--space-2)" }}>
             <Badge tone={kyc.tone}>{kyc.label}</Badge>
+            {/* Only for an approved investor: reissuing asserts on chain that
+                a decision was made, so it must never be offered where none
+                was. The API refuses it too — this keeps the screen honest. */}
+            {detail.investor.kycState === "approved" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title={t.reissueClaimHint}
+                onClick={() => {
+                  guard(() => api.reissueKycClaim(token, investorId), t.reissueClaimDone);
+                }}
+              >
+                {t.reissueClaimButton}
+              </Button>
+            )}
             {detail.crm.tags.map((tag) => (
               <span key={tag} className="tag-chip">
                 {tag}
@@ -443,7 +458,7 @@ export const InvestorDetailPage = ({
       </Card>
 
       {error !== undefined && (
-        <p className="field__error" role="alert">
+        <p className="field__error" role="alert" data-testid="investor-detail-error">
           {error}
         </p>
       )}

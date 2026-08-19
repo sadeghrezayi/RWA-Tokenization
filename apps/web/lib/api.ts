@@ -559,6 +559,9 @@ export interface ApiClient {
   listDistributions(officerToken: string): Promise<DistributionViewDto[]>;
   getDistribution(officerToken: string, distributionId: string): Promise<DistributionViewDto>;
   assetOverview(officerToken: string): Promise<PortfolioOverviewDto>;
+  // K-2 recovery: reissue an on-chain claim for an already-approved investor
+  // whose claim failed when it was first made.
+  reissueKycClaim(officerToken: string, investorId: string): Promise<void>;
   systemHealth(officerToken: string): Promise<SystemHealthDto>;
   publishAttestation(
     officerToken: string,
@@ -1242,6 +1245,12 @@ export const createApiClient = (
         }),
       ),
     assetOverview: (officerToken) => json(call("/reporting/assets", { token: officerToken })),
+    reissueKycClaim: async (officerToken, investorId) => {
+      await call(`/investors/${encodeURIComponent(investorId)}/kyc/reissue-claim`, {
+        method: "POST",
+        token: officerToken,
+      });
+    },
     systemHealth: (officerToken) => json(call("/reporting/health", { token: officerToken })),
     publishAttestation: (officerToken, body) =>
       json(call("/attestations", { method: "POST", token: officerToken, body })),

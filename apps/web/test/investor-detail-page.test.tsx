@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InvestorDetailPage } from "../components/investor-detail-page";
 import { ApiError } from "../lib/api";
@@ -101,6 +101,10 @@ const detail: InvestorDetailDto = {
 const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
   ({
     investorDetail: vi.fn().mockResolvedValue(detail),
+    // The page embeds OnboardingReviewCard, which loads on mount; without
+    // these the card's own failure becomes the alert under test.
+    getApplicantOnboarding: vi.fn().mockResolvedValue(undefined),
+    getApplicantAnswers: vi.fn().mockResolvedValue(undefined),
     setInvestorStage: vi.fn().mockResolvedValue(undefined),
     addInvestorTag: vi.fn().mockResolvedValue(undefined),
     removeInvestorTag: vi.fn().mockResolvedValue(undefined),
@@ -227,5 +231,55 @@ describe("InvestorDetailPage", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("no investor found");
+  });
+});
+
+// K-2 recovery, made reachable. An approval whose on-chain claim failed leaves
+// this investor approved and unable to hold anything; the endpoint that fixes
+// it existed but nothing on any screen called it, so an operator had no way to
+// use it. "Implemented, tested, and visible in the UI" is the project's own
+// bar, and an endpoint alone does not clear it.
+describe("InvestorDetailPage — reissuing a failed claim", () => {
+  it("offers the recovery to an approved investor", async () => {
+    const reissueKycClaim = vi.fn().mockResolvedValue(undefined);
+    renderPage(apiWith({ reissueKycClaim }));
+
+    const button = await screen.findByRole("button", { name: /reissue/i });
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(reissueKycClaim).toHaveBeenCalledWith("tok", "sara-id");
+    });
+  });
+
+  it("does not offer it for someone whose KYC was never approved", async () => {
+    renderPage(
+      apiWith({
+        investorDetail: vi.fn().mockResolvedValue({
+          ...detail,
+          investor: { ...detail.investor, kycState: "submitted" },
+        }),
+      }),
+    );
+
+    await screen.findByRole("heading", { name: detail.investor.email });
+    // Reissuing would assert on chain that a decision was made. It was not.
+    expect(screen.queryByRole("button", { name: /reissue/i })).toBeNull();
+  });
+
+  it("shows the platform's refusal rather than claiming it worked", async () => {
+    renderPage(
+      apiWith({
+        reissueKycClaim: vi
+          .fn()
+          .mockRejectedValue(new ApiError(503, "the on-chain claim could not be issued")),
+      }),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /reissue/i }));
+
+    expect((await screen.findByTestId("investor-detail-error")).textContent).toContain(
+      "could not be issued",
+    );
   });
 });

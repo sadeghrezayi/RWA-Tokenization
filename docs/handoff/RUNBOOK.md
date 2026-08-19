@@ -172,6 +172,12 @@ pnpm --filter @tokenization/web test:layout
 > Chrome. Do not copy CI's empty value into a local run.
 
 Notes:
+- **Rebuild the API before checking an API change in a browser.** `.claude/launch.json`
+  starts the API from `services/api/dist/main.js`, so the preview serves the last BUILD, not
+  the working tree. A new endpoint answers **404** and a changed one silently serves the old
+  behaviour — which reads exactly like a bug in the code you just wrote. This cost three
+  separate diagnoses on 2026-08-19, one of them nearly filed as a defect:
+  `pnpm --filter @tokenization/api build`, then restart the preview.
 - The integration suite runs against **its own database**, not the one the dev server serves.
   `test/integration/use-a-separate-database.ts` takes `DATABASE_URL`, suffixes the database name
   (`tokenization` → `tokenization_test`), creates it if missing, and applies the same migrations
