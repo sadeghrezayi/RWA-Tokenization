@@ -111,12 +111,15 @@ export const IssuerShell = ({
         </aside>
 
         <div className="shell__main">
-          <header className="topbar">
-            <div className="topbar__actions">
-              <NotificationBell locale={locale} api={api} token={csrf} />
-            </div>
+          {/* The design system's names, not invented ones: `topbar` and
+              `content` do not exist in components.css, so this header was
+              unstyled from the day it shipped — which is why the notification
+              bell overflowed the box it was never given. Caught by the issuer
+              portal's first layout contract. */}
+          <header className="shell__topbar">
+            <NotificationBell locale={locale} api={api} token={csrf} />
           </header>
-          <main className="content">{children}</main>
+          <main className="shell__content">{children}</main>
         </div>
       </div>
     </IssuerSessionProvider>

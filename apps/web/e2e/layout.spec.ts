@@ -6,6 +6,7 @@ import {
   registerInvestor,
   signIn,
 } from "./layout.js";
+import { asOfficer, seedIssuerWithAssets } from "./seed.js";
 
 // Guards the 2.6 mobile pass. Every assertion here corresponds to a defect
 // that was actually found by hand at 375px — so a regression fails the build
@@ -44,6 +45,31 @@ test.describe("issuer portal", () => {
 
     await expect(page.getByTestId("no-issuer-membership")).toBeVisible();
     await expectReachable(page.getByRole("button", { name: /log out/i }), "log out");
+    await expectNoHorizontalPageScroll(page);
+    await expectNothingOverflowsItsContainer(page);
+  });
+
+  // 3.3g/3.3h: the issuer's own assets screen — a three-column table plus the
+  // form that brings one. The admin console's equivalent has had a contract
+  // since 3.2f; this surface arrived after the mobile pass and had none, which
+  // is the only reason it lacked one.
+  test("the assets an issuer brought fit the screen they are read on", async ({
+    page,
+    playwright,
+  }) => {
+    const officer = await asOfficer(playwright);
+    const { organisationId, email, password } = await seedIssuerWithAssets(playwright, officer, [
+      "Vanak Tower Floor 7",
+      "Elahiyeh Block C — a deliberately long name to push the widest column",
+    ]);
+
+    await page.goto(`/en/issuer/${organisationId}`);
+    await signIn(page, email, password);
+
+    // Measured against real rows: an empty table fits any viewport, so a
+    // contract that passed on one would be proving nothing.
+    await expect(page.getByText("Vanak Tower Floor 7")).toBeVisible();
+    await expectReachable(page.getByRole("button", { name: /bring/i }), "the bring-asset button");
     await expectNoHorizontalPageScroll(page);
     await expectNothingOverflowsItsContainer(page);
   });

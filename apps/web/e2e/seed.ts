@@ -292,3 +292,39 @@ export const closeWhenWindowEnds = async (
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 };
+
+// 3.3g/3.3h: an approved issuer with a verified person and assets it brought.
+// The issuer portal's screens cannot be measured without one — an empty table
+// fits any viewport, which would make the contract pass for the wrong reason.
+export const seedIssuerWithAssets = async (
+  playwright: PlaywrightFixture,
+  officer: Actor,
+  assetNames: string[],
+): Promise<{ organisationId: string; email: string; password: string }> => {
+  const email = `issuer-layout-${String(Date.now())}-${String(Math.floor(Math.random() * 100000))}@example.com`;
+  const password = "Passw0rd-issuer-layout-1";
+  const founder = await registerInvestorVia(playwright, email, password);
+
+  // Applying for an organisation requires individual verification, on the same
+  // record any other person is verified on.
+  await submitOnboarding(founder);
+  await approveKyc(officer, await investorIdOf(founder));
+
+  const applied = await post(founder, "/issuers", {
+    legalName: "Layout Contract Holdings PJSC",
+    registrationNumber: `IR-${String(Date.now()).slice(-6)}`,
+    contactEmail: email,
+  });
+  expect(applied.ok(), `could not apply as an issuer: ${await applied.text()}`).toBe(true);
+  const { organisationId } = (await applied.json()) as { organisationId: string };
+
+  await ok(officer, `/issuers/${organisationId}/start-review`);
+  await ok(officer, `/issuers/${organisationId}/approve`);
+
+  for (const name of assetNames) {
+    const brought = await post(founder, `/issuers/${organisationId}/assets`, { name });
+    expect(brought.ok(), `could not bring ${name}: ${await brought.text()}`).toBe(true);
+  }
+
+  return { organisationId, email, password };
+};
