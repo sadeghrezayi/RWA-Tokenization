@@ -161,23 +161,22 @@ jobs:
       # no step timeout it ate the whole 25-minute job budget and reported the
       # run as "cancelled" with no failing test to point at (KNOWN_ISSUES K-22).
       # A step that dies at 8 minutes names itself.
-      - name: Install Playwright browser
-        timeout-minutes: 8
-        # Retried, because this download has now failed the build twice for
-        # reasons that have nothing to do with the code: once by hanging until
-        # the job died (K-22), once by simply erroring. Three tries with a
-        # short pause turns a transient CDN into a slow step instead of a red
-        # build. Still bounded above, so a genuine outage fails fast.
-        run: |
-          for attempt in 1 2 3; do
-            if pnpm --filter @tokenization/web exec playwright install --with-deps chromium; then
-              exit 0
-            fi
-            echo "playwright install failed (attempt $attempt of 3)"
-            sleep 10
-          done
-          echo "playwright browser could not be installed after three attempts"
-          exit 1
+      # NO BROWSER DOWNLOAD. Playwright's CDN took this build down three times
+      # in two days — hanging until the job died, erroring outright, then
+      # hanging through all three retries until the 8-minute bound (K-22). The
+      # GitHub runner image already ships Google Chrome, and the layout suite
+      # drives it through the "chrome" channel, exactly as the developer
+      # machine does (where the same CDN is blocked outright).
+      #
+      # TRADE-OFF, stated because it is a real one: CI now runs against the
+      # runner's Chrome rather than Playwright's pinned Chromium, so the browser
+      # version moves with the image instead of the lockfile. These are
+      # assertion-based layout contracts with no pixel baselines, so a version
+      # drift changes measurements only if it changes real layout — and CI and
+      # local now agree, which removes a difference that cost a long
+      # investigation when the two disagreed.
+      - name: Confirm the runner's Chrome is there
+        run: google-chrome --version
 
       - name: Start API and web for layout tests
         env:
@@ -209,8 +208,8 @@ jobs:
       # Putting the tail here makes a CI-only failure diagnosable at all.
       - name: Layout regression + Phase-2 exit journey
         env:
-          # Empty channel => use Playwright's own Chromium, not a system Chrome.
-          PLAYWRIGHT_CHANNEL: ""
+          # Unset on purpose: the config defaults to the "chrome" channel, and
+          # the runner already has it. See "Confirm the runner's Chrome".
           WEB_BASE_URL: http://localhost:3000
           API_BASE_URL: http://localhost:3001
           # Lets a failing seed step attach the server's own explanation.

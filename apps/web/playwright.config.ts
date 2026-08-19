@@ -9,10 +9,11 @@ import { defineConfig, devices } from "@playwright/test";
 // viewport, an element overflowing its container) are all measurable exactly,
 // on any platform.
 //
-// BROWSER: Playwright's CDN is unreachable from this location (HTTP 403), so
-// locally the tests drive the system Google Chrome via the "chrome" channel.
-// CI installs Playwright's own Chromium and overrides the channel with
-// PLAYWRIGHT_CHANNEL="" so it uses the bundled build.
+// BROWSER: the "chrome" channel everywhere. Playwright's CDN is unreachable
+// from this location (HTTP 403) and proved unreliable from the CI runner too
+// (K-22: three failed builds in two days), so neither side downloads a
+// browser — both drive an installed Google Chrome. PLAYWRIGHT_CHANNEL still
+// overrides it, for anyone who does have the bundled Chromium and wants it.
 const channel = process.env.PLAYWRIGHT_CHANNEL ?? "chrome";
 
 export default defineConfig({
