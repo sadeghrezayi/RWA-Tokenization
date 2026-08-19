@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { RegisterInvestor } from "../../../src/application/identity/register-investor.js";
 import { StartKycReview } from "../../../src/application/identity/start-kyc-review.js";
 import { ApproveKyc } from "../../../src/application/identity/approve-kyc.js";
+import { ReissueKycClaim } from "../../../src/application/identity/reissue-kyc-claim.js";
 import { ClaimIssuanceFailedError } from "../../../src/application/identity/errors.js";
 import { RejectKyc } from "../../../src/application/identity/reject-kyc.js";
 import { InvestorNotFoundError } from "../../../src/application/identity/errors.js";
@@ -34,6 +35,7 @@ const setup = async () => {
     investorId,
     startReview: new StartKycReview(investors),
     approve: new ApproveKyc(investors, claims, kycNotifier),
+    reissue: new ReissueKycClaim(investors, claims),
     reject: new RejectKyc(investors, kycNotifier),
   };
 };
@@ -173,5 +175,48 @@ describe("RejectKyc", () => {
         reason: "liveness check failed",
       },
     ]);
+  });
+});
+
+// K-2's remainder. The approval is committed before the chain is touched, so a
+// devnet outage leaves an investor APPROVED WITH NO ON-CHAIN CLAIM — and until
+// now that was unrecoverable: `issueKycApprovedClaim` had exactly one caller,
+// inside a transition that only runs once. ERC-3643 refuses transfers to an
+// unverified wallet, so that investor could never hold anything, forever,
+// short of editing the database by hand.
+describe("ReissueKycClaim", () => {
+  it("issues the claim again for an investor who is already approved", async () => {
+    const { investors, claims, investorId, startReview, approve, reissue } = await setup();
+    await submitted(investors, investorId);
+    await startReview.execute({ investorId });
+    claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
+    await expect(approve.execute({ investorId })).rejects.toThrow();
+    expect(claims.issuedFor).toEqual([]);
+
+    claims.failWith = undefined;
+    await reissue.execute({ investorId });
+
+    expect(claims.issuedFor).toEqual([investorId]);
+    // The decision is untouched: this recovers the chain half, nothing else.
+    expect(await kycStateOf(investors, investorId)).toBe("approved");
+  });
+
+  it("refuses to issue a claim for someone who was never approved", async () => {
+    const { investors, claims, investorId, reissue } = await setup();
+    await submitted(investors, investorId);
+
+    await expect(reissue.execute({ investorId })).rejects.toThrow(InvalidKycTransitionError);
+
+    expect(claims.issuedFor).toEqual([]);
+  });
+
+  it("still says what failed when the chain is unreachable", async () => {
+    const { investors, claims, investorId, startReview, approve, reissue } = await setup();
+    await submitted(investors, investorId);
+    await startReview.execute({ investorId });
+    await approve.execute({ investorId });
+    claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
+
+    await expect(reissue.execute({ investorId })).rejects.toThrow(ClaimIssuanceFailedError);
   });
 });

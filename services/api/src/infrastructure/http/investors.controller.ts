@@ -9,6 +9,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { ApproveKyc } from "../../application/identity/approve-kyc.js";
+import { ReissueKycClaim } from "../../application/identity/reissue-kyc-claim.js";
 import { GetInvestor } from "../../application/identity/get-investor.js";
 import type { InvestorView } from "../../application/identity/get-investor.js";
 import { GetInvestorDetail, ListInvestors } from "../../application/identity/investor-directory.js";
@@ -47,6 +48,7 @@ export class InvestorsController {
     private readonly registerInvestor: RegisterInvestor,
     private readonly startKycReview: StartKycReview,
     private readonly approveKyc: ApproveKyc,
+    private readonly reissueKycClaim: ReissueKycClaim,
     private readonly rejectKyc: RejectKyc,
     private readonly getInvestor: GetInvestor,
     private readonly listPendingKyc: ListPendingKyc,
@@ -119,6 +121,16 @@ export class InvestorsController {
   @HttpCode(204)
   approve(@Param("id") id: string): Promise<void> {
     return this.approveKyc.execute({ investorId: id });
+  }
+
+  // K-2: recovery, not a decision. An approval whose on-chain claim failed
+  // leaves an investor approved and unable to hold anything; this is the only
+  // way back, short of editing the database.
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
+  @Post(":id/kyc/reissue-claim")
+  @HttpCode(204)
+  reissueClaim(@Param("id") id: string): Promise<void> {
+    return this.reissueKycClaim.execute({ investorId: id });
   }
 
   @RequirePermission(PERMISSIONS.KYC_REVIEW)

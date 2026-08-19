@@ -3,6 +3,7 @@ import { Logger, Module } from "@nestjs/common";
 import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { ApproveKyc } from "./application/identity/approve-kyc.js";
+import { ReissueKycClaim } from "./application/identity/reissue-kyc-claim.js";
 import { AuthenticateInvestor } from "./application/identity/authenticate-investor.js";
 import { AuthenticateStaff } from "./application/identity/authenticate-staff.js";
 import { GetInvestor } from "./application/identity/get-investor.js";
@@ -544,6 +545,12 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       provide: StartKycReview,
       useFactory: (repo: InvestorRepository) => new StartKycReview(repo),
       inject: [INVESTOR_REPOSITORY],
+    },
+    {
+      provide: ReissueKycClaim,
+      useFactory: (investors: InvestorRepository, claims: ClaimIssuer) =>
+        new ReissueKycClaim(investors, claims),
+      inject: [INVESTOR_REPOSITORY, CLAIM_ISSUER],
     },
     {
       provide: ApproveKyc,

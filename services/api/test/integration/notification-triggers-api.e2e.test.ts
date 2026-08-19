@@ -84,6 +84,49 @@ describe("Notification triggers: KYC decision (e2e, real Postgres)", () => {
     await app.close();
   });
 
+  // K-2 recovery: an approval whose chain claim failed leaves the investor
+  // approved and unable to hold anything. This is the only route back, so it
+  // has to be reachable by an officer — not merely present in the domain.
+  //
+  // Each of these brings its OWN investor: the one in beforeAll is shared, and
+  // approving it here would add a notification that the count assertion below
+  // is entitled to not see.
+  const freshInvestor = async (): Promise<string> => {
+    const email = `reissue-${randomUUID()}@example.com`;
+    await request(server).post("/investors").send({ email, password: PW }).expect(201);
+    const login = await request(server)
+      .post("/auth/login")
+      .send({ email, password: PW })
+      .expect(200);
+    return (login.body as { investorId: string }).investorId;
+  };
+
+  it("lets an officer reissue a claim for an already-approved investor", async () => {
+    const id = await freshInvestor();
+    await seedSubmittedKyc(prisma, id);
+    await request(server)
+      .post(`/investors/${id}/kyc/start-review`)
+      .set(auth(officerToken))
+      .expect(204);
+    await request(server).post(`/investors/${id}/kyc/approve`).set(auth(officerToken)).expect(204);
+
+    await request(server)
+      .post(`/investors/${id}/kyc/reissue-claim`)
+      .set(auth(officerToken))
+      .expect(204);
+  });
+
+  it("refuses to reissue a claim for an investor with no decision", async () => {
+    const id = await freshInvestor();
+    await seedSubmittedKyc(prisma, id);
+
+    // Nothing has been decided, so there is no approved claim to restate.
+    await request(server)
+      .post(`/investors/${id}/kyc/reissue-claim`)
+      .set(auth(officerToken))
+      .expect(409);
+  });
+
   it("notifies the investor in-app and by email when their KYC is approved", async () => {
     await seedSubmittedKyc(prisma, investorId);
     await request(server)
