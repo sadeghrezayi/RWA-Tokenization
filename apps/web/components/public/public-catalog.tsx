@@ -23,7 +23,7 @@ export const PublicCatalog = ({
   if (!offerings) {
     return (
       <Card>
-        <p role="alert" className="form-error">
+        <p role="alert" className="field__error">
           {t.publicCatalogFailed}
         </p>
       </Card>

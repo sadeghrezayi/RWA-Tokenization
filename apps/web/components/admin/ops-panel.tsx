@@ -63,7 +63,7 @@ export const OpsPanel = ({
       <section className="stack">
         <h1 className="page-title">{t.opsTitle}</h1>
         <Card>
-          <p role="alert" className="form-error">
+          <p role="alert" className="field__error">
             {t.opsLoadFailed}
           </p>
         </Card>

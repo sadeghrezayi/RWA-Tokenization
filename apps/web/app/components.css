@@ -308,6 +308,14 @@
   flex-direction: column;
   gap: var(--space-4);
 }
+/* A tighter stack, following the same `--tight` convention as
+   .card__body--tight: a heading and its one-line explanation belong closer
+   together than two separate blocks do. Three components asked for this class
+   before it existed, and rendered with the default gap instead (K-28). */
+.stack--tight {
+  gap: var(--space-2);
+}
+
 .grid {
   display: grid;
   gap: var(--space-4);
