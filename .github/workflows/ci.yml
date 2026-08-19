@@ -139,15 +139,36 @@ jobs:
       # names nothing. Same code against a fresh node: 3 journeys in 45 s.
       - name: Restart the devnet before the browser journey
         working-directory: contracts
+        # BOUNDED, because I wrote this step unbounded and it did exactly what
+        # K-22 documented: it hung for 21 minutes and the job died at its
+        # 25-minute budget, reporting "cancelled" with no failing test. Five
+        # minutes is ten times what this needs.
+        timeout-minutes: 5
         run: |
+          set -euo pipefail
           pkill -f 'anvil --mnemonic' || true
-          anvil --mnemonic "$PLATFORM_OPERATOR_MNEMONIC" &
-          for i in $(seq 1 30); do
+          # Wait for the port to be RELEASED before binding it again: a new
+          # anvil that loses the race exits with "address in use", while the
+          # old one keeps answering, so the readiness check below passes and
+          # the whole step proceeds against a node it believes it restarted.
+          for _ in $(seq 1 20); do
+            if ! nc -z 127.0.0.1 8545 2>/dev/null; then break; fi
+            sleep 1
+          done
+          # Its own log, and not the step's stdout: a background process
+          # holding the step's output open is its own way of hanging a job.
+          anvil --mnemonic "$PLATFORM_OPERATOR_MNEMONIC" > "$RUNNER_TEMP/anvil-restart.log" 2>&1 &
+          for _ in $(seq 1 30); do
             if curl -sf -X POST -H 'Content-Type: application/json' \
               --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
               http://127.0.0.1:8545 >/dev/null; then break; fi
             sleep 1
           done
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
+            http://127.0.0.1:8545 >/dev/null || {
+              echo "the restarted devnet never answered"; cat "$RUNNER_TEMP/anvil-restart.log"; exit 1;
+            }
           # New chain, new addresses — the API must be told, and it has not
           # started yet, so these land before it reads its environment.
           forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast | tee redeploy.log
