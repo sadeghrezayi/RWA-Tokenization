@@ -1,5 +1,6 @@
+import { chainProvider } from "./chain-provider.js";
 import { createHash } from "node:crypto";
-import { Contract, HDNodeWallet, JsonRpcProvider, NonceManager, verifyMessage } from "ethers";
+import { Contract, HDNodeWallet, NonceManager, verifyMessage } from "ethers";
 import type { ContractTransactionResponse } from "ethers";
 import { Logger } from "@nestjs/common";
 import type { AttestationAnchor, AttestationSigner } from "../../application/attestations/ports.js";
@@ -61,7 +62,7 @@ export class OnchainAttestationAnchor implements AttestationAnchor {
   ) {}
 
   async anchor(payloadHash: string, validUntil: Date): Promise<void> {
-    const provider = new JsonRpcProvider(this.rpcUrl);
+    const provider = chainProvider(this.rpcUrl);
     const attestor = new NonceManager(
       HDNodeWallet.fromPhrase(this.mnemonic, undefined, ATTESTOR_PATH).connect(provider),
     );
@@ -71,7 +72,7 @@ export class OnchainAttestationAnchor implements AttestationAnchor {
   }
 
   async anchoredAt(payloadHash: string): Promise<bigint> {
-    const provider = new JsonRpcProvider(this.rpcUrl);
+    const provider = chainProvider(this.rpcUrl);
     const registry = new Contract(this.registryAddress, REGISTRY_ABI, provider) as RegistryContract;
     return registry.anchoredAt(payloadHash);
   }

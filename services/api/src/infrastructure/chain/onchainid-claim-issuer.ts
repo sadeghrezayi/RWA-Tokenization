@@ -1,9 +1,9 @@
+import { chainProvider } from "./chain-provider.js";
 import {
   AbiCoder,
   Contract,
   ContractFactory,
   HDNodeWallet,
-  JsonRpcProvider,
   NonceManager,
   getBytes,
   hexlify,
@@ -50,7 +50,7 @@ export class OnchainidClaimIssuer implements ClaimIssuer {
     private readonly prisma: PrismaClient,
     private readonly config: OnchainidConfig,
   ) {
-    const provider = new JsonRpcProvider(config.rpcUrl);
+    const provider = chainProvider(config.rpcUrl);
     this.signer = HDNodeWallet.fromPhrase(config.operatorMnemonic).connect(provider);
   }
 

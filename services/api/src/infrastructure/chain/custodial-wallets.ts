@@ -1,4 +1,5 @@
-import { Contract, HDNodeWallet, JsonRpcProvider, NonceManager } from "ethers";
+import { chainProvider } from "./chain-provider.js";
+import { Contract, HDNodeWallet, NonceManager } from "ethers";
 import type { ContractTransactionResponse } from "ethers";
 import type { PrismaClient } from "@prisma/client";
 
@@ -76,7 +77,7 @@ class LanedOperatorSigner extends NonceManager {
 
 export const operatorSigner = (rpcUrl: string, mnemonic: string): NonceManager =>
   new LanedOperatorSigner(
-    HDNodeWallet.fromPhrase(mnemonic).connect(new JsonRpcProvider(rpcUrl)),
+    HDNodeWallet.fromPhrase(mnemonic).connect(chainProvider(rpcUrl)),
     `${rpcUrl}|${mnemonic}`,
   );
 
@@ -87,7 +88,7 @@ export const investorSigner = (
   derivationIndex: number,
 ): HDNodeWallet =>
   HDNodeWallet.fromPhrase(mnemonic, undefined, investorWalletPath(derivationIndex)).connect(
-    new JsonRpcProvider(rpcUrl),
+    chainProvider(rpcUrl),
   );
 
 // Looks up an investor's custodial wallet without creating one.

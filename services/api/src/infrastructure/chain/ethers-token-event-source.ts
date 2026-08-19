@@ -1,4 +1,5 @@
-import { Contract, JsonRpcProvider, ZeroAddress } from "ethers";
+import { chainProvider } from "./chain-provider.js";
+import { Contract, ZeroAddress } from "ethers";
 import type { EventLog } from "ethers";
 import type { RegistryEvent } from "../../domain/registry/holder-registry.js";
 import type { TokenEventSource } from "../../application/registry/ports.js";
@@ -17,7 +18,7 @@ export class EthersTokenEventSource implements TokenEventSource {
   constructor(private readonly rpcUrl: string) {}
 
   async registryEvents(tokenAddress: string): Promise<RegistryEvent[]> {
-    const provider = new JsonRpcProvider(this.rpcUrl);
+    const provider = chainProvider(this.rpcUrl);
     const token = new Contract(tokenAddress, TOKEN_ABI, provider);
     const logs = (await token.queryFilter("Transfer", 0, "latest")) as EventLog[];
     logs.sort((a, b) =>
@@ -54,7 +55,7 @@ export class EthersTokenEventSource implements TokenEventSource {
   }
 
   async totalSupply(tokenAddress: string): Promise<bigint> {
-    const provider = new JsonRpcProvider(this.rpcUrl);
+    const provider = chainProvider(this.rpcUrl);
     const token = new Contract(tokenAddress, TOKEN_ABI, provider) as SupplyContract;
     return token.totalSupply();
   }

@@ -1,4 +1,5 @@
-import { Contract, JsonRpcProvider } from "ethers";
+import { chainProvider } from "../chain/chain-provider.js";
+import { Contract } from "ethers";
 import type { PrismaClient } from "@prisma/client";
 import type { HealthProbe } from "../../application/reporting/ports.js";
 
@@ -36,7 +37,7 @@ export class PlatformHealthProbe implements HealthProbe {
   async chain(): Promise<{ reachable: boolean; blockNumber?: number }> {
     if (!this.rpcUrl) return { reachable: false };
     try {
-      const blockNumber = await new JsonRpcProvider(this.rpcUrl).getBlockNumber();
+      const blockNumber = await chainProvider(this.rpcUrl).getBlockNumber();
       return { reachable: true, blockNumber };
     } catch {
       return { reachable: false };
@@ -46,7 +47,7 @@ export class PlatformHealthProbe implements HealthProbe {
   async pausedTokenCount(): Promise<number> {
     if (!this.rpcUrl) return 0;
     try {
-      const provider = new JsonRpcProvider(this.rpcUrl);
+      const provider = chainProvider(this.rpcUrl);
       const tokenized = await this.prisma.asset.findMany({
         where: { tokenAddress: { not: null } },
         select: { tokenAddress: true },

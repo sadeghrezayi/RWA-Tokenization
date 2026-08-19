@@ -1,4 +1,5 @@
-import { Contract, JsonRpcProvider } from "ethers";
+import { chainProvider } from "./chain-provider.js";
+import { Contract } from "ethers";
 import type { PrismaClient } from "@prisma/client";
 import type { HolderShare } from "../../domain/distributions/distribution.js";
 import { assertCustodialAddress } from "../../domain/registry/wallet-address.js";
@@ -19,7 +20,7 @@ export class TrexHolderSnapshotProvider implements HolderSnapshotProvider {
 
   async snapshot(tokenAddress: string): Promise<HolderShare[]> {
     const wallets = await this.prisma.investorWallet.findMany();
-    const provider = new JsonRpcProvider(this.rpcUrl);
+    const provider = chainProvider(this.rpcUrl);
     const token = new Contract(tokenAddress, BALANCE_ABI, provider) as BalanceContract;
 
     const shares: HolderShare[] = [];
