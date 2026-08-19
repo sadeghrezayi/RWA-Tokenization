@@ -3,6 +3,7 @@ import { ConflictException } from "@nestjs/common";
 import type { ArgumentsHost } from "@nestjs/common";
 import { DomainErrorFilter } from "../../src/infrastructure/http/domain-error.filter.js";
 import { InsufficientFundsError } from "../../src/application/offerings/errors.js";
+import { ClaimIssuanceFailedError } from "../../src/application/identity/errors.js";
 
 const capture = () => {
   const json = vi.fn();
@@ -43,6 +44,25 @@ describe("DomainErrorFilter", () => {
 
     expect(response.status).toHaveBeenCalledWith(500);
     expect(String(log.error.mock.calls[0]?.[0] ?? "")).toContain("upstream exploded");
+  });
+
+  // K-2: a devnet outage is a dependency being down, not this service being
+  // broken. 503 says "retry me" to a monitor and to a person; 500 says "look
+  // for a bug here", which sent an officer hunting for one that did not exist.
+  it("answers a chain outage with 503 and keeps the explanation", () => {
+    const log = { error: vi.fn() };
+    const { host, response, json } = capture();
+
+    new DomainErrorFilter(log).catch(
+      new ClaimIssuanceFailedError(new Error("connect ECONNREFUSED 127.0.0.1:8545")),
+      host,
+    );
+
+    expect(response.status).toHaveBeenCalledWith(503);
+    const body = json.mock.calls[0]?.[0] as { message: string };
+    // The officer must still be able to read what happened and what remains.
+    expect(body.message).toMatch(/approval is recorded/i);
+    expect(body.message).toMatch(/retry/i);
   });
 
   it("stays quiet about refusals that are working as designed", () => {
