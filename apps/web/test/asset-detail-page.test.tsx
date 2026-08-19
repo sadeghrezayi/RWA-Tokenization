@@ -82,21 +82,43 @@ describe("AssetDetailPage", () => {
     });
   });
 
+  // K-33: this test used to assert the TITLE only, which is how the screen got
+  // away with sending `btoa(`${title} placeholder content`)` as the document
+  // for two months. The dossier is the evidence a token is backed by anything;
+  // what matters is that the bytes are the file's.
   it("attaches_a_dossier_document", async () => {
     const attachAssetDocument = vi.fn().mockResolvedValue({ cid: "c", sha256: "s" });
     renderPage(apiWith(structuring, { attachAssetDocument }));
     await screen.findByRole("heading", { name: "Vanak Tower SPV" });
 
+    const deed = new File(["the actual deed bytes"], "deed.pdf", { type: "application/pdf" });
     await userEvent.type(screen.getByLabelText("Document title"), "Counsel sign-off");
+    await userEvent.upload(screen.getByLabelText(/file/i), deed);
     await userEvent.click(screen.getByRole("button", { name: "Attach document" }));
 
     await waitFor(() => {
       expect(attachAssetDocument).toHaveBeenCalledWith(
         "tok",
         "asset-1",
-        expect.objectContaining({ title: "Counsel sign-off" }),
+        expect.objectContaining({
+          title: "Counsel sign-off",
+          contentBase64: btoa("the actual deed bytes"),
+        }),
       );
     });
+  });
+
+  it("will not attach a document when no file has been chosen", async () => {
+    const attachAssetDocument = vi.fn();
+    renderPage(apiWith(structuring, { attachAssetDocument }));
+    await screen.findByRole("heading", { name: "Vanak Tower SPV" });
+
+    await userEvent.type(screen.getByLabelText("Document title"), "A title with nothing behind it");
+    await userEvent.click(screen.getByRole("button", { name: "Attach document" }));
+
+    // A dossier entry with no document is worse than a missing one: it marks
+    // the requirement satisfied.
+    expect(attachAssetDocument).not.toHaveBeenCalled();
   });
 
   it("approves_a_structuring_asset", async () => {

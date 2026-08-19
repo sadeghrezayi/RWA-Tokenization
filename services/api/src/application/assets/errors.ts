@@ -43,3 +43,11 @@ export class AssetNotBroughtByOrganisationError extends ApplicationError {
     super("this asset was not brought by your organisation");
   }
 }
+
+// K-33: a bound on what the dossier will hold. Same 10 MB the KYC evidence
+// path uses — one platform, one answer to "how big may a document be".
+export class DossierDocumentTooLargeError extends ApplicationError {
+  constructor(maxBytes: number) {
+    super(`a dossier document may be at most ${String(Math.floor(maxBytes / (1024 * 1024)))} MB`);
+  }
+}

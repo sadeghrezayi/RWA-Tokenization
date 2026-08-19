@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { base64Of } from "../lib/file-bytes";
 import { ApiError } from "../lib/api";
 import type { ApiClient, AssetViewDto } from "../lib/api";
 import { dictionaries } from "../lib/i18n";
@@ -51,6 +52,7 @@ export const AssetDetailPage = ({
   const [rightForm, setRightForm] = useState({ kind: "income", note: "" });
   const [docKind, setDocKind] = useState(DOCUMENT_KINDS[0] ?? "");
   const [docTitle, setDocTitle] = useState("");
+  const [docFile, setDocFile] = useState<File | undefined>(undefined);
   const [custodian, setCustodian] = useState("");
   const [custodyLocation, setCustodyLocation] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -230,18 +232,31 @@ export const AssetDetailPage = ({
               className="row row--bottom"
               onSubmit={(event) => {
                 event.preventDefault();
-                if (docTitle.trim() !== "") {
+                // K-33: a title with no file behind it used to be enough, and
+                // the platform stored the string "<title> placeholder content"
+                // as the deed. A dossier entry with no document is worse than
+                // a missing one, because it marks the requirement satisfied.
+                if (docTitle.trim() !== "" && docFile) {
                   guard(async () => {
                     await api.attachAssetDocument(token, asset.id, {
                       kind: docKind,
                       title: docTitle.trim(),
-                      contentBase64: btoa(`${docTitle} placeholder content`),
+                      contentBase64: await base64Of(docFile),
                     });
                     setDocTitle("");
+                    setDocFile(undefined);
                   }, t.documentAttached);
                 }
               }}
             >
+              <Field
+                id="doc-file"
+                label={t.documentFileLabel}
+                type="file"
+                onChange={(e) => {
+                  setDocFile(e.target.files?.[0]);
+                }}
+              />
               <SelectField
                 id="doc-kind"
                 label={t.documentKindLabel}

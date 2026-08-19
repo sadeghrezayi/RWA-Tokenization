@@ -11,6 +11,8 @@ import {
   ListIssuerAssets,
 } from "../../../src/application/assets/get-asset.js";
 import { AttachIssuerDocument } from "../../../src/application/assets/attach-issuer-document.js";
+import { MAX_DOSSIER_BYTES } from "../../../src/application/assets/attach-dossier-document.js";
+import { DossierDocumentTooLargeError } from "../../../src/application/assets/errors.js";
 import { AssetNotBroughtByOrganisationError } from "../../../src/application/assets/errors.js";
 import {
   AssetNotFoundError,
@@ -205,6 +207,42 @@ describe("Proposing an asset for an issuer", () => {
       contactEmail: "ops@vanak.example",
       appliedAt: APPLIED_AT,
     });
+
+  // K-33: the dossier is the evidence a token is backed by anything. A document
+  // that is too large to be a document, or empty, must be refused rather than
+  // stored — six placeholder-sized files marking a dossier "complete" is how an
+  // asset gets approved with nothing behind it.
+  it("refuses a document larger than the platform accepts", async () => {
+    const s = setup();
+    const { assetId } = await s.propose.execute({ name: "Villa", actor: ACTOR });
+    await s.startStructuring.execute({ assetId, actor: ACTOR });
+
+    await expect(
+      s.attach.execute({
+        assetId,
+        kind: "ownership_evidence",
+        title: "A deed the size of a film",
+        contentBase64: Buffer.alloc(MAX_DOSSIER_BYTES + 1).toString("base64"),
+        actor: ACTOR,
+      }),
+    ).rejects.toThrow(DossierDocumentTooLargeError);
+  });
+
+  it("accepts a document at exactly the limit", async () => {
+    const s = setup();
+    const { assetId } = await s.propose.execute({ name: "Villa", actor: ACTOR });
+    await s.startStructuring.execute({ assetId, actor: ACTOR });
+
+    const stored = await s.attach.execute({
+      assetId,
+      kind: "ownership_evidence",
+      title: "Right to the byte",
+      contentBase64: Buffer.alloc(MAX_DOSSIER_BYTES).toString("base64"),
+      actor: ACTOR,
+    });
+
+    expect(stored.sha256).toMatch(/^[0-9a-f]{64}$/);
+  });
 
   it("records which organisation brought it", async () => {
     const s = setup();
