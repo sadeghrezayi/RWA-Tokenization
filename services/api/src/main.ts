@@ -14,7 +14,7 @@ import { AppModule } from "./app.module.js";
 // nobody handled is still a defect, and burying it would trade an outage for a
 // mystery — but a platform that settles real money must not fall over because
 // one dependency blinked.
-const guardAgainstUnhandledRejections = (): void => {
+export const guardAgainstUnhandledRejections = (): void => {
   const log = new Logger("UnhandledRejection");
   process.on("unhandledRejection", (reason: unknown) => {
     const detail = reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
