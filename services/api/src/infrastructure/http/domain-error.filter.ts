@@ -11,6 +11,7 @@ import {
   InvestorNotFoundError,
   MfaAlreadyEnrolledError,
   MfaNotEnrolledError,
+  ClaimIssuanceFailedError,
   TooManyRequestsError,
   WeakPasswordError,
 } from "../../application/identity/errors.js";
@@ -189,6 +190,10 @@ export class DomainErrorFilter implements ExceptionFilter {
 const statusFor = (exception: unknown): number => {
   if (exception instanceof AccountLockedError) return 429;
   if (exception instanceof TooManyRequestsError) return 429;
+  // K-2: the chain being unreachable is not an internal error — nothing is
+  // broken here, a dependency is down and the work is retryable. 503 says that
+  // to a monitor as well as to a person.
+  if (exception instanceof ClaimIssuanceFailedError) return 503;
   if (exception instanceof InvalidCredentialsError) return 401;
   // MFA challenge failures are authentication failures (bad/expired factor).
   if (exception instanceof InvalidMfaCodeError) return 401;

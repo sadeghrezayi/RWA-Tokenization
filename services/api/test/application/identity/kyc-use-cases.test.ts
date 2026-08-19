@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { RegisterInvestor } from "../../../src/application/identity/register-investor.js";
 import { StartKycReview } from "../../../src/application/identity/start-kyc-review.js";
 import { ApproveKyc } from "../../../src/application/identity/approve-kyc.js";
+import { ClaimIssuanceFailedError } from "../../../src/application/identity/errors.js";
 import { RejectKyc } from "../../../src/application/identity/reject-kyc.js";
 import { InvestorNotFoundError } from "../../../src/application/identity/errors.js";
 import { InvalidKycTransitionError } from "../../../src/domain/identity/errors.js";
@@ -68,6 +69,39 @@ describe("ApproveKyc", () => {
 
     expect(await kycStateOf(investors, investorId)).toBe("approved");
     expect(claims.issuedFor).toEqual([investorId]);
+  });
+
+  // K-2: the approval is persisted BEFORE the chain is touched, precisely so a
+  // devnet outage cannot revert a compliance decision. But the chain failure
+  // then aborted everything after it — so the investor was never told about a
+  // decision that had already been committed, and the officer got a bare 500.
+  it("tells the investor even when the chain claim cannot be issued", async () => {
+    const { investors, claims, kycNotifier, investorId, startReview, approve } = await setup();
+    await submitted(investors, investorId);
+    await startReview.execute({ investorId });
+    claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
+
+    await expect(approve.execute({ investorId })).rejects.toThrow(ClaimIssuanceFailedError);
+
+    // The decision stands and the person it concerns has been told.
+    expect(await kycStateOf(investors, investorId)).toBe("approved");
+    expect(kycNotifier.notices).toHaveLength(1);
+  });
+
+  it("says the approval stands and what is left to do, not just that something broke", async () => {
+    const { investors, claims, investorId, startReview, approve } = await setup();
+    await submitted(investors, investorId);
+    await startReview.execute({ investorId });
+    claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
+
+    const failure = await approve.execute({ investorId }).catch((error: unknown) => error);
+
+    const message = (failure as Error).message;
+    // An officer reading this must learn three things: the approval is
+    // recorded, the chain part is not, and it can be retried.
+    expect(message).toMatch(/approv/i);
+    expect(message).toMatch(/chain|claim/i);
+    expect(message).toMatch(/retr/i);
   });
 
   it("does_not_issue_a_claim_when_the_transition_is_invalid", async () => {

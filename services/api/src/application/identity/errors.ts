@@ -91,3 +91,18 @@ export class InvalidMfaChallengeError extends ApplicationError {
     super("your sign-in session expired — please log in again");
   }
 }
+
+// K-2: the compliance decision is committed before the chain is touched, so a
+// devnet outage cannot revert an approval. What it CAN do is stop the on-chain
+// claim being issued — and the officer needs to know all three facts: the
+// approval stands, the chain part did not happen, and it can be retried. A
+// bare 500 said none of them.
+export class ClaimIssuanceFailedError extends ApplicationError {
+  constructor(reason: unknown) {
+    super(
+      "the approval is recorded, but the on-chain claim could not be issued " +
+        `(${reason instanceof Error ? reason.message : String(reason)}) — ` +
+        "the investor has been told of the decision; retry the claim once the chain is reachable",
+    );
+  }
+}
