@@ -34,7 +34,15 @@ export class WebPublicPageRevalidator implements PublicPageRevalidator {
         body: JSON.stringify({ offeringId }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
-      if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        // The one cause a status code alone hides: both sides are configured,
+        // and they disagree. "returned 401" sends a reader looking for a bug;
+        // this sends them to the two places the value is set (K-4).
+        this.log.warn(
+          "public cache purge REFUSED by the web app — the API and web disagree on REVALIDATE_SECRET; " +
+            "published and withdrawn offerings will be stale for the whole ISR window until they match",
+        );
+      } else if (!res.ok) {
         this.log.warn(`public cache purge returned ${String(res.status)}`);
       }
     } catch (error) {

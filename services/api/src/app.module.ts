@@ -1361,11 +1361,23 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       // offering stops being advertised at once, not at the end of the ISR
       // window. ISR remains the fallback if the purge fails.
       provide: PUBLIC_PAGE_REVALIDATOR,
-      useFactory: () =>
-        new WebPublicPageRevalidator(
+      useFactory: () => {
+        const secret = process.env.REVALIDATE_SECRET;
+        // Said ONCE at boot, where an operator looks, rather than per call at
+        // debug level where nobody does. Not a hard failure: an API-only
+        // deployment has no public site to purge, and refusing to start would
+        // be an operational decision rather than an engineering one (K-4).
+        if (!secret && process.env.NODE_ENV !== "test") {
+          new Logger("AppModule").warn(
+            "REVALIDATE_SECRET is not set — the public marketplace will not be purged, so a withdrawn " +
+              "offering stays advertised until its ISR window expires. Set the SAME value here and on the web app",
+          );
+        }
+        return new WebPublicPageRevalidator(
           process.env.WEB_ORIGIN ?? "http://localhost:3000",
-          process.env.REVALIDATE_SECRET,
-        ),
+          secret,
+        );
+      },
     },
     {
       provide: PublishOffering,
