@@ -1,6 +1,6 @@
 {
   "handoff_version": "1.1.0",
-  "generated_at": "2026-08-18T14:00:00Z",
+  "generated_at": "2026-08-19T09:00:00Z",
   "project": {
     "name": "Tokenization Platform",
     "repository_name": "RWA-Tokenization",
@@ -20,11 +20,11 @@
   "repository": {
     "root": "/Users/sadeghrezayi/Projects/RWA-Tokenization",
     "branch": "main",
-    "commit": "b2c9d06e26896d2683f14ecbc53007baabb5e7ae",
+    "commit": "355ce3a66a1d26a5824c50cee39689295a1cd6f9",
     "working_tree": "clean",
-    "commit_count": 158,
+    "commit_count": 162,
     "first_commit_date": "2026-07-10",
-    "last_commit_date": "2026-08-18",
+    "last_commit_date": "2026-08-19",
     "workspace_manager": "pnpm@10.12.1",
     "workspaces": ["apps/web", "services/api", "contracts"],
     "packages_dir_exists": false,
@@ -32,7 +32,7 @@
       "provider": "github-actions",
       "workflow": ".github/workflows/ci.yml",
       "last_run_conclusion": "success",
-      "last_run_commit": "b2c9d06"
+      "last_run_commit": "355ce3a"
     }
   },
   "architecture": {
@@ -543,7 +543,7 @@
   "current_milestone": {
     "phase": "3.3",
     "name": "Assets belong to issuer organisations",
-    "state": "3.3a-g shipped. CI green again after a five-commit investigation that ended in K-27 (the session read shared the brute-force budget). Remaining: the issuer submission wizard, whose scope is the owner's call.",
+    "state": "3.3a-h shipped and CI-green. The issuer portal is a place an issuer can act, not only watch. Remaining in 3.3: the submission wizard (documents, rights, completeness, review comments), whose scope is the owner's call.",
     "completed_slices": [
       "3.2a domain",
       "3.2b persistence",
@@ -558,12 +558,11 @@
       "3.3d which organisations are mine",
       "3.3e issuer portal shell + landing page",
       "3.3f an issuer reads the assets its organisation brought (backend)",
-      "3.3g an issuer sees the assets it brought (web, browser-verified)"
+      "3.3g an issuer sees the assets it brought (web, browser-verified)",
+      "3.3h an issuer brings its own asset (canWorkOnAssets finally has a caller; K-13 closed)"
     ],
     "exit_criteria_remaining": [
-      "an issuer-facing SCREEN for its own assets (the 3.3f endpoint has no UI yet)",
-      "the submission wizard — scope is an owner decision, not an engineering one",
-      "the per-person gate: IssuerMembership.canWorkOnAssets() still has no production caller"
+      "the submission wizard — a product decision, not an engineering one"
     ]
   },
   "next_actions": [
