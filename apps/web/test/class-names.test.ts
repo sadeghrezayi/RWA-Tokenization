@@ -31,6 +31,9 @@ const definedClasses = (): Set<string> => {
   );
 };
 
+// Stands in for a template hole. No whitespace, so it survives tokenising.
+const DYNAMIC = "\u0000";
+
 interface Usage {
   file: string;
   className: string;
@@ -45,10 +48,10 @@ const usedClasses = (): Usage[] => {
   for (const file of sources) {
     const source = readFileSync(file, "utf8");
     for (const match of source.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
-      const literal = match[1] ?? match[2] ?? "";
-      // A template hole makes the token around it unknowable at rest —
-      // `toast--${tone}` is three real classes the CSS spells out separately.
-      if (literal.includes("${")) continue;
+      // Collapse each interpolation to a marker FIRST: `${String((i % 5) + 1)}`
+      // contains spaces, and splitting before collapsing shreds one class into
+      // four nonsense tokens like `.5)` and `.+`.
+      const literal = (match[1] ?? match[2] ?? "").replace(/\$\{[^}]*\}/g, DYNAMIC);
       for (const token of literal.split(/\s+/).filter(Boolean)) {
         usages.push({ file: file.slice(root.length + 1), className: token });
       }
@@ -66,8 +69,29 @@ describe("every class a component asks for exists in the stylesheet", () => {
   it("has no component naming a class the design system never defines", () => {
     const defined = definedClasses();
     const orphans = usedClasses()
+      .filter((usage) => !usage.className.includes(DYNAMIC))
       .filter((usage) => !defined.has(usage.className))
       .map((usage) => `${usage.file}: .${usage.className}`);
+
+    expect([...new Set(orphans)]).toEqual([]);
+  });
+
+  // The other half of a `base base--${variant}` template. The variant itself
+  // cannot be known at rest, but its PREFIX can: if nothing in the stylesheet
+  // begins with `badge--`, then no value of `tone` will ever match a rule, and
+  // the component is styling nothing — the same silent failure as K-28 wearing
+  // a template literal.
+  it("has no interpolated class whose prefix matches nothing in the stylesheet", () => {
+    const defined = [...definedClasses()];
+    const orphans = usedClasses()
+      .filter((usage) => usage.className.includes(DYNAMIC))
+      .map((usage) => ({
+        ...usage,
+        prefix: usage.className.slice(0, usage.className.indexOf(DYNAMIC)),
+      }))
+      .filter((usage) => usage.prefix !== "")
+      .filter((usage) => !defined.some((name) => name.startsWith(usage.prefix)))
+      .map((usage) => `${usage.file}: .${usage.prefix}*`);
 
     expect([...new Set(orphans)]).toEqual([]);
   });
