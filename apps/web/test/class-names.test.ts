@@ -34,6 +34,42 @@ const definedClasses = (): Set<string> => {
 // Stands in for a template hole. No whitespace, so it survives tokenising.
 const DYNAMIC = "\u0000";
 
+// Every string a className is built from — including the branches of a
+// conditional. `className={active ? "nav-link nav-link--active" : "nav-link"}`
+// is the ordinary way this codebase marks state, and an earlier version of
+// this scanner saw NONE of it: it matched only `className="..."` and
+// `className={`...`}`, so five classes used in all three shells looked unused
+// and, worse, would not have been caught had they been misspelled.
+const classNameLiterals = (source: string): string[] => {
+  const literals: string[] = [];
+  for (const match of source.matchAll(/className=/g)) {
+    let i = match.index + "className=".length;
+    if (source[i] === '"') {
+      const end = source.indexOf('"', i + 1);
+      if (end > i) literals.push(source.slice(i + 1, end));
+      continue;
+    }
+    if (source[i] !== "{") continue;
+    // Walk to the matching brace, so the whole expression is in hand however
+    // it is written, then take every string literal inside it.
+    let depth = 0;
+    const start = i;
+    for (; i < source.length; i++) {
+      const char = source[i];
+      if (char === "{") depth++;
+      else if (char === "}") {
+        depth--;
+        if (depth === 0) break;
+      }
+    }
+    const expression = source.slice(start + 1, i);
+    for (const inner of expression.matchAll(/"([^"]*)"|`([^`]*)`/g)) {
+      literals.push(inner[1] ?? inner[2] ?? "");
+    }
+  }
+  return literals;
+};
+
 interface Usage {
   file: string;
   className: string;
@@ -47,12 +83,12 @@ const usedClasses = (): Usage[] => {
   const usages: Usage[] = [];
   for (const file of sources) {
     const source = readFileSync(file, "utf8");
-    for (const match of source.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
+    for (const literal of classNameLiterals(source)) {
       // Collapse each interpolation to a marker FIRST: `${String((i % 5) + 1)}`
       // contains spaces, and splitting before collapsing shreds one class into
       // four nonsense tokens like `.5)` and `.+`.
-      const literal = (match[1] ?? match[2] ?? "").replace(/\$\{[^}]*\}/g, DYNAMIC);
-      for (const token of literal.split(/\s+/).filter(Boolean)) {
+      const collapsed = literal.replace(/\$\{[^}]*\}/g, DYNAMIC);
+      for (const token of collapsed.split(/\s+/).filter(Boolean)) {
         usages.push({ file: file.slice(root.length + 1), className: token });
       }
     }
