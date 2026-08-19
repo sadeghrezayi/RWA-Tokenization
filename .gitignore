@@ -60,3 +60,9 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
+
+# Scratch scripts. One of these was swept into a commit by `git add -A` and
+# only CI noticed, because it fails lint and nothing else looks at it.
+*.tmp.mjs
+*.tmp.js
+*.tmp.ts
