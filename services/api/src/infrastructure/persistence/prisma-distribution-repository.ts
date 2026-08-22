@@ -34,7 +34,12 @@ export class PrismaDistributionRepository implements DistributionRepository {
     };
     // Tenant-safe pattern (no upsert): probe, then create or updateMany.
     const exists = await this.prisma.distribution.findFirst({ where: { id: distribution.id } });
-    await this.prisma.$transaction([
+    // JOIN an ambient transaction when the injected client is already a
+    // transaction client — the same rule PrismaSettlementRail follows, and for
+    // the same reason: since 4.1 a payout runs inside the maker-checker
+    // approve+execute transaction, and a tenant-scoped transaction client
+    // exposes no nested $transaction to call.
+    const writes = [
       exists
         ? this.prisma.distribution.updateMany({ where: { id: distribution.id }, data })
         : this.prisma.distribution.create({ data: { id: distribution.id, ...data } }),
@@ -47,7 +52,17 @@ export class PrismaDistributionRepository implements DistributionRepository {
           amountRial: p.amountRial,
         })),
       }),
-    ]);
+    ];
+    const maybeTx = (this.prisma as { $transaction?: unknown }).$transaction;
+    if (typeof maybeTx === "function") {
+      const runBatch = maybeTx as (operations: unknown[]) => Promise<unknown>;
+      await runBatch.call(this.prisma, writes);
+      return;
+    }
+    // Already inside one: the writes are awaited in order and commit with it.
+    for (const write of writes) {
+      await write;
+    }
   }
 }
 

@@ -97,6 +97,7 @@ import type {
 } from "./application/approvals/ports.js";
 import { PrismaApprovalRepository } from "./infrastructure/persistence/prisma-approval-repository.js";
 import { PrismaApprovalCommit } from "./infrastructure/persistence/prisma-approval-commit.js";
+import { ApprovalActionDispatcher } from "./application/approvals/ledger-credit-executor.js";
 import { ApprovalsController } from "./infrastructure/http/approvals.controller.js";
 import { ListNotifications } from "./application/notifications/list-notifications.js";
 import { GetUnreadCount } from "./application/notifications/get-unread-count.js";
@@ -171,6 +172,7 @@ import { PrismaNotificationRepository } from "./infrastructure/persistence/prism
 import { NotificationsController } from "./infrastructure/http/notifications.controller.js";
 import { DeclareDistribution } from "./application/distributions/declare-distribution.js";
 import { PayDistribution } from "./application/distributions/pay-distribution.js";
+import { RequestDistributionPayout } from "./application/distributions/request-distribution-payout.js";
 import {
   GetDistribution,
   ListDistributions,
@@ -681,8 +683,30 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     {
       // T8 atomicity: the approval decision + effect commit in one transaction.
       provide: APPROVAL_COMMIT,
-      useFactory: (scoped: PrismaService) => new PrismaApprovalCommit(scoped),
-      inject: [SCOPED_PRISMA],
+      // 4.1: the executor is built PER TRANSACTION, here in the only
+      // composition root, so an approved payout commits with the decision that
+      // authorised it. Everything it touches is transaction-bound — the ledger,
+      // the distribution, the audit event, and the holder's notification — so a
+      // failure anywhere rolls the approval back with it.
+      useFactory: (scoped: PrismaService, ids: IdGenerator, clock: Clock) =>
+        new PrismaApprovalCommit(scoped, (tx) => {
+          const notifier = new EmailingNotifier(
+            new NotificationService(new PrismaNotificationRepository(tx), ids, clock),
+            new PrismaOutboxStore(tx),
+          );
+          return new ApprovalActionDispatcher(
+            new PrismaSettlementRail(tx),
+            new PayDistribution(
+              new PrismaDistributionRepository(tx),
+              new PrismaSettlementRail(tx),
+              new PrismaAssetEventLog(tx),
+              new PrismaAssetRepository(tx),
+              new NotifyDistributionPaid(notifier),
+              clock,
+            ),
+          );
+        }),
+      inject: [SCOPED_PRISMA, ID_GENERATOR, CLOCK],
     },
     {
       provide: CreditInvestorLedger,
@@ -1035,6 +1059,26 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
         HOLDER_SNAPSHOT_PROVIDER,
         ID_GENERATOR,
         ASSET_EVENT_LOG,
+      ],
+    },
+    {
+      // 4.1: the payout an officer REQUESTS. The effect itself (PayDistribution)
+      // is built per-transaction by the approval commit, so it runs only after a
+      // second person decides.
+      provide: RequestDistributionPayout,
+      useFactory: (
+        distributions: DistributionRepository,
+        approvals: ApprovalRepository,
+        ids: IdGenerator,
+        clock: Clock,
+        parked: ApprovalParkedNotifier,
+      ) => new RequestDistributionPayout(distributions, approvals, ids, clock, parked),
+      inject: [
+        DISTRIBUTION_REPOSITORY,
+        APPROVAL_REPOSITORY,
+        ID_GENERATOR,
+        CLOCK,
+        APPROVAL_PARKED_NOTIFIER,
       ],
     },
     {

@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { DeclareDistribution } from "../../../src/application/distributions/declare-distribution.js";
 import { PayDistribution } from "../../../src/application/distributions/pay-distribution.js";
 import {
+  InMemoryApprovalRepository,
+  RecordingApprovalParkedNotifier,
+} from "../../fakes/approval-fakes.js";
+import { RequestDistributionPayout } from "../../../src/application/distributions/request-distribution-payout.js";
+import {
   GetDistribution,
   ListDistributions,
 } from "../../../src/application/distributions/get-distribution.js";
@@ -64,6 +69,8 @@ const setup = async () => {
     );
   }
   const paidNotifier = new RecordingDistributionPaidNotifier();
+  const approvals = new InMemoryApprovalRepository();
+  const parkedNotifier = new RecordingApprovalParkedNotifier();
   return {
     distributions,
     assets,
@@ -71,6 +78,15 @@ const setup = async () => {
     ledger,
     events,
     paidNotifier,
+    approvals,
+    parkedNotifier,
+    requestPayout: new RequestDistributionPayout(
+      distributions,
+      approvals,
+      new SequentialIdGenerator(),
+      { now: () => new Date("2026-08-19T12:00:00Z") },
+      parkedNotifier,
+    ),
     declare: new DeclareDistribution(
       distributions,
       assets,
@@ -202,5 +218,51 @@ describe("ListDistributions", () => {
     const views = await s.list.execute();
     expect(views).toHaveLength(2);
     expect(views.map((v) => v.totalAmountRial).sort()).toEqual(["100000", "50000"]);
+  });
+});
+
+// Phase 4.1 / threat model T3: "extend to the full sensitive set (forced
+// transfer, payout, tokenize, ...)". Paying a distribution moves real money to
+// every holder of an asset at once, and until now one officer could do it
+// alone — the same exposure four-eyes already closes for a large ledger credit.
+describe("RequestDistributionPayout", () => {
+  it("parks the payout for a second person instead of paying it", async () => {
+    const app = await setup();
+    const { distributionId } = await app.declare.execute({
+      assetId: "asset-1",
+      totalAmountRial: 100_000n,
+      actor: ACTOR,
+    });
+
+    const result = await app.requestPayout.execute({ distributionId, makerId: "officer-1" });
+
+    expect(result.status).toBe("pending_approval");
+    // Nothing has moved: the money waits for a second decision.
+    expect(app.ledger.credited).toEqual([]);
+    const parked = await app.approvals.findByStatus("pending");
+    expect(parked[0]?.action).toBe("distribution.pay");
+    expect(parked[0]?.payload).toEqual({ distributionId });
+  });
+
+  it("tells the checkers, so it is not waiting in a queue nobody watches", async () => {
+    const app = await setup();
+    const { distributionId } = await app.declare.execute({
+      assetId: "asset-1",
+      totalAmountRial: 100_000n,
+      actor: ACTOR,
+    });
+
+    await app.requestPayout.execute({ distributionId, makerId: "officer-1" });
+
+    expect(app.parkedNotifier.parked).toHaveLength(1);
+    expect(app.parkedNotifier.parked[0]?.action).toBe("distribution.pay");
+  });
+
+  it("refuses to park a payout for a distribution that does not exist", async () => {
+    const app = await setup();
+
+    await expect(
+      app.requestPayout.execute({ distributionId: "nope", makerId: "officer-1" }),
+    ).rejects.toThrow(DistributionNotFoundError);
   });
 });

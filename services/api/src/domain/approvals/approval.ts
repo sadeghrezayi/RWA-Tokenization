@@ -4,7 +4,10 @@ export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 // The set of sensitive actions that route through maker-checker. Extensible;
 // ledger.credit is the first (P1.4b).
-export type ApprovalAction = "ledger.credit";
+// Threat model T3 names the sensitive set: "forced transfer, payout,
+// tokenize, ...". Paying a distribution moves money to every holder of an
+// asset at once, so it joins ledger.credit behind four eyes (Phase 4.1).
+export type ApprovalAction = "ledger.credit" | "distribution.pay";
 
 // Opaque action parameters, stored as strings so the aggregate stays free of
 // any specific action's shape; the executor adapter interprets them.

@@ -7,7 +7,9 @@ import {
   DOCUMENT_STORE,
   HOLDER_SNAPSHOT_PROVIDER,
   TOKEN_DEPLOYER,
+  TOKEN_ISSUER,
 } from "../../src/app.module.js";
+import type { TokenIssuer } from "../../src/application/identity/ports.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 import { REQUIRED_DOSSIER_KINDS } from "../../src/domain/assets/legal-dossier.js";
 import { CHECKLIST_ITEMS } from "../../src/domain/assets/onboarding-checklist.js";
@@ -21,6 +23,7 @@ describe("Distributions API (e2e, real Postgres + ledger, stub snapshot)", () =>
   let prisma: PrismaService;
   let server: Parameters<typeof request>[0];
   let officerToken: string;
+  let checkerToken = "";
   const snapshot = new StubHolderSnapshotProvider();
   const auth = (token: string) => ({ authorization: `Bearer ${token}` });
 
@@ -43,6 +46,11 @@ describe("Distributions API (e2e, real Postgres + ledger, stub snapshot)", () =>
       .send({ email: "officer@platform.local", password: "officer-dev-pass" })
       .expect(200);
     officerToken = (officer.body as { token: string }).token;
+    // 4.1: paying takes two people now, so this suite needs a second one.
+    checkerToken = await app.get<TokenIssuer>(TOKEN_ISSUER).issue({
+      kind: "officer",
+      officerId: "officer-2",
+    });
   }, 30_000);
 
   beforeEach(async () => {
@@ -127,7 +135,20 @@ describe("Distributions API (e2e, real Postgres + ledger, stub snapshot)", () =>
     });
     expect(await balanceOf("alice")).toBe(0n);
 
-    await http.post(`/distributions/${distributionId}/pay`).set(auth(officerToken)).expect(201);
+    // 4.1 / threat model T3: paying no longer happens on one person's say-so.
+    // The request parks; nothing moves until a second officer decides.
+    const parked = await http
+      .post(`/distributions/${distributionId}/pay`)
+      .set(auth(officerToken))
+      .expect(201);
+    const approvalId = (parked.body as { approvalId: string }).approvalId;
+    expect(await balanceOf("alice")).toBe(0n);
+
+    // And the maker cannot wave through their own payout.
+    await http.post(`/approvals/${approvalId}/approve`).set(auth(officerToken)).expect(409);
+    expect(await balanceOf("alice")).toBe(0n);
+
+    await http.post(`/approvals/${approvalId}/approve`).set(auth(checkerToken)).expect(204);
 
     expect(await balanceOf("alice")).toBe(67_000n);
     expect(await balanceOf("bob")).toBe(33_000n);
@@ -148,8 +169,24 @@ describe("Distributions API (e2e, real Postgres + ledger, stub snapshot)", () =>
       .expect(201);
     const distributionId = (declared.body as { distributionId: string }).distributionId;
 
-    await http.post(`/distributions/${distributionId}/pay`).set(auth(officerToken)).expect(201);
-    await http.post(`/distributions/${distributionId}/pay`).set(auth(officerToken)).expect(409);
+    const first = await http
+      .post(`/distributions/${distributionId}/pay`)
+      .set(auth(officerToken))
+      .expect(201);
+    const approvalId = (first.body as { approvalId: string }).approvalId;
+    await http.post(`/approvals/${approvalId}/approve`).set(auth(checkerToken)).expect(204);
+    expect(await balanceOf("alice")).toBe(5_000n);
+
+    // A second approval of the same request is refused, and a second payout
+    // request is refused by the distribution's own state gate — neither can
+    // double-credit.
+    await http.post(`/approvals/${approvalId}/approve`).set(auth(checkerToken)).expect(409);
+    const again = await http
+      .post(`/distributions/${distributionId}/pay`)
+      .set(auth(officerToken))
+      .expect(201);
+    const secondApproval = (again.body as { approvalId: string }).approvalId;
+    await http.post(`/approvals/${secondApproval}/approve`).set(auth(checkerToken)).expect(409);
 
     expect(await balanceOf("alice")).toBe(5_000n);
   }, 30_000);

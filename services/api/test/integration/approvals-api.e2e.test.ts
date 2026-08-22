@@ -106,8 +106,16 @@ describe("Approvals API (e2e, real Postgres)", () => {
   });
 
   it("forbids_the_maker_from_approving_their_own_request_and_applies_on_second_approval", async () => {
-    const queue = await request(server).get("/approvals").set(auth(officer1)).expect(200);
-    const id = (queue.body as { id: string }[])[0]?.id ?? "";
+    // Park its OWN approval and decide THAT one. Taking the head of the queue
+    // was safe only while ledger.credit was the single action; since 4.1 a
+    // distribution payout parks here too, so "the first pending approval" is no
+    // longer necessarily this test's.
+    const parked = await request(server)
+      .post(`/ledger/${investorId}/credit`)
+      .set(auth(officer1))
+      .send({ amountRial: "1000" })
+      .expect(202);
+    const id = (parked.body as { approvalId: string }).approvalId;
 
     // officer-1 is the maker → self-approval rejected (four-eyes).
     await request(server).post(`/approvals/${id}/approve`).set(auth(officer1)).expect(409);

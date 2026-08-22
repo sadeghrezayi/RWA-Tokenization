@@ -32,6 +32,13 @@ export interface LedgerCredit {
   credit(investorId: string, amountRial: bigint, actorId: string): Promise<void>;
 }
 
+// The approved effect for distribution.pay. Declared here for the same reason
+// LedgerCredit is: the executor depends on the capability, not on the use case
+// that happens to provide it.
+export interface DistributionPayout {
+  execute(input: { distributionId: string; actor: string }): Promise<unknown>;
+}
+
 // 1.7c: raised when a sensitive action is parked for maker-checker. The
 // notifications module implements this to alert the eligible checkers so a
 // pending approval is not silently waiting in a queue no one is watching.

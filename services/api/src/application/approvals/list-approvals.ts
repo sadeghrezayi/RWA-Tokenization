@@ -33,6 +33,9 @@ const SUMMARIZERS: Record<
     const who = labels.get(investorId) ?? investorId;
     return `Credit ${groupDigits(a.payload.amountRial ?? "?")} ریال to ${who}`;
   },
+  // No investor to name: a payout goes to every holder of the asset at once,
+  // which is exactly what makes it worth a second person's attention.
+  "distribution.pay": (a) => `Pay distribution ${a.payload.distributionId ?? "?"} to all holders`,
 };
 
 const summarize = (approval: Approval, labels: ReadonlyMap<string, string>): string =>

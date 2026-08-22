@@ -5,7 +5,7 @@ import {
   ListDistributions,
 } from "../../application/distributions/get-distribution.js";
 import type { DistributionView } from "../../application/distributions/get-distribution.js";
-import { PayDistribution } from "../../application/distributions/pay-distribution.js";
+import { RequestDistributionPayout } from "../../application/distributions/request-distribution-payout.js";
 import type { Principal } from "../../application/identity/ports.js";
 import { CurrentPrincipal, RequirePermission } from "./auth.guard.js";
 import { PERMISSIONS } from "../../application/identity/authorization.js";
@@ -39,7 +39,7 @@ const actorOf = (principal: Principal): string =>
 export class DistributionsController {
   constructor(
     private readonly declareDistribution: DeclareDistribution,
-    private readonly payDistribution: PayDistribution,
+    private readonly requestPayout: RequestDistributionPayout,
     private readonly getDistribution: GetDistribution,
     private readonly listDistributions: ListDistributions,
   ) {}
@@ -56,12 +56,20 @@ export class DistributionsController {
     });
   }
 
+  // 4.1 / threat model T3: a payout credits every holder of an asset at once,
+  // so it no longer happens on one person's say-so. This PARKS the request; a
+  // second officer decides it in the approvals queue, and the money moves in
+  // the same transaction as that decision.
+  //
+  // The route keeps its name because what the officer is doing has not changed
+  // — they are still paying the distribution. What changed is that it now takes
+  // two of them, which the response says.
   @Post(":id/pay")
   async pay(
     @Param("id") id: string,
     @CurrentPrincipal() principal: Principal,
-  ): Promise<{ state: string }> {
-    return this.payDistribution.execute({ distributionId: id, actor: actorOf(principal) });
+  ): Promise<{ status: string; approvalId: string }> {
+    return this.requestPayout.execute({ distributionId: id, makerId: actorOf(principal) });
   }
 
   @Get()
