@@ -50,6 +50,7 @@ model Tenant {
   issuerOrganisations    IssuerOrganisation[]
   issuerMemberships      IssuerMembership[]
 
+  screeningResults ScreeningResult[]
   @@map("tenants")
 }
 
@@ -503,6 +504,7 @@ model Investor {
   updatedAt          DateTime         @updatedAt @map("updated_at")
   onchainIdentity    OnchainIdentity?
 
+  screeningResults ScreeningResult[]
   @@unique([tenantId, email])
   @@map("investors")
 }
@@ -726,4 +728,28 @@ model IssuerMembership {
   @@index([tenantId])
   @@index([userId])
   @@map("issuer_memberships")
+}
+
+// 4.2: what a sanctions/PEP check said about one person at one moment.
+//
+// Append-only by intent: a re-run months later is a NEW fact, not a correction,
+// so there is no unique key on investorId. `provider` and `simulated` are
+// stored with the outcome because a result travels — into a report, into a
+// regulator's hands — and must always be able to say what produced it. A row
+// that says "clear" without saying who checked is a liability, not a record.
+model ScreeningResult {
+  id         String   @id
+  tenantId   String   @default("default") @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  subjectId  String   @map("subject_id")
+  investor   Investor @relation(fields: [subjectId], references: [id])
+  outcome    String
+  provider   String
+  simulated  Boolean
+  checkedAt  DateTime @map("checked_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([subjectId])
+  @@map("screening_results")
 }
