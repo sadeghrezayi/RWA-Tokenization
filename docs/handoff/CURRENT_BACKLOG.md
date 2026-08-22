@@ -27,6 +27,25 @@ the deciding officer (P1-9).
   covered by `operator-nonce.test.ts`.
 - **Risks:** **high regression risk** — the nonce design took four attempts. Do not "simplify"
   `LanedOperatorSigner`; read the comments in that file and DECISION_LOG C4 first.
+- **Attempted 2026-08-19 and REVERTED — read this before starting.** The KYC claim alone was moved
+  onto the outbox (decision B7 settles the mechanism, so no design question is open there). CI
+  refused it four times, and the fourth explained why: **the claim cannot go async before the mint
+  can survive it.**
+  - `TrexAssetTokenIssuer.mint` throws `investor <id> has no on-chain identity — the KYC claim must
+    be issued first`. With the claim deferred, an approved investor can subscribe before it drains,
+    and the close-time mint hits exactly that.
+  - `CloseOffering` saves the closed offering, THEN captures money, THEN mints. A mint failure
+    therefore leaves the offering closed and the cash taken, and re-closing is refused with
+    `cannot close an offering in state "closed_success"` — no route back (**K-34**).
+  - `mint` is **not idempotent**: it mints unconditionally, so a redelivered message issues tokens
+    twice. Nothing today records that an allocation was minted.
+- **Suggested order for the coherent slice** (one change, not four commits):
+  1. Record mint-per-allocation and make it idempotent — a redelivered message must be a no-op.
+  2. Move the mint onto the outbox, so it retries until the holder is registered.
+  3. Decide what happens between capture and mint: money currently moves first and nothing
+     reconciles the two halves. **This is a product question as much as an engineering one** and is
+     worth the owner's view before it is coded.
+  4. Only then move the claim — by that point its ordering dependency has dissolved.
 
 ### P0-3 — No real email delivery
 - **What:** every notification email goes to a dev sink. There is no SMTP adapter.
