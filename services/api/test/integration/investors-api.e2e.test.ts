@@ -3,10 +3,7 @@ import { Test } from "@nestjs/testing";
 import type { INestApplication } from "@nestjs/common";
 import argon2 from "argon2";
 import request from "supertest";
-import { AppModule, CLAIM_ISSUER, OUTBOX_STORE } from "../../src/app.module.js";
-import { DrainOutbox } from "../../src/application/outbox/drain-outbox.js";
-import { KYC_CLAIM_OUTBOX_TYPE } from "../../src/application/identity/kyc-claim-outbox.js";
-import type { OutboxStore } from "../../src/application/outbox/ports.js";
+import { AppModule, CLAIM_ISSUER } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 import { seedSubmittedKyc } from "./support/kyc.js";
 import { RecordingClaimIssuer } from "../fakes/identity-fakes.js";
@@ -36,10 +33,6 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
   });
 
   beforeEach(async () => {
-    // Since P0-2 this suite DRAINS the outbox, so a message left pending by an
-    // earlier run would be performed here and counted as this run's. It cost a
-    // confusing "expected 2 to equal 1" before the cause was obvious.
-    await prisma.outboxMessage.deleteMany({});
     await prisma.onchainIdentity.deleteMany();
     await prisma.investor.deleteMany();
     claims.issuedFor.length = 0;
@@ -133,49 +126,7 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
       .set("authorization", `Bearer ${token}`)
       .expect(200);
     expect(me.body).toMatchObject({ kycState: "approved", eligibleForClaims: true });
-
-    // P0-2: the approval RECORDS the claim; the drainer performs it. The
-    // drain worker is off in tests on purpose, so this drives one pass by hand
-    // — which makes the whole path assertable in one place: approve, drain,
-    // claim issued. Before the outbox this was one synchronous call, and an
-    // unreachable devnet failed the officer's request.
-    await app.get(DrainOutbox).drain();
-
     expect(claims.issuedFor).toEqual([investorId]);
-  });
-
-  it("does not lose the claim when the chain is down at the moment of approval", async () => {
-    const { investorId } = await registerAndLogin();
-    const officer = await officerToken();
-    await seedSubmittedKyc(prisma, investorId);
-    await request(server)
-      .post(`/investors/${investorId}/kyc/start-review`)
-      .set("authorization", `Bearer ${officer}`)
-      .expect(204);
-
-    claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
-    // The approval succeeds regardless: it is a compliance decision, not a
-    // chain write (K-2, K-30).
-    await request(server)
-      .post(`/investors/${investorId}/kyc/approve`)
-      .set("authorization", `Bearer ${officer}`)
-      .expect(204);
-    await app.get(DrainOutbox).drain();
-    expect(claims.issuedFor).toEqual([]);
-
-    // Not lost — RESCHEDULED. A failed attempt pushes availableAt into the
-    // future for backoff, so draining again now finds nothing due. That is the
-    // design; asserting an immediate retry would assert the opposite of what
-    // this system promises.
-    claims.failWith = undefined;
-    await app.get(DrainOutbox).drain();
-    expect(claims.issuedFor).toEqual([]);
-
-    // Once the backoff has elapsed it is due again, carrying why it failed.
-    const later = new Date(Date.now() + 60 * 60 * 1000);
-    const due = await app.get<OutboxStore>(OUTBOX_STORE).claimDue(later, 20);
-    expect(due.map((message) => message.type)).toContain(KYC_CLAIM_OUTBOX_TYPE);
-    expect(due[0]?.lastError).toMatch(/ECONNREFUSED/);
   });
 
   it("records_a_rejection_reason_visible_to_the_investor", async () => {

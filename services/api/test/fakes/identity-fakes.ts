@@ -1,4 +1,3 @@
-import type { NewOutboxMessage, OutboxEnqueue } from "../../src/application/outbox/ports.js";
 import type { EmailAddress } from "../../src/domain/identity/email-address.js";
 import type { Investor } from "../../src/domain/identity/investor.js";
 import type { KycState } from "../../src/domain/identity/kyc-status.js";
@@ -144,15 +143,5 @@ export class FakeMfaChallengeIssuer implements MfaChallengeIssuer {
     return Promise.resolve(
       token.startsWith("challenge:") ? token.slice("challenge:".length) : undefined,
     );
-  }
-}
-
-// P0-2: what a producer put on the outbox, without a drainer or a database.
-export class RecordingOutbox implements OutboxEnqueue {
-  readonly messages: NewOutboxMessage[] = [];
-
-  enqueue(message: NewOutboxMessage): Promise<void> {
-    this.messages.push(message);
-    return Promise.resolve();
   }
 }

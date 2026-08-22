@@ -279,7 +279,6 @@ import { PrismaOutboxStore } from "./infrastructure/persistence/prisma-outbox-st
 import { PrismaEmailGrantCommit } from "./infrastructure/persistence/prisma-email-grant-commit.js";
 import { emailOutboxHandlers } from "./infrastructure/outbox/email-outbox-handler.js";
 import { OutboxDrainWorker } from "./infrastructure/outbox/outbox-drain-worker.js";
-import { KycClaimOutboxHandler } from "./infrastructure/outbox/kyc-claim-outbox-handler.js";
 import { RequestPasswordReset } from "./application/identity/request-password-reset.js";
 import { ResetPassword } from "./application/identity/reset-password.js";
 import { RequestEmailVerification } from "./application/identity/request-email-verification.js";
@@ -556,10 +555,9 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     },
     {
       provide: ApproveKyc,
-      // P0-2: the claim is enqueued, not issued in the request (decision B7).
-      useFactory: (repo: InvestorRepository, outbox: OutboxStore, notifier: KycDecisionNotifier) =>
-        new ApproveKyc(repo, outbox, notifier),
-      inject: [INVESTOR_REPOSITORY, OUTBOX_STORE, KYC_DECISION_NOTIFIER],
+      useFactory: (repo: InvestorRepository, claims: ClaimIssuer, notifier: KycDecisionNotifier) =>
+        new ApproveKyc(repo, claims, notifier),
+      inject: [INVESTOR_REPOSITORY, CLAIM_ISSUER, KYC_DECISION_NOTIFIER],
     },
     {
       provide: RejectKyc,
@@ -844,15 +842,9 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     },
     {
       provide: DrainOutbox,
-      // The chain claim drains alongside the emails: same store, same retry and
-      // backoff, same dead-letter parking (P0-2, decision B7).
-      useFactory: (store: OutboxStore, email: EmailSender, clock: Clock, claims: ClaimIssuer) =>
-        new DrainOutbox(
-          store,
-          [...emailOutboxHandlers(email), new KycClaimOutboxHandler(claims)],
-          clock,
-        ),
-      inject: [OUTBOX_STORE, EMAIL_SENDER, CLOCK, CLAIM_ISSUER],
+      useFactory: (store: OutboxStore, email: EmailSender, clock: Clock) =>
+        new DrainOutbox(store, emailOutboxHandlers(email), clock),
+      inject: [OUTBOX_STORE, EMAIL_SENDER, CLOCK],
     },
     {
       provide: OutboxDrainWorker,

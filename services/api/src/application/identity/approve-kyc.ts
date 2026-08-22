@@ -1,12 +1,11 @@
 import { loadInvestor } from "./load-investor.js";
-import { kycClaimMessage } from "./kyc-claim-outbox.js";
-import type { OutboxEnqueue } from "../outbox/ports.js";
-import type { InvestorRepository, KycDecisionNotifier } from "./ports.js";
+import { ClaimIssuanceFailedError } from "./errors.js";
+import type { ClaimIssuer, InvestorRepository, KycDecisionNotifier } from "./ports.js";
 
 export class ApproveKyc {
   constructor(
     private readonly investors: InvestorRepository,
-    private readonly outbox: OutboxEnqueue,
+    private readonly claims: ClaimIssuer,
     private readonly notifier: KycDecisionNotifier,
   ) {}
 
@@ -24,11 +23,12 @@ export class ApproveKyc {
       email: approved.email.value,
       decision: "approved",
     });
-    // P0-2: the chain write is ENQUEUED, not performed here. The drainer
-    // issues it with retry and backoff, so a devnet outage delays the claim
-    // instead of failing an approval that has already been decided — and a
-    // claim that keeps failing dead-letters where it can be seen, rather than
-    // vanishing into a 500 (K-2, K-30).
-    await this.outbox.enqueue(kycClaimMessage(approved.id));
+    try {
+      await this.claims.issueKycApprovedClaim(approved.id);
+    } catch (cause) {
+      // Still a failure — the officer must not be told everything worked —
+      // but one that says which part failed and what is left to do.
+      throw new ClaimIssuanceFailedError(cause);
+    }
   }
 }
