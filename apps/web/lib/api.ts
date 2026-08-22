@@ -252,6 +252,18 @@ export interface RiskAssessmentDto {
   advisory: string;
 }
 
+export interface DocumentAwaitingReviewDto {
+  assetId: string;
+  assetName: string;
+  kind: string;
+  title: string;
+  cid: string;
+  sha256: string;
+  state: "pending" | "rejected" | "accepted";
+  // Present when a previous review rejected it — what the issuer was told.
+  reason?: string;
+}
+
 export interface DueReviewDto {
   investorId: string;
   email: string;
@@ -643,6 +655,16 @@ export interface ApiClient {
   // decides the order; the screen does not re-sort it).
   dueReviews(officerToken: string): Promise<DueReviewDto[]>;
   reviewCadence(officerToken: string): Promise<ReviewCadenceDto>;
+  // 4.3 document review. A rejection always carries its reason: the API
+  // refuses an empty one, and so does the screen.
+  documentsAwaitingReview(officerToken: string): Promise<DocumentAwaitingReviewDto[]>;
+  acceptDocument(officerToken: string, assetId: string, kind: string): Promise<void>;
+  rejectDocument(
+    officerToken: string,
+    assetId: string,
+    kind: string,
+    reason: string,
+  ): Promise<void>;
   systemHealth(officerToken: string): Promise<SystemHealthDto>;
   publishAttestation(
     officerToken: string,
@@ -1353,6 +1375,20 @@ export const createApiClient = (
     riskModel: (officerToken) =>
       json(call("/investors/risk-model/current", { token: officerToken })),
     dueReviews: (officerToken) => json(call("/investors/reviews/due", { token: officerToken })),
+    documentsAwaitingReview: (officerToken) =>
+      json(call("/assets/documents/awaiting-review", { token: officerToken })),
+    acceptDocument: async (officerToken, assetId, kind) => {
+      await call(
+        `/assets/${encodeURIComponent(assetId)}/documents/${encodeURIComponent(kind)}/accept`,
+        { method: "POST", token: officerToken },
+      );
+    },
+    rejectDocument: async (officerToken, assetId, kind, reason) => {
+      await call(
+        `/assets/${encodeURIComponent(assetId)}/documents/${encodeURIComponent(kind)}/reject`,
+        { method: "POST", token: officerToken, body: { reason } },
+      );
+    },
     reviewCadence: (officerToken) =>
       json(call("/investors/reviews/cadence", { token: officerToken })),
     assessRisk: (officerToken, investorId, answers) =>

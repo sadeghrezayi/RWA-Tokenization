@@ -110,6 +110,14 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
       label: t.navGroupAssets,
       items: [
         {
+          // 4.3: the evidence behind every asset, waiting on a person. Sits
+          // with ASSETS because that is what a reviewer is deciding about.
+          href: `${base}/documents`,
+          label: t.documentReviewTitle,
+          icon: "▤",
+          permission: PERMISSIONS.ASSET_MANAGE,
+        },
+        {
           href: `${base}/assets`,
           label: t.assetsTitle,
           icon: "▤",

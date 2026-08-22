@@ -571,27 +571,43 @@
     }
   ],
   "current_milestone": {
-    "phase": "4.2",
-    "name": "Sanctions & PEP screening — a mock that cannot lie about itself",
-    "state": "Shipped and verified in a browser: an officer can screen an applicant and reads the outcome with a SIMULATED disclaimer beside it; an applicant with no declared name is refused with 409 and a readable reason. The adapter checks nothing and says so — simulated: true is hard-coded in the mock, and the disclaimer lives in the result, not in a log line. Results are append-only. Choosing a real provider remains an owner decision (OD-11). Risk rating now ships alongside it: an officer rates an applicant against a PROVISIONAL model (REQUIRES LOCAL LEGAL VALIDATION, shown on the card), the rating is advisory and decides nothing, and an unrated file reads as unrated rather than low. Periodic review scheduling — the third part of the roadmap's 4.2 line — is NOT built. Periodic review scheduling now completes the roadmap's 4.2 line: approved customers whose review has lapsed appear on their own screen, worst first, with never-reviewed ranked ahead of overdue. The cadence is provisional and shown as such. No scheduler runs and nothing is restricted — it is a work list.",
+    "phase": "4.3",
+    "name": "Document review — evidence is not evidence until someone read it",
+    "state": "First slice shipped and browser-verified: every dossier document carries a review, approval refuses while any required document is unreviewed or rejected, and `/admin/documents` is the queue where an officer decides. Closes a real gap — a document counted the moment it was attached, including one an ISSUER attached, so an asset could be approved on files nobody opened. Remaining in 4.3: investor/org review workspaces and Investor 360 completion (the 10-tab layout in information-architecture.md).",
     "completed_slices": [
-      "4.2a domain ScreeningResult + disclaimer",
-      "4.2b application ports + ScreenInvestor use case",
-      "4.2c Prisma persistence + shared repository contract (fake + Prisma)",
-      "4.2d HTTP endpoints + NothingToScreenError mapped to 409",
-      "4.2e officer UI (ScreeningCard) mounted on the investor page",
-      "4.2f risk-rating domain (empty assessment refused; boundary rounds up; band stored as decided)",
-      "4.2g provisional risk model + AssessRisk use case (points come from the catalogue, never the caller)",
-      "4.2h Prisma persistence + shared contract (fake + Prisma)",
-      "4.2i endpoints + IncompleteRiskAssessmentError mapped to 409",
-      "4.2j officer UI (RiskCard) — model rendered from the server, advisory beside every band",
-      "4.2k review-schedule domain (never-reviewed ranks first; the due date itself counts as due)",
-      "4.2l ListDueReviews + provisional cadence, scheduled against the CURRENT rating",
-      "4.2m endpoints + officer screen at /admin/reviews (own nav entry, work queue untouched)"
+      "4.3a DocumentReview in the dossier domain + approval gate",
+      "4.3b ReviewDossierDocument use case, both decisions audited",
+      "4.3c Prisma columns + repository contract extended (caught the adapter dropping the review)",
+      "4.3d endpoints + ListDocumentsAwaitingReview",
+      "4.3e officer queue at /admin/documents"
     ],
-    "exit_criteria_remaining": []
+    "exit_criteria_remaining": [
+      "investor/org review workspaces",
+      "Investor 360 completion — the 10-tab layout named in information-architecture.md; the investor page today is one long scroll"
+    ]
   },
   "previous_milestones": [
+    {
+      "phase": "4.2",
+      "name": "Sanctions & PEP screening — a mock that cannot lie about itself",
+      "state": "Shipped and verified in a browser: an officer can screen an applicant and reads the outcome with a SIMULATED disclaimer beside it; an applicant with no declared name is refused with 409 and a readable reason. The adapter checks nothing and says so — simulated: true is hard-coded in the mock, and the disclaimer lives in the result, not in a log line. Results are append-only. Choosing a real provider remains an owner decision (OD-11). Risk rating now ships alongside it: an officer rates an applicant against a PROVISIONAL model (REQUIRES LOCAL LEGAL VALIDATION, shown on the card), the rating is advisory and decides nothing, and an unrated file reads as unrated rather than low. Periodic review scheduling — the third part of the roadmap's 4.2 line — is NOT built. Periodic review scheduling now completes the roadmap's 4.2 line: approved customers whose review has lapsed appear on their own screen, worst first, with never-reviewed ranked ahead of overdue. The cadence is provisional and shown as such. No scheduler runs and nothing is restricted — it is a work list.",
+      "completed_slices": [
+        "4.2a domain ScreeningResult + disclaimer",
+        "4.2b application ports + ScreenInvestor use case",
+        "4.2c Prisma persistence + shared repository contract (fake + Prisma)",
+        "4.2d HTTP endpoints + NothingToScreenError mapped to 409",
+        "4.2e officer UI (ScreeningCard) mounted on the investor page",
+        "4.2f risk-rating domain (empty assessment refused; boundary rounds up; band stored as decided)",
+        "4.2g provisional risk model + AssessRisk use case (points come from the catalogue, never the caller)",
+        "4.2h Prisma persistence + shared contract (fake + Prisma)",
+        "4.2i endpoints + IncompleteRiskAssessmentError mapped to 409",
+        "4.2j officer UI (RiskCard) — model rendered from the server, advisory beside every band",
+        "4.2k review-schedule domain (never-reviewed ranks first; the due date itself counts as due)",
+        "4.2l ListDueReviews + provisional cadence, scheduled against the CURRENT rating",
+        "4.2m endpoints + officer screen at /admin/reviews (own nav entry, work queue untouched)"
+      ],
+      "exit_criteria_remaining": []
+    },
     {
       "phase": "3.3",
       "name": "Assets belong to issuer organisations",
@@ -668,6 +684,8 @@
     "4.2 periodic review: how often must a customer be re-screened and re-rated (commonly risk-driven: e.g. high annually, low every few years)? The cadence is a policy input; the scheduling machinery is not built and is the remaining part of roadmap 4.2.",
     "4.2 review cadence: high 12 / medium 24 / low 36 months is a placeholder shape (higher band reviewed more often), not a policy. Confirm or replace in `application/risk/risk-model.ts`.",
     "4.2 periodic review: should a lapsed review DO anything beyond appearing on the list — a reminder to the officer, or a restriction on the customer? Today it does neither, deliberately; a restriction is a compliance-policy decision and a reminder needs an audience (the pg-boss scanner precedent used 'staff holding the permission').",
-    "4.2: should the periodic-review list join the ops work queue? Its contents (pending KYC + approvals + redemptions) were YOUR decision on 2026-07-28, so I built this as its own screen rather than widening that queue."
+    "4.2: should the periodic-review list join the ops work queue? Its contents (pending KYC + approvals + redemptions) were YOUR decision on 2026-07-28, so I built this as its own screen rather than widening that queue.",
+    "4.3: should a document decision need four eyes (a second reviewer), as payouts do? Today one officer accepting a document is enough to move an asset toward approval.",
+    "4.3: should the document review queue carry an SLA or ageing indicator? It currently shows what is outstanding but not how long it has waited."
   ]
 }

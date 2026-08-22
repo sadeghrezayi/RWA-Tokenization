@@ -455,6 +455,13 @@ export interface Dictionary {
   issuerNothingMissing: string;
   documentTooLarge: string;
   claimsOwedLabel: string;
+  documentReviewTitle: string;
+  documentReviewNone: string;
+  documentReviewAccept: string;
+  documentReviewReject: string;
+  documentReviewReasonLabel: string;
+  documentReviewReasonRequired: string;
+  documentReviewPreviouslyRejected: string;
   dueReviewsTitle: string;
   dueReviewsNone: string;
   dueReviewsNever: string;
@@ -1045,6 +1052,14 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerNothingMissing: "Every required document has been supplied.",
     documentTooLarge: "That file is larger than 10 MB.",
     claimsOwedLabel: "Approved investors awaiting an on-chain claim",
+    documentReviewTitle: "Document review",
+    documentReviewNone: "No document is waiting on a reviewer.",
+    documentReviewAccept: "Accept",
+    documentReviewReject: "Reject",
+    documentReviewReasonLabel: "Reason for rejection",
+    documentReviewReasonRequired:
+      "A rejection needs a reason — the issuer has to know what to fix.",
+    documentReviewPreviouslyRejected: "Previously rejected:",
     dueReviewsTitle: "Periodic reviews",
     dueReviewsNone: "No approved customer is due a review.",
     dueReviewsNever: "Has never been reviewed",
