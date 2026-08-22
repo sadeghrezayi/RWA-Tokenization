@@ -602,7 +602,12 @@ export interface ApiClient {
     assetId: string,
     totalAmountRial: string,
   ): Promise<{ distributionId: string }>;
-  payDistribution(officerToken: string, distributionId: string): Promise<void>;
+  // 4.1: this REQUESTS a payout; a second officer approves it before any money
+  // moves. The response says so, and the screen must not call it "paid".
+  payDistribution(
+    officerToken: string,
+    distributionId: string,
+  ): Promise<{ status: string; approvalId: string }>;
   holderRegistry(officerToken: string, assetId: string): Promise<HolderRegistryDto>;
   registryCsv(officerToken: string, assetId: string): Promise<CsvDownloadDto>;
   transfersCsv(officerToken: string, assetId: string): Promise<CsvDownloadDto>;
@@ -1273,9 +1278,8 @@ export const createApiClient = (
       json(call("/attestations", { method: "POST", token: officerToken, body })),
     listAttestations: (officerToken, assetId) =>
       json(call(`/attestations?assetId=${encodeURIComponent(assetId)}`, { token: officerToken })),
-    payDistribution: async (officerToken, distributionId) => {
-      await call(`/distributions/${distributionId}/pay`, { method: "POST", token: officerToken });
-    },
+    payDistribution: (officerToken, distributionId) =>
+      json(call(`/distributions/${distributionId}/pay`, { method: "POST", token: officerToken })),
     myHoldings: (token) => json(call("/transfers/holdings", { token })),
     getPortfolio: () => json(call("/portfolio/me")),
     transferTokens: (token, body) => json(call("/transfers", { method: "POST", token, body })),

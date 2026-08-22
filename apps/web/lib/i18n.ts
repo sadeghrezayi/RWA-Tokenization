@@ -207,6 +207,8 @@ export interface Dictionary {
   noDistributions: string;
   declareDistributionButton: string;
   payDistributionButton: string;
+  payoutNeedsTwo: string;
+  payoutRequested: string;
   reconciliationLabel: string;
   balancedLabel: string;
   kycStatusTitle: string;
@@ -754,7 +756,9 @@ export const dictionaries: Record<Locale, Dictionary> = {
     distributionsTitle: "Income Distributions",
     noDistributions: "No distributions yet.",
     declareDistributionButton: "Declare distribution",
-    payDistributionButton: "Pay",
+    payDistributionButton: "Request payout",
+    payoutNeedsTwo: "A payout credits every holder, so it needs a second officer's approval.",
+    payoutRequested: "Payout requested. It waits in Approvals for a second officer.",
     reconciliationLabel: "Reconciliation",
     balancedLabel: "balanced",
     kycStatusTitle: "KYC Status",

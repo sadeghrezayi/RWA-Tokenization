@@ -41,13 +41,19 @@ export const DistributionDetailPage = ({
     });
   }, [refresh, t.authFailed]);
 
+  const [requested, setRequested] = useState(false);
+
   const pay = () => {
     setError(undefined);
     void (async () => {
       try {
         await api.payDistribution(token, distributionId);
         await refresh();
-        toast.show(t.distributionPaid, "success");
+        // NOT "paid": the money has not moved. A second officer decides it in
+        // the approvals queue, and saying otherwise would be the screen lying
+        // about money (4.1).
+        setRequested(true);
+        toast.show(t.payoutRequested, "success");
       } catch (e) {
         setError(e instanceof ApiError ? e.message : t.authFailed);
       }
@@ -86,9 +92,21 @@ export const DistributionDetailPage = ({
           <Badge tone={status.tone}>{status.label}</Badge>
         </div>
         {distribution.state === "declared" && (
-          <Button type="button" onClick={pay}>
-            {t.payDistributionAction}
-          </Button>
+          <div className="stack stack--tight">
+            {/* Said BEFORE the click: an officer should learn the rule from the
+                screen, not from being surprised by the outcome. */}
+            <span className="text-sm muted" data-testid="payout-needs-two">
+              {t.payoutNeedsTwo}
+            </span>
+            <Button type="button" onClick={pay}>
+              {t.payDistributionAction}
+            </Button>
+            {requested && (
+              <span className="text-sm" data-testid="payout-requested">
+                {t.payoutRequested}
+              </span>
+            )}
+          </div>
         )}
       </div>
 

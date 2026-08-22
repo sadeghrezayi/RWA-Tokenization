@@ -65,7 +65,9 @@ describe("DistributionsPanel", () => {
     });
   });
 
-  it("shows_reconciliation_and_pays_a_declared_distribution", async () => {
+  // 4.1: this REQUESTS the payout — a second officer approves before money
+  // moves — so what is asserted is that the request was made.
+  it("shows_reconciliation_and_requests_a_payout_for_a_declared_distribution", async () => {
     const payDistribution = vi.fn().mockResolvedValue(undefined);
     const api = apiWith({
       listDistributions: vi.fn().mockResolvedValue([distribution({})]),
@@ -74,21 +76,21 @@ describe("DistributionsPanel", () => {
     render(<DistributionsPanel locale="en" api={api} token="tok" />);
 
     expect(await screen.findByText(/balanced/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Pay" }));
+    await userEvent.click(screen.getByRole("button", { name: /request payout/i }));
 
     await waitFor(() => {
       expect(payDistribution).toHaveBeenCalledWith("tok", "dist-1");
     });
   });
 
-  it("hides_pay_for_an_already_paid_distribution", async () => {
+  it("hides_the_payout_request_for_an_already_paid_distribution", async () => {
     const api = apiWith({
       listDistributions: vi.fn().mockResolvedValue([distribution({ state: "paid" })]),
     });
     render(<DistributionsPanel locale="en" api={api} token="tok" />);
 
     expect(await screen.findByText("Paid")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Pay" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /request payout/i })).not.toBeInTheDocument();
   });
 
   it("shows_the_api_error_when_paying_fails", async () => {
@@ -98,7 +100,7 @@ describe("DistributionsPanel", () => {
     });
     render(<DistributionsPanel locale="en" api={api} token="tok" />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Pay" }));
+    await userEvent.click(await screen.findByRole("button", { name: /request payout/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent("already paid");
   });
 });

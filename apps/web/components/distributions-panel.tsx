@@ -127,10 +127,12 @@ export const DistributionsPanel = ({
                             type="button"
                             size="sm"
                             onClick={() => {
-                              guard(
-                                () => api.payDistribution(token, distribution.id),
-                                t.distributionPaid,
-                              );
+                              // 4.1: this REQUESTS the payout. Saying "paid"
+                              // here would tell an officer money moved when it
+                              // has not.
+                              guard(async () => {
+                                await api.payDistribution(token, distribution.id);
+                              }, t.payoutRequested);
                             }}
                           >
                             {t.payDistributionButton}
