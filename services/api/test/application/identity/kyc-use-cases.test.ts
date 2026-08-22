@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { RegisterInvestor } from "../../../src/application/identity/register-investor.js";
 import { StartKycReview } from "../../../src/application/identity/start-kyc-review.js";
 import { ApproveKyc } from "../../../src/application/identity/approve-kyc.js";
+import { KYC_CLAIM_OUTBOX_TYPE } from "../../../src/application/identity/kyc-claim-outbox.js";
 import { ReissueKycClaim } from "../../../src/application/identity/reissue-kyc-claim.js";
 import { ClaimIssuanceFailedError } from "../../../src/application/identity/errors.js";
 import { RejectKyc } from "../../../src/application/identity/reject-kyc.js";
@@ -11,6 +12,7 @@ import {
   FakePasswordHasher,
   InMemoryInvestorRepository,
   RecordingClaimIssuer,
+  RecordingOutbox,
   SequentialIdGenerator,
 } from "../../fakes/identity-fakes.js";
 import { RecordingKycDecisionNotifier } from "../../fakes/notification-fakes.js";
@@ -18,6 +20,7 @@ import { RecordingKycDecisionNotifier } from "../../fakes/notification-fakes.js"
 const setup = async () => {
   const investors = new InMemoryInvestorRepository();
   const claims = new RecordingClaimIssuer();
+  const outbox = new RecordingOutbox();
   const kycNotifier = new RecordingKycDecisionNotifier();
   const register = new RegisterInvestor(
     investors,
@@ -31,10 +34,11 @@ const setup = async () => {
   return {
     investors,
     claims,
+    outbox,
     kycNotifier,
     investorId,
     startReview: new StartKycReview(investors),
-    approve: new ApproveKyc(investors, claims, kycNotifier),
+    approve: new ApproveKyc(investors, outbox, kycNotifier),
     reissue: new ReissueKycClaim(investors, claims),
     reject: new RejectKyc(investors, kycNotifier),
   };
@@ -63,55 +67,34 @@ describe("StartKycReview", () => {
 
 describe("ApproveKyc", () => {
   it("persists_approval_and_issues_the_onchain_claim", async () => {
-    const { investors, claims, investorId, startReview, approve } = await setup();
+    const { investors, outbox, investorId, startReview, approve } = await setup();
     await submitted(investors, investorId);
     await startReview.execute({ investorId });
 
     await approve.execute({ investorId });
 
     expect(await kycStateOf(investors, investorId)).toBe("approved");
-    expect(claims.issuedFor).toEqual([investorId]);
+    // P0-2: issued by the drainer now, so what the request guarantees is that
+    // the instruction is durably recorded — in the same transaction as the
+    // decision, which is the point of an outbox.
+    expect(outbox.messages).toHaveLength(1);
+    expect(outbox.messages[0]?.payload).toEqual({ investorId });
   });
 
-  // K-2: the approval is persisted BEFORE the chain is touched, precisely so a
-  // devnet outage cannot revert a compliance decision. But the chain failure
-  // then aborted everything after it — so the investor was never told about a
-  // decision that had already been committed, and the officer got a bare 500.
-  it("tells the investor even when the chain claim cannot be issued", async () => {
-    const { investors, claims, kycNotifier, investorId, startReview, approve } = await setup();
-    await submitted(investors, investorId);
-    await startReview.execute({ investorId });
-    claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
-
-    await expect(approve.execute({ investorId })).rejects.toThrow(ClaimIssuanceFailedError);
-
-    // The decision stands and the person it concerns has been told.
-    expect(await kycStateOf(investors, investorId)).toBe("approved");
-    expect(kycNotifier.notices).toHaveLength(1);
-  });
-
-  it("says the approval stands and what is left to do, not just that something broke", async () => {
-    const { investors, claims, investorId, startReview, approve } = await setup();
-    await submitted(investors, investorId);
-    await startReview.execute({ investorId });
-    claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
-
-    const failure = await approve.execute({ investorId }).catch((error: unknown) => error);
-
-    const message = (failure as Error).message;
-    // An officer reading this must learn three things: the approval is
-    // recorded, the chain part is not, and it can be retried.
-    expect(message).toMatch(/approv/i);
-    expect(message).toMatch(/chain|claim/i);
-    expect(message).toMatch(/retr/i);
-  });
-
+  // The two tests that stood here checked what happened when the chain was
+  // unreachable DURING approval: that the investor was still notified, and that
+  // the officer got a message saying the approval stood. P0-2 removed that
+  // situation rather than improving it — approval no longer touches the chain,
+  // so there is no failure left to report. What those tests protected is now
+  // covered by "still approves when the chain is unreachable" and by the
+  // drainer's own retry and dead-lettering.
+  //
   it("does_not_issue_a_claim_when_the_transition_is_invalid", async () => {
-    const { investors, claims, kycNotifier, investorId, approve } = await setup();
+    const { investors, outbox, kycNotifier, investorId, approve } = await setup();
 
     await expect(approve.execute({ investorId })).rejects.toThrow(InvalidKycTransitionError);
 
-    expect(claims.issuedFor).toEqual([]);
+    expect(outbox.messages).toEqual([]);
     expect(await kycStateOf(investors, investorId)).toBe("draft");
     expect(kycNotifier.notices).toHaveLength(0); // nothing decided → nobody told
   });
@@ -128,17 +111,19 @@ describe("ApproveKyc", () => {
     ]);
   });
 
-  it("keeps_the_persisted_approval_when_claim_issuance_fails", async () => {
-    // Decided ordering: persist approval first, then issue the claim, so a chain
-    // outage never silently reverts a compliance decision; issuance is retried.
-    const { investors, claims, investorId, startReview, approve } = await setup();
+  it("keeps_the_persisted_approval_whatever_the_chain_is_doing", async () => {
+    // The ordering this once protected — persist first, then issue, so an
+    // outage could not revert a decision — is now structural: approval does not
+    // issue anything. It records the instruction and returns.
+    const { investors, claims, outbox, investorId, startReview, approve } = await setup();
     await submitted(investors, investorId);
     await startReview.execute({ investorId });
     claims.failWith = new Error("devnet unreachable");
 
-    await expect(approve.execute({ investorId })).rejects.toThrow("devnet unreachable");
+    await expect(approve.execute({ investorId })).resolves.toBeUndefined();
 
     expect(await kycStateOf(investors, investorId)).toBe("approved");
+    expect(outbox.messages).toHaveLength(1);
   });
 
   it("throws_for_an_unknown_investor", async () => {
@@ -189,11 +174,12 @@ describe("ReissueKycClaim", () => {
     const { investors, claims, investorId, startReview, approve, reissue } = await setup();
     await submitted(investors, investorId);
     await startReview.execute({ investorId });
-    claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
-    await expect(approve.execute({ investorId })).rejects.toThrow();
+    // Approval enqueues; nothing has reached the chain yet. This use case is
+    // the manual path for the case where the drainer gave up and the message
+    // dead-lettered — an officer's way to say "try that again now".
+    await approve.execute({ investorId });
     expect(claims.issuedFor).toEqual([]);
 
-    claims.failWith = undefined;
     await reissue.execute({ investorId });
 
     expect(claims.issuedFor).toEqual([investorId]);
@@ -218,5 +204,40 @@ describe("ReissueKycClaim", () => {
     claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
 
     await expect(reissue.execute({ investorId })).rejects.toThrow(ClaimIssuanceFailedError);
+  });
+});
+
+// P0-2, for the KYC claim: the chain write moves behind the transactional
+// outbox (decision B7 — "the outbox is the durability mechanism regardless of
+// trigger"). An officer's approval must not fail because a devnet is down, and
+// the claim must not be lost because it was.
+describe("ApproveKyc via the outbox", () => {
+  it("enqueues the claim instead of reaching for the chain in the request", async () => {
+    const { investors, claims, outbox, investorId, startReview, approve } = await setup();
+    await submitted(investors, investorId);
+    await startReview.execute({ investorId });
+
+    await approve.execute({ investorId });
+
+    // Nothing touched the chain inside the request.
+    expect(claims.issuedFor).toEqual([]);
+    expect(outbox.messages.map((message: { type: string }) => message.type)).toContain(
+      KYC_CLAIM_OUTBOX_TYPE,
+    );
+    expect(outbox.messages[0]?.payload).toEqual({ investorId });
+  });
+
+  it("still approves when the chain is unreachable, because it never asked", async () => {
+    const { investors, claims, kycNotifier, investorId, startReview, approve } = await setup();
+    await submitted(investors, investorId);
+    await startReview.execute({ investorId });
+    claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
+
+    // The whole point of P0-2: a dependency being down is not the officer's
+    // problem, and the decision is not lost.
+    await expect(approve.execute({ investorId })).resolves.toBeUndefined();
+
+    expect(await kycStateOf(investors, investorId)).toBe("approved");
+    expect(kycNotifier.notices).toHaveLength(1);
   });
 });
