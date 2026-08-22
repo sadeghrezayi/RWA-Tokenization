@@ -16,7 +16,11 @@ export class OutboxDrainWorker implements OnModuleInit, OnModuleDestroy {
   onModuleInit(): void {
     const intervalMs = Number(process.env.OUTBOX_DRAIN_INTERVAL_MS ?? 0);
     if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
-      this.log.log("outbox drain worker disabled (set OUTBOX_DRAIN_INTERVAL_MS > 0 to enable)");
+      this.log.warn(
+        "outbox drain worker DISABLED — queued side effects will never happen. Since P0-2 that " +
+          "includes the ONCHAINID claim a KYC approval records, so approved investors will not be " +
+          "able to hold tokens. Set OUTBOX_DRAIN_INTERVAL_MS > 0 outside tests",
+      );
       return;
     }
     this.timer = setInterval(() => void this.tick(), intervalMs);

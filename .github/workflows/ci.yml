@@ -203,6 +203,9 @@ jobs:
         env:
           WEB_ORIGIN: http://localhost:3000
           AUTH_TOKEN_SECRET: ci-layout-secret
+          # P0-2: the KYC claim is enqueued now, so the exit journey's mint has
+          # no ONCHAINID to register against unless something drains the outbox.
+          OUTBOX_DRAIN_INTERVAL_MS: "500"
           # Both sides of the ISR purge: without it a freshly published
           # offering stays out of the public catalog for the whole revalidate
           # window, and the exit journey cannot see what it just published.
