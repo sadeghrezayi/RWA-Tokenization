@@ -5,6 +5,7 @@ import { DomainErrorFilter } from "../../src/infrastructure/http/domain-error.fi
 import { InsufficientFundsError } from "../../src/application/offerings/errors.js";
 import { ClaimIssuanceFailedError } from "../../src/application/identity/errors.js";
 import { NothingToScreenError } from "../../src/application/screening/errors.js";
+import { IncompleteRiskAssessmentError } from "../../src/application/risk/errors.js";
 
 const capture = () => {
   const json = vi.fn();
@@ -88,6 +89,24 @@ describe("DomainErrorFilter", () => {
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({ message: "already confirmed" }) as unknown,
     );
+    expect(log.error).not.toHaveBeenCalled();
+  });
+
+  // 4.2: a partial risk rating is a refusal, not a server fault. Unmapped it
+  // reached the officer as a bare 500, which tells them nothing about the fact
+  // that they simply have a factor left to answer.
+  it("maps an incomplete risk assessment to 409, and says which factor is missing", () => {
+    const log = { error: vi.fn() };
+    const { host, response, json } = capture();
+
+    new DomainErrorFilter(log).catch(
+      new IncompleteRiskAssessmentError('"Declared source of funds" has not been answered'),
+      host,
+    );
+
+    expect(response.status).toHaveBeenCalledWith(409);
+    expect((json.mock.calls[0]?.[0] as { message: string }).message).toMatch(/source of funds/i);
+    // A refusal that is working as designed is not an incident.
     expect(log.error).not.toHaveBeenCalled();
   });
 

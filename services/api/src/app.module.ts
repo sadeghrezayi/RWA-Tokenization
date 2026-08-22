@@ -6,6 +6,10 @@ import { ApproveKyc } from "./application/identity/approve-kyc.js";
 import { ReissueKycClaim } from "./application/identity/reissue-kyc-claim.js";
 import { ScreenInvestor } from "./application/screening/screen-investor.js";
 import { ListScreenings } from "./application/screening/screening-views.js";
+import { AssessRisk } from "./application/risk/assess-risk.js";
+import { ListRiskAssessments } from "./application/risk/risk-views.js";
+import type { RiskAssessmentRepository } from "./application/risk/ports.js";
+import { PrismaRiskAssessmentRepository } from "./infrastructure/persistence/prisma-risk-assessment-repository.js";
 import { MockSanctionsScreening } from "./infrastructure/screening/mock-sanctions-screening.js";
 import { PrismaScreeningRepository } from "./infrastructure/persistence/prisma-screening-repository.js";
 import type { SanctionsScreening, ScreeningRepository } from "./application/screening/ports.js";
@@ -349,6 +353,7 @@ export const EVIDENCE_STORE = "EVIDENCE_STORE";
 export const STEP_ANSWER_STORE = "STEP_ANSWER_STORE";
 export const SANCTIONS_SCREENING = "SANCTIONS_SCREENING";
 export const SCREENING_REPOSITORY = "SCREENING_REPOSITORY";
+export const RISK_ASSESSMENT_REPOSITORY = "RISK_ASSESSMENT_REPOSITORY";
 export const FUNDING_REPOSITORY = "FUNDING_REPOSITORY";
 export const PAYMENT_INSTRUCTIONS = "PAYMENT_INSTRUCTIONS";
 export const PERSONAL_DATA_CIPHER = "PERSONAL_DATA_CIPHER";
@@ -589,6 +594,22 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       provide: ListScreenings,
       useFactory: (results: ScreeningRepository) => new ListScreenings(results),
       inject: [SCREENING_REPOSITORY],
+    },
+    {
+      provide: RISK_ASSESSMENT_REPOSITORY,
+      useFactory: (prisma: PrismaService, ids: IdGenerator) =>
+        new PrismaRiskAssessmentRepository(prisma, ids),
+      inject: [SCOPED_PRISMA, ID_GENERATOR],
+    },
+    {
+      provide: AssessRisk,
+      useFactory: (assessments: RiskAssessmentRepository) => new AssessRisk(assessments),
+      inject: [RISK_ASSESSMENT_REPOSITORY],
+    },
+    {
+      provide: ListRiskAssessments,
+      useFactory: (assessments: RiskAssessmentRepository) => new ListRiskAssessments(assessments),
+      inject: [RISK_ASSESSMENT_REPOSITORY],
     },
     {
       provide: ReissueKycClaim,

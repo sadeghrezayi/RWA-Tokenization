@@ -1,0 +1,9 @@
+import type { RiskAssessment } from "../../domain/risk/risk-rating.js";
+
+// Append-only, exactly like screening results: a re-rating is a new judgement
+// about a new moment, and overwriting the old one would erase the reasoning a
+// reviewer may need to defend later.
+export interface RiskAssessmentRepository {
+  save(assessment: RiskAssessment): Promise<void>;
+  findForSubject(subjectId: string): Promise<RiskAssessment[]>;
+}

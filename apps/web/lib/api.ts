@@ -220,6 +220,38 @@ export interface ScreeningDto {
   disclaimer?: string;
 }
 
+// 4.2. The model is fetched, never hard-coded here: the server scores what it
+// publishes, so a second copy in the web app could only ever drift from it.
+export interface RiskFactorOptionDto {
+  value: string;
+  label: string;
+  points: number;
+}
+
+export interface RiskFactorDto {
+  id: string;
+  label: string;
+  help: string;
+  options: RiskFactorOptionDto[];
+}
+
+export interface RiskModelDto {
+  provisional: boolean;
+  notice: string;
+  thresholds: { medium: number; high: number };
+  factors: RiskFactorDto[];
+}
+
+export interface RiskAssessmentDto {
+  score: number;
+  band: "low" | "medium" | "high";
+  answers: { factorId: string; answer: string; points: number }[];
+  assessedBy: string;
+  assessedAt: string;
+  // What the band does and does not mean, in the API's words rather than ours.
+  advisory: string;
+}
+
 export interface SystemHealthDto {
   overall: "healthy" | "degraded";
   services: { api: string; postgres: string; ipfs: string; chain: string };
@@ -583,6 +615,14 @@ export interface ApiClient {
   // the API rather than being composed here, so every reader gets it.
   screenInvestor(officerToken: string, investorId: string): Promise<ScreeningDto>;
   investorScreenings(officerToken: string, investorId: string): Promise<ScreeningDto[]>;
+  // 4.2 risk rating. The form renders whatever `riskModel` returns.
+  riskModel(officerToken: string): Promise<RiskModelDto>;
+  assessRisk(
+    officerToken: string,
+    investorId: string,
+    answers: Record<string, string>,
+  ): Promise<RiskAssessmentDto>;
+  investorRiskAssessments(officerToken: string, investorId: string): Promise<RiskAssessmentDto[]>;
   systemHealth(officerToken: string): Promise<SystemHealthDto>;
   publishAttestation(
     officerToken: string,
@@ -1289,6 +1329,22 @@ export const createApiClient = (
     investorScreenings: (officerToken, investorId) =>
       json(
         call(`/investors/${encodeURIComponent(investorId)}/screenings`, { token: officerToken }),
+      ),
+    riskModel: (officerToken) =>
+      json(call("/investors/risk-model/current", { token: officerToken })),
+    assessRisk: (officerToken, investorId, answers) =>
+      json(
+        call(`/investors/${encodeURIComponent(investorId)}/risk-assessments`, {
+          method: "POST",
+          token: officerToken,
+          body: { answers },
+        }),
+      ),
+    investorRiskAssessments: (officerToken, investorId) =>
+      json(
+        call(`/investors/${encodeURIComponent(investorId)}/risk-assessments`, {
+          token: officerToken,
+        }),
       ),
     reissueKycClaim: async (officerToken, investorId) => {
       await call(`/investors/${encodeURIComponent(investorId)}/kyc/reissue-claim`, {

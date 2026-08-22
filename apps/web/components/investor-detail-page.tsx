@@ -8,6 +8,7 @@ import { dictionaries } from "../lib/i18n";
 import type { Locale } from "../lib/i18n";
 import { OnboardingReviewCard } from "./admin/onboarding-review-card";
 import { ScreeningCard } from "./admin/screening-card";
+import { RiskCard } from "./admin/risk-card";
 import { Address } from "./ui/address";
 import { Badge } from "./ui/badge";
 import { Button, Card, EmptyState, Field, SelectField, Stat } from "./ui/primitives";
@@ -143,6 +144,10 @@ export const InvestorDetailPage = ({
           together — and because a screening that nobody can see is not a
           control. */}
       <ScreeningCard locale={locale} api={api} token={token} investorId={investorId} />
+      {/* Directly under the screening it partly rests on: the officer records
+          what screening returned as one of the factors, so the two are read
+          together. */}
+      <RiskCard locale={locale} api={api} token={token} investorId={investorId} />
 
       <Card title={t.relationshipSectionLabel}>
         <div className="stack">

@@ -36,6 +36,8 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
     // Children first: screenings and identities both reference investors with
     // ON DELETE RESTRICT, so deleting the parent while either exists fails.
     await prisma.screeningResult.deleteMany();
+    // Same ON DELETE RESTRICT trap as screenings: clear before the parent.
+    await prisma.riskAssessment.deleteMany();
     await prisma.onchainIdentity.deleteMany();
     await prisma.investor.deleteMany();
     claims.issuedFor.length = 0;
@@ -184,6 +186,81 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
       .post(`/investors/${investorId}/screenings`)
       .set("authorization", `Bearer ${officer}`)
       .expect(409);
+  });
+
+  it("rates an applicant against the model the server publishes, and keeps the reasoning", async () => {
+    const { investorId } = await registerAndLogin();
+    const officer = await officerToken();
+
+    const model = await request(server)
+      .get("/investors/risk-model/current")
+      .set("authorization", `Bearer ${officer}`)
+      .expect(200);
+    const published = model.body as {
+      provisional: boolean;
+      notice: string;
+      factors: { id: string; options: { value: string }[] }[];
+    };
+    expect(published.provisional).toBe(true);
+    expect(published.notice).toMatch(/REQUIRES LOCAL LEGAL VALIDATION/);
+
+    // Answer exactly what the server asked for, using the server's own options.
+    const answers: Record<string, string> = {};
+    for (const factor of published.factors) {
+      answers[factor.id] = factor.options[0]?.value ?? "";
+    }
+
+    const rated = await request(server)
+      .post(`/investors/${investorId}/risk-assessments`)
+      .set("authorization", `Bearer ${officer}`)
+      .send({ answers })
+      .expect(201);
+    const view = rated.body as {
+      band: string;
+      answers: unknown[];
+      assessedBy: string;
+      advisory: string;
+    };
+    expect(view.band).toBe("low");
+    expect(view.answers).toHaveLength(published.factors.length);
+    // Attributed to the signed-in officer, not to anything the client sent.
+    expect(view.assessedBy).not.toBe("");
+    // And it says, in the response itself, that it decides nothing.
+    expect(view.advisory).toMatch(/advisory/i);
+
+    const history = await request(server)
+      .get(`/investors/${investorId}/risk-assessments`)
+      .set("authorization", `Bearer ${officer}`)
+      .expect(200);
+    expect((history.body as unknown[]).length).toBe(1);
+  });
+
+  it("refuses a partial rating rather than filing one that scores low for being incomplete", async () => {
+    const { investorId } = await registerAndLogin();
+    const officer = await officerToken();
+
+    await request(server)
+      .post(`/investors/${investorId}/risk-assessments`)
+      .set("authorization", `Bearer ${officer}`)
+      .send({ answers: { geography: "domestic" } })
+      .expect(409);
+
+    // Nothing was filed: a refused rating must not leave a trace that reads
+    // like a judgement.
+    const history = await request(server)
+      .get(`/investors/${investorId}/risk-assessments`)
+      .set("authorization", `Bearer ${officer}`)
+      .expect(200);
+    expect(history.body).toEqual([]);
+  });
+
+  it("keeps risk ratings away from the investor themselves", async () => {
+    const { investorId, token } = await registerAndLogin();
+
+    await request(server)
+      .get(`/investors/${investorId}/risk-assessments`)
+      .set("authorization", `Bearer ${token}`)
+      .expect(403);
   });
 
   it("keeps screenings away from the investor themselves", async () => {

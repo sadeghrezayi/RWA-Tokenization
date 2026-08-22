@@ -455,6 +455,14 @@ export interface Dictionary {
   issuerNothingMissing: string;
   documentTooLarge: string;
   claimsOwedLabel: string;
+  riskTitle: string;
+  riskSubmitButton: string;
+  riskNone: string;
+  riskScoreLabel: string;
+  riskAssessedByLabel: string;
+  riskBandLow: string;
+  riskBandMedium: string;
+  riskBandHigh: string;
   screeningTitle: string;
   screeningRunButton: string;
   screeningNone: string;
@@ -1031,6 +1039,14 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerNothingMissing: "Every required document has been supplied.",
     documentTooLarge: "That file is larger than 10 MB.",
     claimsOwedLabel: "Approved investors awaiting an on-chain claim",
+    riskTitle: "Customer risk rating",
+    riskSubmitButton: "Record this rating",
+    riskNone: "This applicant has not been rated. That is not the same as a low rating.",
+    riskScoreLabel: "Score",
+    riskAssessedByLabel: "Rated by",
+    riskBandLow: "Low",
+    riskBandMedium: "Medium",
+    riskBandHigh: "High",
     screeningTitle: "Sanctions & PEP screening",
     screeningRunButton: "Screen this applicant",
     screeningNone: "This applicant has not been screened.",

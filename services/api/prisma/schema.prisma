@@ -51,6 +51,7 @@ model Tenant {
   issuerMemberships      IssuerMembership[]
 
   screeningResults ScreeningResult[]
+  riskAssessments  RiskAssessment[]
   @@map("tenants")
 }
 
@@ -505,6 +506,7 @@ model Investor {
   onchainIdentity    OnchainIdentity?
 
   screeningResults ScreeningResult[]
+  riskAssessments  RiskAssessment[]
   @@unique([tenantId, email])
   @@map("investors")
 }
@@ -737,6 +739,28 @@ model IssuerMembership {
 // stored with the outcome because a result travels — into a report, into a
 // regulator's hands — and must always be able to say what produced it. A row
 // that says "clear" without saying who checked is a liability, not a record.
+// A rating a person gave a file at one moment, with the answers behind it (4.2).
+// Append-only: a re-rating is a new judgement, not an edit of the old one, and
+// `band` is stored as DECIDED rather than recomputed — the thresholds are
+// configuration and will be re-tuned.
+model RiskAssessment {
+  id         String   @id
+  tenantId   String   @default("default") @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  subjectId  String   @map("subject_id")
+  investor   Investor @relation(fields: [subjectId], references: [id])
+  answers    Json
+  score      Int
+  band       String
+  assessedBy String   @map("assessed_by")
+  assessedAt DateTime @map("assessed_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([subjectId])
+  @@map("risk_assessments")
+}
+
 model ScreeningResult {
   id         String   @id
   tenantId   String   @default("default") @map("tenant_id")

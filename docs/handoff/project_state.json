@@ -573,13 +573,21 @@
   "current_milestone": {
     "phase": "4.2",
     "name": "Sanctions & PEP screening — a mock that cannot lie about itself",
-    "state": "Shipped and verified in a browser: an officer can screen an applicant and reads the outcome with a SIMULATED disclaimer beside it; an applicant with no declared name is refused with 409 and a readable reason. The adapter checks nothing and says so — simulated: true is hard-coded in the mock, and the disclaimer lives in the result, not in a log line. Results are append-only. Choosing a real provider remains an owner decision (OD-11).",
+    "state": "Shipped and verified in a browser: an officer can screen an applicant and reads the outcome with a SIMULATED disclaimer beside it; an applicant with no declared name is refused with 409 and a readable reason. The adapter checks nothing and says so — simulated: true is hard-coded in the mock, and the disclaimer lives in the result, not in a log line. Results are append-only. Choosing a real provider remains an owner decision (OD-11). Risk rating now ships alongside it: an officer rates an applicant against a PROVISIONAL model (REQUIRES LOCAL LEGAL VALIDATION, shown on the card), the rating is advisory and decides nothing, and an unrated file reads as unrated rather than low. Periodic review scheduling — the third part of the roadmap's 4.2 line — is NOT built.",
     "completed_slices": [
       "4.2a domain ScreeningResult + disclaimer",
       "4.2b application ports + ScreenInvestor use case",
       "4.2c Prisma persistence + shared repository contract (fake + Prisma)",
       "4.2d HTTP endpoints + NothingToScreenError mapped to 409",
-      "4.2e officer UI (ScreeningCard) mounted on the investor page"
+      "4.2e officer UI (ScreeningCard) mounted on the investor page",
+      "4.2f risk-rating domain (empty assessment refused; boundary rounds up; band stored as decided)",
+      "4.2g provisional risk model + AssessRisk use case (points come from the catalogue, never the caller)",
+      "4.2h Prisma persistence + shared contract (fake + Prisma)",
+      "4.2i endpoints + IncompleteRiskAssessmentError mapped to 409",
+      "4.2j officer UI (RiskCard) — model rendered from the server, advisory beside every band"
+    ],
+    "exit_criteria_remaining": [
+      "periodic review scheduling (roadmap 4.2): re-screening and re-rating cadence. The cadence itself is a compliance-policy input, not an engineering choice."
     ]
   },
   "previous_milestones": [
@@ -654,6 +662,8 @@
     "Should draft offerings be visible to signed-in investors?",
     "K-27 remainder: the 20/min credential budget is per-IP, so a CGNAT population shares one login budget (K-9). Per-account throttling, a shared store, or accept-for-pilot?",
     "4.2: which real sanctions/PEP provider (if any) should replace the mock? Until one is chosen the platform screens nobody, and every result is labelled SIMULATED in the officer's view.",
-    "3.3 exit criterion, still unmet: how much of the asset submission wizard should exist (drafts, completeness, validation, review comments, status history)? A scope call, not an engineering one — carried forward from the 3.3 milestone."
+    "3.3 exit criterion, still unmet: how much of the asset submission wizard should exist (drafts, completeness, validation, review comments, status history)? A scope call, not an engineering one — carried forward from the 3.3 milestone.",
+    "4.2 risk model: the factors and weights in `application/risk/risk-model.ts` are a generic placeholder I wrote, NOT a methodology. Which factors, which weights, and where the medium/high thresholds sit are compliance-policy inputs — replace them before any production use.",
+    "4.2 periodic review: how often must a customer be re-screened and re-rated (commonly risk-driven: e.g. high annually, low every few years)? The cadence is a policy input; the scheduling machinery is not built and is the remaining part of roadmap 4.2."
   ]
 }

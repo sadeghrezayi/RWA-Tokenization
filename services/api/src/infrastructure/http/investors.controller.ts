@@ -11,6 +11,11 @@ import {
 import { ApproveKyc } from "../../application/identity/approve-kyc.js";
 import { ReissueKycClaim } from "../../application/identity/reissue-kyc-claim.js";
 import { ScreenInvestor } from "../../application/screening/screen-investor.js";
+import { AssessRisk } from "../../application/risk/assess-risk.js";
+import { RISK_MODEL } from "../../application/risk/risk-model.js";
+import type { RiskModel } from "../../application/risk/risk-model.js";
+import { ListRiskAssessments, toRiskAssessmentView } from "../../application/risk/risk-views.js";
+import type { RiskAssessmentView } from "../../application/risk/risk-views.js";
 import { ListScreenings, toScreeningView } from "../../application/screening/screening-views.js";
 import type { ScreeningView } from "../../application/screening/screening-views.js";
 import { GetInvestor } from "../../application/identity/get-investor.js";
@@ -37,6 +42,32 @@ const requireString = (body: unknown, field: string): string => {
   return value;
 };
 
+// The @RequirePermission(kyc.review) guard guarantees the officer kind; this
+// narrows the union so a rating is always attributed to a real person.
+const officerIdOf = (principal: Principal): string => {
+  if (principal.kind !== "officer") {
+    throw new BadRequestException("only a reviewing officer can rate an applicant");
+  }
+  return principal.officerId;
+};
+
+// Answers arrive as { factorId: answer }. Anything that is not a string pair is
+// refused outright rather than coerced — a coerced answer is an invented one.
+const requireAnswers = (body: unknown): Record<string, string> => {
+  const given = (body as Record<string, unknown> | null | undefined)?.answers;
+  if (typeof given !== "object" || given === null || Array.isArray(given)) {
+    throw new BadRequestException(`"answers" is required and must be an object`);
+  }
+  const answers: Record<string, string> = {};
+  for (const [factorId, answer] of Object.entries(given as Record<string, unknown>)) {
+    if (typeof answer !== "string") {
+      throw new BadRequestException(`answer for "${factorId}" must be a string`);
+    }
+    answers[factorId] = answer;
+  }
+  return answers;
+};
+
 const investorIdOf = (principal: Principal): string => {
   // The guard enforces the role; this narrows the union for the type system.
   if (principal.kind !== "investor") throw new BadRequestException();
@@ -54,6 +85,8 @@ export class InvestorsController {
     private readonly reissueKycClaim: ReissueKycClaim,
     private readonly screenInvestor: ScreenInvestor,
     private readonly listScreenings: ListScreenings,
+    private readonly assessRisk: AssessRisk,
+    private readonly listRiskAssessments: ListRiskAssessments,
     private readonly rejectKyc: RejectKyc,
     private readonly getInvestor: GetInvestor,
     private readonly listPendingKyc: ListPendingKyc,
@@ -128,9 +161,6 @@ export class InvestorsController {
     return this.approveKyc.execute({ investorId: id });
   }
 
-  // K-2: recovery, not a decision. An approval whose on-chain claim failed
-  // leaves an investor approved and unable to hold anything; this is the only
-  // way back, short of editing the database.
   // 4.2: run a sanctions/PEP check. Same permission as the other KYC review
   // actions — screening is part of reviewing an applicant, not a separate power.
   @RequirePermission(PERMISSIONS.KYC_REVIEW)
@@ -145,6 +175,45 @@ export class InvestorsController {
     return this.listScreenings.execute({ investorId: id });
   }
 
+  // 4.2: rate an applicant against the configured risk model. The answers come
+  // from the officer; the POINTS never do — they are read from the model
+  // server-side, so nobody able to reach this endpoint can move a band without
+  // it being visible in the model everyone else is scored against.
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
+  @Post(":id/risk-assessments")
+  async assessRiskFor(
+    @Param("id") id: string,
+    @Body() body: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<RiskAssessmentView> {
+    return toRiskAssessmentView(
+      await this.assessRisk.execute({
+        subjectId: id,
+        answers: requireAnswers(body),
+        // Attributed to the signed-in officer, never to anything the client
+        // sent: a risk judgement someone else could sign for is not reviewable.
+        assessedBy: officerIdOf(principal),
+      }),
+    );
+  }
+
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
+  @Get(":id/risk-assessments")
+  riskAssessments(@Param("id") id: string): Promise<RiskAssessmentView[]> {
+    return this.listRiskAssessments.execute({ subjectId: id });
+  }
+
+  // The model itself, so the officer's form renders exactly what the server
+  // scores — one definition, no second copy in the web app to drift from it.
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
+  @Get("risk-model/current")
+  riskModel(): RiskModel {
+    return RISK_MODEL;
+  }
+
+  // K-2: recovery, not a decision. An approval whose on-chain claim failed
+  // leaves an investor approved and unable to hold anything; this is the only
+  // way back, short of editing the database.
   @RequirePermission(PERMISSIONS.KYC_REVIEW)
   @Post(":id/kyc/reissue-claim")
   @HttpCode(204)
