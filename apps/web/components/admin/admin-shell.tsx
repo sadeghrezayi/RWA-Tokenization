@@ -72,6 +72,14 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
           permission: PERMISSIONS.KYC_REVIEW,
         },
         {
+          // 4.2: its own entry rather than a fourth item in the ops work queue
+          // — the queue's contents were settled as a product decision.
+          href: `${base}/reviews`,
+          label: t.dueReviewsTitle,
+          icon: "◷",
+          permission: PERMISSIONS.KYC_REVIEW,
+        },
+        {
           // Confirming a deposit IS crediting the ledger, so it is gated on the
           // same permission as a direct credit.
           href: `${base}/deposits`,

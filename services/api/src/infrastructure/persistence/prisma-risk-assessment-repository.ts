@@ -66,22 +66,43 @@ export class PrismaRiskAssessmentRepository implements RiskAssessmentRepository 
     });
   }
 
+  // DISTINCT ON in Prisma's terms: order by subject then newest-first, and take
+  // the first row of each subject's run. Doing this in the database rather than
+  // loading every assessment ever made keeps the review list O(customers), not
+  // O(assessments) — the table only ever grows, since nothing here is deleted.
+  async latestPerSubject(): Promise<RiskAssessment[]> {
+    const rows = await this.prisma.riskAssessment.findMany({
+      distinct: ["subjectId"],
+      orderBy: [{ subjectId: "asc" }, { assessedAt: "desc" }],
+    });
+    return rows.map((row) => this.toDomain(row));
+  }
+
   async findForSubject(subjectId: string): Promise<RiskAssessment[]> {
     const rows = await this.prisma.riskAssessment.findMany({
       where: { subjectId },
       orderBy: { assessedAt: "asc" },
     });
-    return rows.map((row) =>
-      // rehydrate, not of(): the band is what was DECIDED, and today's
-      // thresholds must not re-rate a file somebody already signed off.
-      RiskAssessment.rehydrate({
-        subjectId: row.subjectId,
-        answers: toAnswers(row.answers),
-        score: row.score,
-        band: toBand(row.band),
-        assessedBy: row.assessedBy,
-        assessedAt: row.assessedAt,
-      }),
-    );
+    return rows.map((row) => this.toDomain(row));
+  }
+
+  // rehydrate, not of(): the band is what was DECIDED, and today's thresholds
+  // must not re-rate a file somebody already signed off.
+  private toDomain(row: {
+    subjectId: string;
+    answers: unknown;
+    score: number;
+    band: string;
+    assessedBy: string;
+    assessedAt: Date;
+  }): RiskAssessment {
+    return RiskAssessment.rehydrate({
+      subjectId: row.subjectId,
+      answers: toAnswers(row.answers),
+      score: row.score,
+      band: toBand(row.band),
+      assessedBy: row.assessedBy,
+      assessedAt: row.assessedAt,
+    });
   }
 }

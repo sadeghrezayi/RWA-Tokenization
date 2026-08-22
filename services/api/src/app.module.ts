@@ -8,6 +8,7 @@ import { ScreenInvestor } from "./application/screening/screen-investor.js";
 import { ListScreenings } from "./application/screening/screening-views.js";
 import { AssessRisk } from "./application/risk/assess-risk.js";
 import { ListRiskAssessments } from "./application/risk/risk-views.js";
+import { ListDueReviews } from "./application/risk/list-due-reviews.js";
 import type { RiskAssessmentRepository } from "./application/risk/ports.js";
 import { PrismaRiskAssessmentRepository } from "./infrastructure/persistence/prisma-risk-assessment-repository.js";
 import { MockSanctionsScreening } from "./infrastructure/screening/mock-sanctions-screening.js";
@@ -610,6 +611,15 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       provide: ListRiskAssessments,
       useFactory: (assessments: RiskAssessmentRepository) => new ListRiskAssessments(assessments),
       inject: [RISK_ASSESSMENT_REPOSITORY],
+    },
+    {
+      provide: ListDueReviews,
+      useFactory: (
+        investors: InvestorRepository,
+        assessments: RiskAssessmentRepository,
+        clock: Clock,
+      ) => new ListDueReviews(investors, assessments, clock),
+      inject: [INVESTOR_REPOSITORY, RISK_ASSESSMENT_REPOSITORY, CLOCK],
     },
     {
       provide: ReissueKycClaim,

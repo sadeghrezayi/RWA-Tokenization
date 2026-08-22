@@ -455,6 +455,12 @@ export interface Dictionary {
   issuerNothingMissing: string;
   documentTooLarge: string;
   claimsOwedLabel: string;
+  dueReviewsTitle: string;
+  dueReviewsNone: string;
+  dueReviewsNever: string;
+  dueReviewsOverdueBy: string;
+  dueReviewsDueAt: string;
+  dueReviewsLastReviewed: string;
   riskTitle: string;
   riskSubmitButton: string;
   riskNone: string;
@@ -1039,6 +1045,12 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerNothingMissing: "Every required document has been supplied.",
     documentTooLarge: "That file is larger than 10 MB.",
     claimsOwedLabel: "Approved investors awaiting an on-chain claim",
+    dueReviewsTitle: "Periodic reviews",
+    dueReviewsNone: "No approved customer is due a review.",
+    dueReviewsNever: "Has never been reviewed",
+    dueReviewsOverdueBy: "Overdue by",
+    dueReviewsDueAt: "Due",
+    dueReviewsLastReviewed: "Last reviewed",
     riskTitle: "Customer risk rating",
     riskSubmitButton: "Record this rating",
     riskNone: "This applicant has not been rated. That is not the same as a low rating.",

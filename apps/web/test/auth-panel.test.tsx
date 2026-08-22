@@ -94,6 +94,8 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   riskModel: vi.fn(),
   assessRisk: vi.fn(),
   investorRiskAssessments: vi.fn(),
+  dueReviews: vi.fn(),
+  reviewCadence: vi.fn(),
   investorScreenings: vi.fn(),
   systemHealth: vi.fn(),
   publishAttestation: vi.fn(),

@@ -16,6 +16,10 @@ import { RISK_MODEL } from "../../application/risk/risk-model.js";
 import type { RiskModel } from "../../application/risk/risk-model.js";
 import { ListRiskAssessments, toRiskAssessmentView } from "../../application/risk/risk-views.js";
 import type { RiskAssessmentView } from "../../application/risk/risk-views.js";
+import { ListDueReviews } from "../../application/risk/list-due-reviews.js";
+import type { DueReviewView } from "../../application/risk/list-due-reviews.js";
+import { REVIEW_CADENCE } from "../../application/risk/risk-model.js";
+import type { ReviewCadence } from "../../application/risk/risk-model.js";
 import { ListScreenings, toScreeningView } from "../../application/screening/screening-views.js";
 import type { ScreeningView } from "../../application/screening/screening-views.js";
 import { GetInvestor } from "../../application/identity/get-investor.js";
@@ -87,6 +91,7 @@ export class InvestorsController {
     private readonly listScreenings: ListScreenings,
     private readonly assessRisk: AssessRisk,
     private readonly listRiskAssessments: ListRiskAssessments,
+    private readonly listDueReviews: ListDueReviews,
     private readonly rejectKyc: RejectKyc,
     private readonly getInvestor: GetInvestor,
     private readonly listPendingKyc: ListPendingKyc,
@@ -201,6 +206,24 @@ export class InvestorsController {
   @Get(":id/risk-assessments")
   riskAssessments(@Param("id") id: string): Promise<RiskAssessmentView[]> {
     return this.listRiskAssessments.execute({ subjectId: id });
+  }
+
+  // 4.2: approved customers whose periodic review is due, worst first. A work
+  // list, NOT an enforcement mechanism — a lapsed review restricts nobody.
+  //
+  // Deliberately its OWN list rather than a fourth item in the ops work queue:
+  // the queue's contents (pending KYC, approvals, redemptions) were settled as
+  // a product decision, and quietly widening them is not mine to make.
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
+  @Get("reviews/due")
+  dueReviews(): Promise<DueReviewView[]> {
+    return this.listDueReviews.execute();
+  }
+
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
+  @Get("reviews/cadence")
+  reviewCadence(): ReviewCadence {
+    return REVIEW_CADENCE;
   }
 
   // The model itself, so the officer's form renders exactly what the server

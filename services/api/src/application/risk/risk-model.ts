@@ -1,4 +1,5 @@
 import type { RiskBandThresholds } from "../../domain/risk/risk-rating.js";
+import type { ReviewCadenceMonths } from "../../domain/risk/review-schedule.js";
 
 export interface RiskFactorOption {
   value: string;
@@ -85,4 +86,29 @@ export const RISK_MODEL: RiskModel = {
       ],
     },
   ],
+};
+
+export interface ReviewCadence {
+  provisional: boolean;
+  notice: string;
+  months: ReviewCadenceMonths;
+}
+
+// ---------------------------------------------------------------------------
+// PROVISIONAL REVIEW CADENCE — REQUIRES LOCAL LEGAL VALIDATION.
+//
+// How often a customer must be re-screened and re-rated is set by the
+// operator's AML policy and by local regulation. These intervals were NOT
+// derived from one; they follow only the shape every risk-based regime shares —
+// a higher band is reviewed more often — and are kept here as CONFIGURATION so
+// a compliance officer can replace them without touching a code path.
+//
+// The list this drives is a WORK LIST, not an enforcement mechanism: nothing
+// suspends, freezes or restricts a customer whose review has lapsed.
+// ---------------------------------------------------------------------------
+export const REVIEW_CADENCE: ReviewCadence = {
+  provisional: true,
+  notice:
+    "Provisional review cadence — how often a customer must be re-screened and re-rated is a policy decision. This cadence REQUIRES LOCAL LEGAL VALIDATION before production use. A lapsed review restricts nobody; it only places the file on this list.",
+  months: { high: 12, medium: 24, low: 36 },
 };

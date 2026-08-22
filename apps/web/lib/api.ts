@@ -252,6 +252,22 @@ export interface RiskAssessmentDto {
   advisory: string;
 }
 
+export interface DueReviewDto {
+  investorId: string;
+  email: string;
+  state: "never_reviewed" | "due" | "overdue" | "current";
+  band?: "low" | "medium" | "high";
+  lastReviewedAt?: string;
+  dueAt?: string;
+  overdueByDays?: number;
+}
+
+export interface ReviewCadenceDto {
+  provisional: boolean;
+  notice: string;
+  months: { low: number; medium: number; high: number };
+}
+
 export interface SystemHealthDto {
   overall: "healthy" | "degraded";
   services: { api: string; postgres: string; ipfs: string; chain: string };
@@ -623,6 +639,10 @@ export interface ApiClient {
     answers: Record<string, string>,
   ): Promise<RiskAssessmentDto>;
   investorRiskAssessments(officerToken: string, investorId: string): Promise<RiskAssessmentDto[]>;
+  // Approved customers whose periodic review is due, worst first (the API
+  // decides the order; the screen does not re-sort it).
+  dueReviews(officerToken: string): Promise<DueReviewDto[]>;
+  reviewCadence(officerToken: string): Promise<ReviewCadenceDto>;
   systemHealth(officerToken: string): Promise<SystemHealthDto>;
   publishAttestation(
     officerToken: string,
@@ -1332,6 +1352,9 @@ export const createApiClient = (
       ),
     riskModel: (officerToken) =>
       json(call("/investors/risk-model/current", { token: officerToken })),
+    dueReviews: (officerToken) => json(call("/investors/reviews/due", { token: officerToken })),
+    reviewCadence: (officerToken) =>
+      json(call("/investors/reviews/cadence", { token: officerToken })),
     assessRisk: (officerToken, investorId, answers) =>
       json(
         call(`/investors/${encodeURIComponent(investorId)}/risk-assessments`, {

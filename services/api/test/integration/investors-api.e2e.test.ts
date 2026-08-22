@@ -254,6 +254,75 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
     expect(history.body).toEqual([]);
   });
 
+  it("lists an approved customer nobody has rated as never reviewed, and drops them once rated", async () => {
+    const { investorId } = await registerAndLogin();
+    const officer = await officerToken();
+    // Only APPROVED customers are in periodic review, so walk them there.
+    await seedSubmittedKyc(prisma, investorId);
+    await request(server)
+      .post(`/investors/${investorId}/kyc/start-review`)
+      .set("authorization", `Bearer ${officer}`)
+      .expect(204);
+    await request(server)
+      .post(`/investors/${investorId}/kyc/approve`)
+      .set("authorization", `Bearer ${officer}`)
+      .expect(204);
+
+    const before = await request(server)
+      .get("/investors/reviews/due")
+      .set("authorization", `Bearer ${officer}`)
+      .expect(200);
+    const listed = (before.body as { investorId: string; state: string }[]).find(
+      (row) => row.investorId === investorId,
+    );
+    // The people no record covers must be the loudest entry, not an absence.
+    expect(listed?.state).toBe("never_reviewed");
+
+    const model = await request(server)
+      .get("/investors/risk-model/current")
+      .set("authorization", `Bearer ${officer}`)
+      .expect(200);
+    const answers: Record<string, string> = {};
+    for (const factor of (model.body as { factors: { id: string; options: { value: string }[] }[] })
+      .factors) {
+      answers[factor.id] = factor.options[0]?.value ?? "";
+    }
+    await request(server)
+      .post(`/investors/${investorId}/risk-assessments`)
+      .set("authorization", `Bearer ${officer}`)
+      .send({ answers })
+      .expect(201);
+
+    const after = await request(server)
+      .get("/investors/reviews/due")
+      .set("authorization", `Bearer ${officer}`)
+      .expect(200);
+    expect(
+      (after.body as { investorId: string }[]).find((row) => row.investorId === investorId),
+    ).toBeUndefined();
+  });
+
+  it("publishes the review cadence as provisional, not as a rule the platform owns", async () => {
+    const officer = await officerToken();
+
+    const cadence = await request(server)
+      .get("/investors/reviews/cadence")
+      .set("authorization", `Bearer ${officer}`)
+      .expect(200);
+    const body = cadence.body as { provisional: boolean; notice: string };
+    expect(body.provisional).toBe(true);
+    expect(body.notice).toMatch(/REQUIRES LOCAL LEGAL VALIDATION/);
+  });
+
+  it("keeps the due-review list away from investors", async () => {
+    const { token } = await registerAndLogin();
+
+    await request(server)
+      .get("/investors/reviews/due")
+      .set("authorization", `Bearer ${token}`)
+      .expect(403);
+  });
+
   it("keeps risk ratings away from the investor themselves", async () => {
     const { investorId, token } = await registerAndLogin();
 

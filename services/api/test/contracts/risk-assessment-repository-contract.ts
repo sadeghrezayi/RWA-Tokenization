@@ -74,6 +74,34 @@ export const riskAssessmentRepositoryContract = (
       expect(found.map((a) => a.assessedBy).sort()).toEqual(["officer-1", "officer-2"]);
     });
 
+    it("gives the CURRENT rating per subject — the newest, not the first found", async () => {
+      // The periodic-review list stands on this: read the wrong row and a
+      // customer re-rated high last week is scheduled as though they were
+      // still the low-risk file they were three years ago.
+      await seedSubject("subject-6");
+      await seedSubject("subject-7");
+      await repo.save(
+        assessment("subject-6", { assessedAt: new Date("2024-01-01T00:00:00.000Z") }),
+      );
+      await repo.save(
+        assessment("subject-6", {
+          answers: [{ factorId: "exposure", answer: "pep", points: 9 }],
+          assessedAt: new Date("2026-01-01T00:00:00.000Z"),
+        }),
+      );
+      await repo.save(
+        assessment("subject-7", { assessedAt: new Date("2025-06-01T00:00:00.000Z") }),
+      );
+
+      const latest = await repo.latestPerSubject();
+      const six = latest.find((a) => a.subjectId === "subject-6");
+      expect(six?.band).toBe("high");
+      expect(six?.assessedAt.toISOString()).toBe("2026-01-01T00:00:00.000Z");
+      // One row per subject, never the whole history.
+      expect(latest.filter((a) => a.subjectId === "subject-6")).toHaveLength(1);
+      expect(latest.find((a) => a.subjectId === "subject-7")?.band).toBe("low");
+    });
+
     it("keeps one subject's assessments out of another's", async () => {
       await seedSubject("subject-4");
       await seedSubject("subject-5");
