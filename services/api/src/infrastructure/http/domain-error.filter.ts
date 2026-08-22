@@ -1,3 +1,4 @@
+import { NothingToScreenError } from "../../application/screening/errors.js";
 import { Catch, HttpException, Logger, Optional } from "@nestjs/common";
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
 import {
@@ -207,6 +208,8 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof NoPositionInAssetError) return 403;
   if (exception instanceof EmailAlreadyRegisteredError) return 409;
   if (exception instanceof InvalidKycTransitionError) return 409;
+  // 4.2: the applicant has declared no name yet. A state conflict, not a fault.
+  if (exception instanceof NothingToScreenError) return 409;
   // Asset state-machine and approval-gate violations are conflicts with
   // current state (FR-AO-4/5).
   if (exception instanceof InvalidAssetTransitionError) return 409;

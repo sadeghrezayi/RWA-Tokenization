@@ -4,6 +4,11 @@ import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { ApproveKyc } from "./application/identity/approve-kyc.js";
 import { ReissueKycClaim } from "./application/identity/reissue-kyc-claim.js";
+import { ScreenInvestor } from "./application/screening/screen-investor.js";
+import { ListScreenings } from "./application/screening/screening-views.js";
+import { MockSanctionsScreening } from "./infrastructure/screening/mock-sanctions-screening.js";
+import { PrismaScreeningRepository } from "./infrastructure/persistence/prisma-screening-repository.js";
+import type { SanctionsScreening, ScreeningRepository } from "./application/screening/ports.js";
 import { AuthenticateInvestor } from "./application/identity/authenticate-investor.js";
 import { AuthenticateStaff } from "./application/identity/authenticate-staff.js";
 import { GetInvestor } from "./application/identity/get-investor.js";
@@ -342,6 +347,8 @@ export const CLOCK = "CLOCK";
 export const ONBOARDING_REPOSITORY = "ONBOARDING_REPOSITORY";
 export const EVIDENCE_STORE = "EVIDENCE_STORE";
 export const STEP_ANSWER_STORE = "STEP_ANSWER_STORE";
+export const SANCTIONS_SCREENING = "SANCTIONS_SCREENING";
+export const SCREENING_REPOSITORY = "SCREENING_REPOSITORY";
 export const FUNDING_REPOSITORY = "FUNDING_REPOSITORY";
 export const PAYMENT_INSTRUCTIONS = "PAYMENT_INSTRUCTIONS";
 export const PERSONAL_DATA_CIPHER = "PERSONAL_DATA_CIPHER";
@@ -546,6 +553,42 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       provide: StartKycReview,
       useFactory: (repo: InvestorRepository) => new StartKycReview(repo),
       inject: [INVESTOR_REPOSITORY],
+    },
+    {
+      // 4.2: the only screening adapter today is a labeled mock, because the
+      // provider is an owner decision of the same kind as OD-7 (email). The
+      // rehearsal list makes the possible-match path demonstrable without
+      // inventing hits: SCREENING_REHEARSAL_MATCHES, comma-separated.
+      provide: SANCTIONS_SCREENING,
+      useFactory: (clock: Clock) =>
+        new MockSanctionsScreening(
+          clock,
+          (process.env.SCREENING_REHEARSAL_MATCHES ?? "")
+            .split(",")
+            .map((name) => name.trim())
+            .filter((name) => name !== ""),
+        ),
+      inject: [CLOCK],
+    },
+    {
+      provide: SCREENING_REPOSITORY,
+      useFactory: (prisma: PrismaService, ids: IdGenerator) =>
+        new PrismaScreeningRepository(prisma, ids),
+      inject: [SCOPED_PRISMA, ID_GENERATOR],
+    },
+    {
+      provide: ScreenInvestor,
+      useFactory: (
+        answers: StepAnswerStore,
+        screening: SanctionsScreening,
+        results: ScreeningRepository,
+      ) => new ScreenInvestor(answers, screening, results),
+      inject: [STEP_ANSWER_STORE, SANCTIONS_SCREENING, SCREENING_REPOSITORY],
+    },
+    {
+      provide: ListScreenings,
+      useFactory: (results: ScreeningRepository) => new ListScreenings(results),
+      inject: [SCREENING_REPOSITORY],
     },
     {
       provide: ReissueKycClaim,

@@ -33,6 +33,9 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
   });
 
   beforeEach(async () => {
+    // Children first: screenings and identities both reference investors with
+    // ON DELETE RESTRICT, so deleting the parent while either exists fails.
+    await prisma.screeningResult.deleteMany();
     await prisma.onchainIdentity.deleteMany();
     await prisma.investor.deleteMany();
     claims.issuedFor.length = 0;
@@ -127,6 +130,69 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
       .expect(200);
     expect(me.body).toMatchObject({ kycState: "approved", eligibleForClaims: true });
     expect(claims.issuedFor).toEqual([investorId]);
+  });
+
+  // 4.2: an officer runs a sanctions/PEP check and the result is kept. The
+  // provider today is a mock, and every result it produces says so — which is
+  // the part that must reach whoever reads it.
+  it("screens an applicant and records what produced the result", async () => {
+    const { investorId, token } = await registerAndLogin();
+    const officer = await officerToken();
+    // Through the real wizard: answers are stored ENCRYPTED, so writing a row
+    // by hand would seed something the application could never read back.
+    await request(server)
+      .post("/onboarding/start")
+      .set("authorization", `Bearer ${token}`)
+      .expect(201);
+    await request(server)
+      .post("/onboarding/me/steps/profile/answers")
+      .set("authorization", `Bearer ${token}`)
+      .send({
+        answers: {
+          fullName: "Ordinary Person",
+          nationalId: "0012345678",
+          dateOfBirth: "1990-05-05",
+          addressLine: "12 Vanak Street",
+          city: "Tehran",
+        },
+      })
+      .expect(201);
+
+    const screened = await request(server)
+      .post(`/investors/${investorId}/screenings`)
+      .set("authorization", `Bearer ${officer}`)
+      .expect(201);
+
+    expect(screened.body).toMatchObject({ outcome: "clear", provider: "mock", simulated: true });
+    // The disclaimer travels with the result, not just with the screen.
+    expect((screened.body as { disclaimer?: string }).disclaimer).toMatch(/simulated/i);
+
+    const history = await request(server)
+      .get(`/investors/${investorId}/screenings`)
+      .set("authorization", `Bearer ${officer}`)
+      .expect(200);
+    expect((history.body as unknown[]).length).toBe(1);
+  });
+
+  it("refuses to screen an applicant who has declared no name", async () => {
+    const { investorId } = await registerAndLogin();
+    const officer = await officerToken();
+
+    // Nothing declared: a "clear" here would be a clean result for someone
+    // nobody checked.
+    await request(server)
+      .post(`/investors/${investorId}/screenings`)
+      .set("authorization", `Bearer ${officer}`)
+      .expect(409);
+  });
+
+  it("keeps screenings away from the investor themselves", async () => {
+    const { investorId, token } = await registerAndLogin();
+
+    await request(server)
+      .get(`/investors/${investorId}/screenings`)
+      .set("authorization", `Bearer ${token}`)
+      .expect(403);
   });
 
   it("records_a_rejection_reason_visible_to_the_investor", async () => {

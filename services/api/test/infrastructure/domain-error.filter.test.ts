@@ -4,6 +4,7 @@ import type { ArgumentsHost } from "@nestjs/common";
 import { DomainErrorFilter } from "../../src/infrastructure/http/domain-error.filter.js";
 import { InsufficientFundsError } from "../../src/application/offerings/errors.js";
 import { ClaimIssuanceFailedError } from "../../src/application/identity/errors.js";
+import { NothingToScreenError } from "../../src/application/screening/errors.js";
 
 const capture = () => {
   const json = vi.fn();
@@ -88,5 +89,20 @@ describe("DomainErrorFilter", () => {
       expect.objectContaining({ message: "already confirmed" }) as unknown,
     );
     expect(log.error).not.toHaveBeenCalled();
+  });
+
+  // 4.2: an applicant with no declared name is a state conflict, not a server
+  // fault. Unmapped, it reached the officer as a bare 500 — which says nothing
+  // about what to do next (they need the applicant to complete their profile).
+  it("maps a nothing-to-screen refusal to 409, not a bare 500", () => {
+    const log = { error: vi.fn() };
+    const { host, response, json } = capture();
+
+    new DomainErrorFilter(log).catch(new NothingToScreenError(), host);
+
+    expect(response.status).toHaveBeenCalledWith(409);
+    // And the officer is told what is missing, so they know to chase the
+    // applicant's profile rather than a bug.
+    expect((json.mock.calls[0]?.[0] as { message: string }).message).toMatch(/name/i);
   });
 });

@@ -10,6 +10,9 @@ import {
 } from "@nestjs/common";
 import { ApproveKyc } from "../../application/identity/approve-kyc.js";
 import { ReissueKycClaim } from "../../application/identity/reissue-kyc-claim.js";
+import { ScreenInvestor } from "../../application/screening/screen-investor.js";
+import { ListScreenings, toScreeningView } from "../../application/screening/screening-views.js";
+import type { ScreeningView } from "../../application/screening/screening-views.js";
 import { GetInvestor } from "../../application/identity/get-investor.js";
 import type { InvestorView } from "../../application/identity/get-investor.js";
 import { GetInvestorDetail, ListInvestors } from "../../application/identity/investor-directory.js";
@@ -49,6 +52,8 @@ export class InvestorsController {
     private readonly startKycReview: StartKycReview,
     private readonly approveKyc: ApproveKyc,
     private readonly reissueKycClaim: ReissueKycClaim,
+    private readonly screenInvestor: ScreenInvestor,
+    private readonly listScreenings: ListScreenings,
     private readonly rejectKyc: RejectKyc,
     private readonly getInvestor: GetInvestor,
     private readonly listPendingKyc: ListPendingKyc,
@@ -126,6 +131,20 @@ export class InvestorsController {
   // K-2: recovery, not a decision. An approval whose on-chain claim failed
   // leaves an investor approved and unable to hold anything; this is the only
   // way back, short of editing the database.
+  // 4.2: run a sanctions/PEP check. Same permission as the other KYC review
+  // actions — screening is part of reviewing an applicant, not a separate power.
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
+  @Post(":id/screenings")
+  async screen(@Param("id") id: string): Promise<ScreeningView> {
+    return toScreeningView(await this.screenInvestor.execute({ investorId: id }));
+  }
+
+  @RequirePermission(PERMISSIONS.KYC_REVIEW)
+  @Get(":id/screenings")
+  screenings(@Param("id") id: string): Promise<ScreeningView[]> {
+    return this.listScreenings.execute({ investorId: id });
+  }
+
   @RequirePermission(PERMISSIONS.KYC_REVIEW)
   @Post(":id/kyc/reissue-claim")
   @HttpCode(204)
