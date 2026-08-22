@@ -178,8 +178,6 @@ import {
   ListDistributions,
 } from "./application/distributions/get-distribution.js";
 import type {
-  DistributionLedger,
-  DistributionPaidNotifier,
   DistributionRepository,
   HolderSnapshotProvider,
 } from "./application/distributions/ports.js";
@@ -1079,25 +1077,6 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
         ID_GENERATOR,
         CLOCK,
         APPROVAL_PARKED_NOTIFIER,
-      ],
-    },
-    {
-      provide: PayDistribution,
-      useFactory: (
-        distributions: DistributionRepository,
-        ledger: DistributionLedger,
-        events: AssetEventLog,
-        assets: AssetRepository,
-        notifier: DistributionPaidNotifier,
-        clock: Clock,
-      ) => new PayDistribution(distributions, ledger, events, assets, notifier, clock),
-      inject: [
-        DISTRIBUTION_REPOSITORY,
-        DISTRIBUTION_LEDGER,
-        ASSET_EVENT_LOG,
-        ASSET_REPOSITORY,
-        DISTRIBUTION_PAID_NOTIFIER,
-        CLOCK,
       ],
     },
     {
