@@ -212,6 +212,14 @@ export interface PortfolioOverviewDto {
   };
 }
 
+export interface ScreeningDto {
+  outcome: string;
+  provider: string;
+  simulated: boolean;
+  checkedAt: string;
+  disclaimer?: string;
+}
+
 export interface SystemHealthDto {
   overall: "healthy" | "degraded";
   services: { api: string; postgres: string; ipfs: string; chain: string };
@@ -571,6 +579,10 @@ export interface ApiClient {
   // K-2 recovery: reissue an on-chain claim for an already-approved investor
   // whose claim failed when it was first made.
   reissueKycClaim(officerToken: string, investorId: string): Promise<void>;
+  // 4.2: `disclaimer` is present when the result was simulated. It comes from
+  // the API rather than being composed here, so every reader gets it.
+  screenInvestor(officerToken: string, investorId: string): Promise<ScreeningDto>;
+  investorScreenings(officerToken: string, investorId: string): Promise<ScreeningDto[]>;
   systemHealth(officerToken: string): Promise<SystemHealthDto>;
   publishAttestation(
     officerToken: string,
@@ -1267,6 +1279,17 @@ export const createApiClient = (
         }),
       ),
     assetOverview: (officerToken) => json(call("/reporting/assets", { token: officerToken })),
+    screenInvestor: (officerToken, investorId) =>
+      json(
+        call(`/investors/${encodeURIComponent(investorId)}/screenings`, {
+          method: "POST",
+          token: officerToken,
+        }),
+      ),
+    investorScreenings: (officerToken, investorId) =>
+      json(
+        call(`/investors/${encodeURIComponent(investorId)}/screenings`, { token: officerToken }),
+      ),
     reissueKycClaim: async (officerToken, investorId) => {
       await call(`/investors/${encodeURIComponent(investorId)}/kyc/reissue-claim`, {
         method: "POST",

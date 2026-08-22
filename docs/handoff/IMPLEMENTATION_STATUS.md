@@ -41,7 +41,7 @@ Foundry contract tests**. CI green on `9e63980`.
 | Resubmission loop ("request changes") | **COMPLETE** | e2e | `request-onboarding-changes.ts` | `onboarding-api.e2e` | **Flagged:** an application waiting on the *applicant* still shows in the officer queue |
 | KYC rejection is terminal | **COMPLETE (by design)** | domain | `kyc-status.ts` | domain tests | A rejected applicant **cannot re-apply**. Whether they should is an open product question |
 | Entity/company onboarding (KYB for investors) | **NOT STARTED** | explicit refusal | `EntityOnboardingNotAvailableError` | — | Deliberately refused with a clear error rather than half-built |
-| Screening / sanctions provider | **STUB/MOCK** by decision (OD-11) | — | — | — | Port + clearly-labelled dev mock only; officers review manually |
+| Screening / sanctions provider | **BUILT AS A LABELLED MOCK** (OD-11) | browser: 201 with disclaimer, 409 refusal | `domain/screening/screening-result.ts`, `application/screening/*`, `infrastructure/screening/mock-sanctions-screening.ts`, `components/admin/screening-card.tsx` | `screening-repository-contract` (fake+Prisma), `screen-investor.test`, `screenings-api.e2e`, `screening-card.test.tsx` | The adapter checks **nothing**: `simulated: true` is hard-coded and the result carries a disclaimer the officer sees beside the outcome. Results are **append-only** and decide nothing on their own. **Choosing a real provider is an open owner decision.** |
 
 ## Assets
 

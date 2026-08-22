@@ -455,6 +455,10 @@ export interface Dictionary {
   issuerNothingMissing: string;
   documentTooLarge: string;
   claimsOwedLabel: string;
+  screeningTitle: string;
+  screeningRunButton: string;
+  screeningNone: string;
+  screeningCheckedLabel: string;
   reissueClaimButton: string;
   reissueClaimHint: string;
   reissueClaimDone: string;
@@ -1027,6 +1031,10 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerNothingMissing: "Every required document has been supplied.",
     documentTooLarge: "That file is larger than 10 MB.",
     claimsOwedLabel: "Approved investors awaiting an on-chain claim",
+    screeningTitle: "Sanctions & PEP screening",
+    screeningRunButton: "Screen this applicant",
+    screeningNone: "This applicant has not been screened.",
+    screeningCheckedLabel: "Checked",
     reissueClaimButton: "Reissue on-chain claim",
     reissueClaimHint:
       "Use this if the approval succeeded but the chain was unreachable at the time. Without the claim this investor cannot hold tokens.",

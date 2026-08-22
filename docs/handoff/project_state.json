@@ -571,34 +571,48 @@
     }
   ],
   "current_milestone": {
-    "phase": "3.3",
-    "name": "Assets belong to issuer organisations",
-    "state": "3.3a-i shipped and CI-green: an issuer applies, is reviewed, staffs a team, brings assets, sees them, and files their dossier with real documents. Remaining in 3.3: the rest of the submission wizard (drafts, completeness, validation, review comments, status history) — the owner's scope call.",
+    "phase": "4.2",
+    "name": "Sanctions & PEP screening — a mock that cannot lie about itself",
+    "state": "Shipped and verified in a browser: an officer can screen an applicant and reads the outcome with a SIMULATED disclaimer beside it; an applicant with no declared name is refused with 409 and a readable reason. The adapter checks nothing and says so — simulated: true is hard-coded in the mock, and the disclaimer lives in the result, not in a log line. Results are append-only. Choosing a real provider remains an owner decision (OD-11).",
     "completed_slices": [
-      "3.2a domain",
-      "3.2b persistence",
-      "3.2c use cases + verification gate",
-      "3.2d gate bound to KYC pipeline",
-      "3.2e HTTP API + team management + DI wiring",
-      "3.2f staff review screen (web)",
-      "3.2g issuer detail page + team panel (web)",
-      "3.3a Asset.organisationId in the domain and in Postgres (nullable, not backfilled)",
-      "3.3b POST /assets accepts the organisation and refuses one that may not submit (409)",
-      "3.3c officer picks the issuer on the onboarding screen; both screens name it",
-      "3.3d which organisations are mine",
-      "3.3e issuer portal shell + landing page",
-      "3.3f an issuer reads the assets its organisation brought (backend)",
-      "3.3g an issuer sees the assets it brought (web, browser-verified)",
-      "3.3h an issuer brings its own asset (canWorkOnAssets finally has a caller; K-13 closed)",
-      "3.3i an issuer files the dossier for the asset it brought (two gates: membership + ownership)",
-      "K-33 the dossier could not hold a real document — placeholder bytes replaced by real file upload",
-      "K-30 a devnet outage no longer kills the API (provider factory + unhandled-rejection guard)",
-      "K-2 recovery: reissue a claim whose issuance failed, and a count of who needs it"
-    ],
-    "exit_criteria_remaining": [
-      "the submission wizard — a product decision, not an engineering one"
+      "4.2a domain ScreeningResult + disclaimer",
+      "4.2b application ports + ScreenInvestor use case",
+      "4.2c Prisma persistence + shared repository contract (fake + Prisma)",
+      "4.2d HTTP endpoints + NothingToScreenError mapped to 409",
+      "4.2e officer UI (ScreeningCard) mounted on the investor page"
     ]
   },
+  "previous_milestones": [
+    {
+      "phase": "3.3",
+      "name": "Assets belong to issuer organisations",
+      "state": "3.3a-i shipped and CI-green: an issuer applies, is reviewed, staffs a team, brings assets, sees them, and files their dossier with real documents. Remaining in 3.3: the rest of the submission wizard (drafts, completeness, validation, review comments, status history) — the owner's scope call.",
+      "completed_slices": [
+        "3.2a domain",
+        "3.2b persistence",
+        "3.2c use cases + verification gate",
+        "3.2d gate bound to KYC pipeline",
+        "3.2e HTTP API + team management + DI wiring",
+        "3.2f staff review screen (web)",
+        "3.2g issuer detail page + team panel (web)",
+        "3.3a Asset.organisationId in the domain and in Postgres (nullable, not backfilled)",
+        "3.3b POST /assets accepts the organisation and refuses one that may not submit (409)",
+        "3.3c officer picks the issuer on the onboarding screen; both screens name it",
+        "3.3d which organisations are mine",
+        "3.3e issuer portal shell + landing page",
+        "3.3f an issuer reads the assets its organisation brought (backend)",
+        "3.3g an issuer sees the assets it brought (web, browser-verified)",
+        "3.3h an issuer brings its own asset (canWorkOnAssets finally has a caller; K-13 closed)",
+        "3.3i an issuer files the dossier for the asset it brought (two gates: membership + ownership)",
+        "K-33 the dossier could not hold a real document — placeholder bytes replaced by real file upload",
+        "K-30 a devnet outage no longer kills the API (provider factory + unhandled-rejection guard)",
+        "K-2 recovery: reissue a claim whose issuance failed, and a count of who needs it"
+      ],
+      "exit_criteria_remaining": [
+        "the submission wizard — a product decision, not an engineering one"
+      ]
+    }
+  ],
   "next_actions": [
     {
       "priority": "P1",
@@ -638,6 +652,8 @@
     "Queue semantics for applications waiting on the applicant",
     "Should a KYC-rejected applicant be able to re-apply?",
     "Should draft offerings be visible to signed-in investors?",
-    "K-27 remainder: the 20/min credential budget is per-IP, so a CGNAT population shares one login budget (K-9). Per-account throttling, a shared store, or accept-for-pilot?"
+    "K-27 remainder: the 20/min credential budget is per-IP, so a CGNAT population shares one login budget (K-9). Per-account throttling, a shared store, or accept-for-pilot?",
+    "4.2: which real sanctions/PEP provider (if any) should replace the mock? Until one is chosen the platform screens nobody, and every result is labelled SIMULATED in the officer's view.",
+    "3.3 exit criterion, still unmet: how much of the asset submission wizard should exist (drafts, completeness, validation, review comments, status history)? A scope call, not an engineering one — carried forward from the 3.3 milestone."
   ]
 }
