@@ -109,6 +109,49 @@ export const assetRepositoryContract = (
       ]);
     });
 
+    it("remembers WHO accepted a document and when, not merely that it passed", async () => {
+      // A review that does not survive a reload is worse than none: every
+      // document reads as unreviewed and approval is blocked forever, or —
+      // worse, if the state were dropped the other way — as reviewed by nobody.
+      const at = new Date("2026-08-22T10:00:00.000Z");
+      const asset = structuredAsset("asset-reviewed").acceptDocument("ownership_evidence", {
+        reviewer: "officer-1",
+        at,
+      });
+      await repo.save(asset);
+
+      const loaded = await repo.findById("asset-reviewed");
+      const document = loaded?.dossier.documents.find((d) => d.kind === "ownership_evidence");
+      expect(document?.review.state).toBe("accepted");
+      expect(document?.review.reviewedBy).toBe("officer-1");
+      expect(document?.review.reviewedAt?.toISOString()).toBe(at.toISOString());
+      expect(loaded?.dossier.awaitingReview()).toEqual([]);
+    });
+
+    it("keeps a rejection AND its reason across a round trip", async () => {
+      // Without the reason the issuer is told only that something is wrong.
+      const asset = structuredAsset("asset-rejected").rejectDocument("ownership_evidence", {
+        reviewer: "officer-1",
+        at: new Date("2026-08-22T10:00:00.000Z"),
+        reason: "the deed names a different parcel",
+      });
+      await repo.save(asset);
+
+      const loaded = await repo.findById("asset-rejected");
+      const document = loaded?.dossier.documents.find((d) => d.kind === "ownership_evidence");
+      expect(document?.review.state).toBe("rejected");
+      expect(document?.review.reason).toMatch(/different parcel/);
+      // A rejected document is still outstanding work, not a settled one.
+      expect(loaded?.dossier.awaitingReview().map((d) => d.kind)).toEqual(["ownership_evidence"]);
+    });
+
+    it("restores a never-reviewed document as PENDING, never as accepted", async () => {
+      await repo.save(structuredAsset("asset-unreviewed"));
+
+      const loaded = await repo.findById("asset-unreviewed");
+      expect(loaded?.dossier.documents[0]?.review.state).toBe("pending");
+    });
+
     it("keeps documents hidden by default across a round trip", async () => {
       await repo.save(structuredAsset("asset-private"));
 

@@ -8,7 +8,11 @@ import { Asset } from "../../domain/assets/asset.js";
 import type { AssetType } from "../../domain/assets/asset.js";
 import { CustodyArrangement } from "../../domain/assets/custody-arrangement.js";
 import { DossierDocument, LegalDossier } from "../../domain/assets/legal-dossier.js";
-import type { DossierDocumentKind } from "../../domain/assets/legal-dossier.js";
+import type {
+  DocumentReview,
+  DocumentReviewState,
+  DossierDocumentKind,
+} from "../../domain/assets/legal-dossier.js";
 import { OnboardingChecklist } from "../../domain/assets/onboarding-checklist.js";
 import type { ChecklistItem } from "../../domain/assets/onboarding-checklist.js";
 import { RealEstateProfile } from "../../domain/assets/real-estate-profile.js";
@@ -67,6 +71,12 @@ export class PrismaAssetRepository implements AssetRepository {
       cid: d.cid,
       sha256: d.sha256,
       investorVisible: d.investorVisible,
+      // 4.3: carried explicitly. Dropping these would make every document read
+      // as unreviewed on reload, which now blocks approval outright.
+      reviewState: d.review.state,
+      reviewedBy: d.review.reviewedBy ?? null,
+      reviewedAt: d.review.reviewedAt ?? null,
+      reviewReason: d.review.reason ?? null,
     }));
     // Full-state save: replace the document set atomically with the asset row.
     // Tenant-safe pattern (no upsert): probe, then create or updateMany.
@@ -131,6 +141,29 @@ export class PrismaAssetEventReader implements AssetEventReader {
   }
 }
 
+// A stored review, rebuilt. An unrecognised state is treated as PENDING rather
+// than guessed at: the safe reading of a corrupt row is "nobody reviewed this",
+// never "somebody did".
+const toReview = (row: {
+  reviewState: string;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  reviewReason: string | null;
+}): DocumentReview => {
+  const state: DocumentReviewState =
+    row.reviewState === "accepted"
+      ? "accepted"
+      : row.reviewState === "rejected"
+        ? "rejected"
+        : "pending";
+  return {
+    state,
+    ...(row.reviewedBy === null ? {} : { reviewedBy: row.reviewedBy }),
+    ...(row.reviewedAt === null ? {} : { reviewedAt: row.reviewedAt }),
+    ...(row.reviewReason === null ? {} : { reason: row.reviewReason }),
+  };
+};
+
 const toDomain = (row: AssetRow & { documents: DocRow[]; rights: RightRow[] }): Asset =>
   Asset.restore({
     id: row.id,
@@ -145,6 +178,7 @@ const toDomain = (row: AssetRow & { documents: DocRow[]; rights: RightRow[] }): 
           cid: d.cid,
           sha256: d.sha256,
           investorVisible: d.investorVisible,
+          review: toReview(d),
         }),
       ),
     ),

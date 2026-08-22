@@ -180,6 +180,8 @@ describe("Assets API (e2e, real Postgres, fake document store)", () => {
           .post(`/assets/${assetId}/documents`)
           .set(auth(officerToken))
           .send({ kind, title: kind, contentBase64: CONTENT });
+        // 4.3: approval now requires that a person reviewed each document.
+        await http.post(`/assets/${assetId}/documents/${kind}/accept`).set(auth(officerToken));
       }
       await http
         .post(`/assets/${assetId}/custody`)
@@ -327,6 +329,11 @@ describe("Assets API (e2e, real Postgres, fake document store)", () => {
         .set(auth(officerToken))
         .send({ kind, title: `${kind} doc`, contentBase64: CONTENT })
         .expect(201);
+      // 4.3: approval now requires that a person reviewed each document.
+      await http
+        .post(`/assets/${assetId}/documents/${kind}/accept`)
+        .set(auth(officerToken))
+        .expect(204);
     }
     await http
       .post(`/assets/${assetId}/custody`)
@@ -350,7 +357,106 @@ describe("Assets API (e2e, real Postgres, fake document store)", () => {
 
     const events = await prisma.assetEvent.findMany({ where: { assetId } });
     expect(events.map((e) => e.event)).toContain("asset_approved");
-    expect(events).toHaveLength(2 + REQUIRED_DOSSIER_KINDS.length + CHECKLIST_ITEMS.length + 1 + 1);
+    // Every document is now reviewed as well as attached, and each review is
+    // itself an audited event — a decision with no trace is not one.
+    expect(events.filter((e) => e.event === "document_reviewed")).toHaveLength(
+      REQUIRED_DOSSIER_KINDS.length,
+    );
+    expect(events).toHaveLength(
+      2 + REQUIRED_DOSSIER_KINDS.length * 2 + CHECKLIST_ITEMS.length + 1 + 1,
+    );
+  });
+
+  it("queues an attached document for review, and clears it once accepted", async () => {
+    const assetId = await propose();
+    const http = request(server);
+    await http.post(`/assets/${assetId}/start-structuring`).set(auth(officerToken)).expect(204);
+    await http
+      .post(`/assets/${assetId}/documents`)
+      .set(auth(officerToken))
+      .send({ kind: "ownership_evidence", title: "Title deed", contentBase64: CONTENT })
+      .expect(201);
+
+    // The route lives above `@Get(":id")`; if it were below, Nest would read
+    // "documents" as an asset id and answer 404 here.
+    const queued = await http
+      .get("/assets/documents/awaiting-review")
+      .set(auth(officerToken))
+      .expect(200);
+    const mine = (queued.body as { assetId: string; kind: string; state: string }[]).filter(
+      (row) => row.assetId === assetId,
+    );
+    expect(mine).toHaveLength(1);
+    expect(mine[0]?.state).toBe("pending");
+
+    await http
+      .post(`/assets/${assetId}/documents/ownership_evidence/accept`)
+      .set(auth(officerToken))
+      .expect(204);
+
+    const after = await http
+      .get("/assets/documents/awaiting-review")
+      .set(auth(officerToken))
+      .expect(200);
+    expect((after.body as { assetId: string }[]).filter((row) => row.assetId === assetId)).toEqual(
+      [],
+    );
+  });
+
+  it("refuses a rejection with no reason, and leaves the document pending", async () => {
+    const assetId = await propose();
+    const http = request(server);
+    await http.post(`/assets/${assetId}/start-structuring`).set(auth(officerToken)).expect(204);
+    await http
+      .post(`/assets/${assetId}/documents`)
+      .set(auth(officerToken))
+      .send({ kind: "ownership_evidence", title: "Title deed", contentBase64: CONTENT })
+      .expect(201);
+
+    await http
+      .post(`/assets/${assetId}/documents/ownership_evidence/reject`)
+      .set(auth(officerToken))
+      .send({ reason: "   " })
+      .expect(400);
+
+    const queued = await http
+      .get("/assets/documents/awaiting-review")
+      .set(auth(officerToken))
+      .expect(200);
+    const mine = (queued.body as { assetId: string; state: string }[]).filter(
+      (row) => row.assetId === assetId,
+    );
+    // Still pending, not "rejected with no reason".
+    expect(mine[0]?.state).toBe("pending");
+  });
+
+  it("REFUSES to approve an asset whose documents nobody reviewed", async () => {
+    // The gap 4.3 closes: before this, attaching was enough, so an asset could
+    // be approved on files no person had opened.
+    const assetId = await propose();
+    const http = request(server);
+    await http.post(`/assets/${assetId}/start-structuring`).set(auth(officerToken)).expect(204);
+    for (const kind of REQUIRED_DOSSIER_KINDS) {
+      await http
+        .post(`/assets/${assetId}/documents`)
+        .set(auth(officerToken))
+        .send({ kind, title: `${kind} doc`, contentBase64: CONTENT })
+        .expect(201);
+    }
+    await http
+      .post(`/assets/${assetId}/custody`)
+      .set(auth(officerToken))
+      .send({ custodianName: "Trust Co.", location: "Vault 1" })
+      .expect(204);
+    for (const item of CHECKLIST_ITEMS) {
+      await http.post(`/assets/${assetId}/checklist/${item}`).set(auth(officerToken)).expect(204);
+    }
+
+    const refused = await http
+      .post(`/assets/${assetId}/approve`)
+      .set(auth(officerToken))
+      .expect(409);
+    expect((refused.body as { message: string }).message).toMatch(/not been reviewed/i);
   });
 
   it("tokenizes_an_approved_asset_and_rejects_early_tokenization", async () => {
@@ -370,6 +476,11 @@ describe("Assets API (e2e, real Postgres, fake document store)", () => {
         .set(auth(officerToken))
         .send({ kind, title: `${kind} doc`, contentBase64: CONTENT })
         .expect(201);
+      // 4.3: approval now requires that a person reviewed each document.
+      await http
+        .post(`/assets/${assetId}/documents/${kind}/accept`)
+        .set(auth(officerToken))
+        .expect(204);
     }
     await http
       .post(`/assets/${assetId}/custody`)

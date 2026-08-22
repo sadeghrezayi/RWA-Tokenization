@@ -99,6 +99,26 @@ export class Asset {
     return this.with({ dossier: this.dossier.add(document) });
   }
 
+  // 4.3: a person read this document and said so. Behind assertDossierEditable,
+  // unlike disclosure: approval already required every document accepted, so
+  // re-opening one afterwards would change what an approved asset rests on.
+  acceptDocument(kind: DossierDocumentKind, by: { reviewer: string; at: Date }): Asset {
+    this.assertDossierEditable("review a document on");
+    return this.with({
+      dossier: this.dossier.reviewDocument(kind, (document) => document.accept(by)),
+    });
+  }
+
+  rejectDocument(
+    kind: DossierDocumentKind,
+    by: { reviewer: string; at: Date; reason: string },
+  ): Asset {
+    this.assertDossierEditable("review a document on");
+    return this.with({
+      dossier: this.dossier.reviewDocument(kind, (document) => document.reject(by)),
+    });
+  }
+
   // Deliberately NOT behind assertDossierEditable: the documents themselves are
   // frozen at approval, but who may read them is a disclosure decision that has
   // to stay open — holders only exist once the asset is tokenized.
@@ -150,6 +170,16 @@ export class Asset {
         `cannot approve: the legal dossier is missing ${missing.join(", ")}`,
       );
     }
+    // 4.3: present is not the same as read. Without this, an issuer could
+    // attach a document AFTER staff confirmed the checklist and the officer who
+    // confirmed "legal right clear" would never have seen the file backing it.
+    // A rejected document counts as unreviewed — it awaits a sound replacement.
+    const unreviewed = this.dossier.awaitingReview().map((document) => document.kind);
+    if (unreviewed.length > 0) {
+      throw new IncompleteDossierError(
+        `cannot approve: these dossier documents have not been reviewed and accepted: ${unreviewed.join(", ")}`,
+      );
+    }
     if (!this.checklist.allConfirmed()) {
       throw new ChecklistIncompleteError(
         `cannot approve: unconfirmed checklist items ${this.checklist.unconfirmedItems().join(", ")}`,
@@ -181,8 +211,14 @@ export class Asset {
     return this.with({ state: "retired" });
   }
 
+  // Public because the document-review queue asks the same question the guard
+  // asks: a frozen dossier has nothing left to review.
+  isDossierEditable(): boolean {
+    return STRUCTURING_STATES.includes(this.state);
+  }
+
   private assertDossierEditable(action: string): void {
-    if (!STRUCTURING_STATES.includes(this.state)) {
+    if (!this.isDossierEditable()) {
       throw new DossierFrozenError(
         `cannot ${action} an asset in state "${this.state}" — the dossier is frozen after approval`,
       );

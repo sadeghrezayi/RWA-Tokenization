@@ -27,7 +27,11 @@ const propose = () => Asset.propose("asset-1", "Pilot Real Estate SPV", "asset_b
 const readyForApproval = () => {
   let asset = propose().startStructuring();
   for (const kind of REQUIRED_DOSSIER_KINDS) {
-    asset = asset.attachDocument(doc(kind));
+    // 4.3: attaching is no longer enough — approval requires that a person
+    // reviewed and accepted each document, so being "ready" now includes that.
+    asset = asset
+      .attachDocument(doc(kind))
+      .acceptDocument(kind, { reviewer: "officer-1", at: new Date("2026-08-22T10:00:00.000Z") });
   }
   asset = asset.recordCustody(
     CustodyArrangement.of({ custodianName: "Trust Co.", location: "Vault 12, Tehran" }),
@@ -172,7 +176,11 @@ describe("Approval gate (FR-AO-1 + FR-AO-4)", () => {
   it("refuses_approval_while_checklist_items_are_unconfirmed", () => {
     let asset = propose().startStructuring();
     for (const kind of REQUIRED_DOSSIER_KINDS) {
-      asset = asset.attachDocument(doc(kind));
+      // Accepted too, so this test still fails on the CHECKLIST rather than on
+      // 4.3's document-review gate, which now fires first.
+      asset = asset
+        .attachDocument(doc(kind))
+        .acceptDocument(kind, { reviewer: "officer-1", at: new Date("2026-08-22T10:00:00.000Z") });
     }
     asset = asset.recordCustody(
       CustodyArrangement.of({ custodianName: "Trust Co.", location: "Vault 12" }),

@@ -5,6 +5,7 @@ import { AttachDossierDocument } from "../../../src/application/assets/attach-do
 import { RecordCustody } from "../../../src/application/assets/record-custody.js";
 import { ConfirmChecklistItem } from "../../../src/application/assets/confirm-checklist-item.js";
 import { ApproveAsset } from "../../../src/application/assets/approve-asset.js";
+import { ReviewDossierDocument } from "../../../src/application/assets/review-dossier-document.js";
 import {
   GetAsset,
   ListAssets,
@@ -50,6 +51,9 @@ const setup = () => {
     recordCustody: new RecordCustody(assets, events),
     confirmItem: new ConfirmChecklistItem(assets, events),
     approve: new ApproveAsset(assets, events),
+    reviewDocument: new ReviewDossierDocument(assets, events, {
+      now: () => new Date("2026-08-22T10:00:00.000Z"),
+    }),
     getAsset: new GetAsset(assets, issuers),
     listAssets: new ListAssets(assets, issuers),
     listIssuerAssets: new ListIssuerAssets(assets, issuers),
@@ -74,6 +78,9 @@ const structureFully = async (s: ReturnType<typeof setup>) => {
       contentBase64: CONTENT,
       actor: ACTOR,
     });
+    // 4.3: attaching is no longer enough to reach approval — someone has to
+    // have read each document and accepted it.
+    await s.reviewDocument.accept({ assetId, kind, actor: ACTOR });
   }
   await s.recordCustody.execute({
     assetId,

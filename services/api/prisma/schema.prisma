@@ -326,6 +326,13 @@ model AssetDocument {
   // Disclosure is opt-in: a document is invisible to holders until an operator
   // deliberately reveals it (2.5d).
   investorVisible Boolean  @default(false) @map("investor_visible")
+  // 4.3: whether a person has actually read this document. Existing rows
+  // default to "pending" — nobody reviewed them, and saying otherwise would
+  // backdate approvals that were granted before the gate existed.
+  reviewState     String   @default("pending") @map("review_state")
+  reviewedBy      String?  @map("reviewed_by")
+  reviewedAt      DateTime? @map("reviewed_at")
+  reviewReason    String?  @map("review_reason")
   createdAt       DateTime @default(now()) @map("created_at")
 
   @@index([tenantId])

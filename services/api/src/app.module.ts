@@ -59,6 +59,8 @@ import { PrismaStaffUserRepository } from "./infrastructure/persistence/prisma-s
 import { StaffBootstrap } from "./infrastructure/auth/staff-bootstrap.js";
 import { ApproveAsset } from "./application/assets/approve-asset.js";
 import { SetDocumentVisibility } from "./application/assets/set-document-visibility.js";
+import { ReviewDossierDocument } from "./application/assets/review-dossier-document.js";
+import { ListDocumentsAwaitingReview } from "./application/assets/list-documents-awaiting-review.js";
 import { RecordRealEstateProfile } from "./application/assets/record-real-estate-profile.js";
 import { SetConveyedRight } from "./application/assets/set-conveyed-right.js";
 import { GetMyAssetDocuments } from "./application/assets/get-my-asset-documents.js";
@@ -1647,6 +1649,17 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       useFactory: (assets: AssetRepository, events: AssetEventLog) =>
         new SetDocumentVisibility(assets, events),
       inject: [ASSET_REPOSITORY, ASSET_EVENT_LOG],
+    },
+    {
+      provide: ListDocumentsAwaitingReview,
+      useFactory: (assets: AssetRepository) => new ListDocumentsAwaitingReview(assets),
+      inject: [ASSET_REPOSITORY],
+    },
+    {
+      provide: ReviewDossierDocument,
+      useFactory: (assets: AssetRepository, events: AssetEventLog, clock: Clock) =>
+        new ReviewDossierDocument(assets, events, clock),
+      inject: [ASSET_REPOSITORY, ASSET_EVENT_LOG, CLOCK],
     },
     {
       provide: GetMyAssetDocuments,

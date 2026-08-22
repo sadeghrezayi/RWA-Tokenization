@@ -11,6 +11,9 @@ import {
 } from "@nestjs/common";
 import { ApproveAsset } from "../../application/assets/approve-asset.js";
 import { SetDocumentVisibility } from "../../application/assets/set-document-visibility.js";
+import { ReviewDossierDocument } from "../../application/assets/review-dossier-document.js";
+import { ListDocumentsAwaitingReview } from "../../application/assets/list-documents-awaiting-review.js";
+import type { DocumentAwaitingReviewView } from "../../application/assets/list-documents-awaiting-review.js";
 import { RecordRealEstateProfile } from "../../application/assets/record-real-estate-profile.js";
 import { SetConveyedRight } from "../../application/assets/set-conveyed-right.js";
 import { PROPERTY_TYPES } from "../../domain/assets/real-estate-profile.js";
@@ -60,6 +63,8 @@ export class AssetsController {
     private readonly confirmChecklistItem: ConfirmChecklistItem,
     private readonly approveAsset: ApproveAsset,
     private readonly setDocumentVisibility: SetDocumentVisibility,
+    private readonly reviewDocument: ReviewDossierDocument,
+    private readonly listDocumentsAwaitingReview: ListDocumentsAwaitingReview,
     private readonly recordRealEstate: RecordRealEstateProfile,
     private readonly setConveyedRight: SetConveyedRight,
     private readonly tokenizeAsset: TokenizeAsset,
@@ -91,6 +96,15 @@ export class AssetsController {
     return this.listAssets.execute();
   }
 
+  // 4.3: `/ops/documents` — everything still waiting on a reviewer, across
+  // every asset still being structured. Declared ABOVE `@Get(":id")` because
+  // Nest matches in declaration order: below it, "documents" would be read as
+  // an asset id and this route would never be reached.
+  @Get("documents/awaiting-review")
+  documentsAwaitingReview(): Promise<DocumentAwaitingReviewView[]> {
+    return this.listDocumentsAwaitingReview.execute();
+  }
+
   @Get(":id")
   get(@Param("id") id: string): Promise<AssetView> {
     return this.getAsset.execute({ assetId: id });
@@ -114,6 +128,41 @@ export class AssetsController {
       title: requireString(body, "title"),
       contentBase64: requireString(body, "contentBase64"),
       actor: actorOf(principal),
+    });
+  }
+
+  // 4.3: a person read this document and said what they concluded. Approval
+  // requires every required document accepted, so this is the step that used to
+  // be missing entirely — a file counted the moment it was attached.
+  @Post(":id/documents/:kind/accept")
+  @HttpCode(204)
+  acceptDocument(
+    @Param("id") id: string,
+    @Param("kind") kind: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<void> {
+    return this.reviewDocument.accept({
+      assetId: id,
+      kind: asDocumentKind(kind),
+      actor: actorOf(principal),
+    });
+  }
+
+  @Post(":id/documents/:kind/reject")
+  @HttpCode(204)
+  rejectDocument(
+    @Param("id") id: string,
+    @Param("kind") kind: string,
+    @Body() body: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<void> {
+    return this.reviewDocument.reject({
+      assetId: id,
+      kind: asDocumentKind(kind),
+      actor: actorOf(principal),
+      // The reason is required by the domain too; asking here as well means the
+      // issuer never receives an empty refusal.
+      reason: requireString(body, "reason"),
     });
   }
 
