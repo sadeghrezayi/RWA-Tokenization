@@ -88,7 +88,6 @@ describe("LegalDossier and review", () => {
     // Two different questions, deliberately kept apart: completeness is about
     // the file being there, review is about someone having read it.
     expect(full().isComplete()).toBe(true);
-    expect(full().isFullyReviewed()).toBe(false);
     expect(
       full()
         .awaitingReview()
@@ -101,7 +100,6 @@ describe("LegalDossier and review", () => {
       document.reject({ reviewer: "officer-1", at: REVIEWED_AT, reason: "wrong entity" }),
     );
 
-    expect(dossier.isFullyReviewed()).toBe(false);
     expect(dossier.awaitingReview().map((d) => d.kind)).toContain("spv_structure");
   });
 
@@ -120,7 +118,6 @@ describe("LegalDossier and review", () => {
       );
     }
 
-    expect(dossier.isFullyReviewed()).toBe(true);
     expect(dossier.awaitingReview()).toEqual([]);
   });
 });

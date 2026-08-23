@@ -162,12 +162,13 @@ export class LegalDossier {
     return REQUIRED_DOSSIER_KINDS.filter((kind) => !present.has(kind));
   }
 
-  // Every required document accepted. A REJECTED document is emphatically not
-  // "dealt with": it still awaits a sound replacement.
-  isFullyReviewed(): boolean {
-    return this.isComplete() && this.awaitingReview().length === 0;
-  }
-
+  // What still needs a person. A REJECTED document is emphatically not "dealt
+  // with": it counts as awaiting review, because it still needs a sound
+  // replacement before the asset can be approved.
+  //
+  // Deliberately the only review question this class answers. The approval gate
+  // needs the KINDS, not a boolean, so that it can say which documents are
+  // outstanding — a predicate on top of this would have no caller.
   awaitingReview(): readonly DossierDocument[] {
     return this.documents.filter((document) => document.review.state !== "accepted");
   }
