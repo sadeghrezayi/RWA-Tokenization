@@ -22,11 +22,14 @@ Asset onboarding → tokenize → offering → investor KYC → fund wallet → 
 2. Create a new asset: name **"Villa Mazandaran"**, choose its kind/type, location **Mazandaran**. → appears in state `proposed`.
 3. Open it → **Start structuring**. → state `structuring`.
 4. **Upload the legal dossier** documents (the panel lists the required kinds — e.g. title deed, valuation report).
-5. **Record custody** (who legally holds the asset).
-6. Add a **valuation** (attestation) — e.g. 10,000,000,000 ﷼. This becomes the asset's "latest valuation".
-7. **Complete the onboarding checklist** (tick each required item).
-8. **Approve** the asset. → state `approved`.
-9. **Tokenize.** → the system mints the token; state `tokenized`.
+5. **Review each document**: Admin Console → Assets → **Document review**. Every required document must be
+   **accepted** by a person before the asset can be approved. Try **Reject** on one first — it demands a reason,
+   and the document stays in the queue carrying that reason until something replaces it.
+6. **Record custody** (who legally holds the asset).
+7. Add a **valuation** (attestation) — e.g. 10,000,000,000 ﷼. This becomes the asset's "latest valuation".
+8. **Complete the onboarding checklist** (tick each required item).
+9. **Approve** the asset. → state `approved`. (It refuses while any document is unreviewed, naming which.)
+10. **Tokenize.** → the system mints the token; state `tokenized`.
 - ✅ **Expect:** Overview tab "Tokenized" count increases; System health shows a new block; asset now tokenized.
 
 ## Scenario 2 — Publish an offering (Officer)
@@ -123,7 +126,7 @@ Asset onboarding → tokenize → offering → investor KYC → fund wallet → 
 ## Coverage map (features → scenarios)
 | Feature | Scenario |
 |---|---|
-| Asset onboarding lifecycle (dossier, custody, checklist, approve) | 1 |
+| Asset onboarding lifecycle (dossier, document review, custody, checklist, approve) | 1 |
 | Tokenization | 1 |
 | Valuation / attestation | 1 |
 | Offering create / open / close | 2, 13 |

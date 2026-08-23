@@ -11,12 +11,9 @@ import {
 } from "../../src/app.module.js";
 import type { TokenIssuer } from "../../src/application/identity/ports.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
-import { REQUIRED_DOSSIER_KINDS } from "../../src/domain/assets/legal-dossier.js";
-import { CHECKLIST_ITEMS } from "../../src/domain/assets/onboarding-checklist.js";
+import { seedApprovedAsset } from "../support/seed-approved-asset.js";
 import { FakeDocumentStore, RecordingTokenDeployer } from "../fakes/asset-fakes.js";
 import { StubHolderSnapshotProvider } from "../fakes/distribution-fakes.js";
-
-const CONTENT = Buffer.from("deed").toString("base64");
 
 describe("Distributions API (e2e, real Postgres + ledger, stub snapshot)", () => {
   let app: INestApplication;
@@ -72,31 +69,8 @@ describe("Distributions API (e2e, real Postgres + ledger, stub snapshot)", () =>
   });
 
   const tokenizeAsset = async (): Promise<string> => {
-    const http = request(server);
-    const res = await http
-      .post("/assets")
-      .set(auth(officerToken))
-      .send({ name: "Yield SPV" })
-      .expect(201);
-    const assetId = (res.body as { assetId: string }).assetId;
-    await http.post(`/assets/${assetId}/start-structuring`).set(auth(officerToken)).expect(204);
-    for (const kind of REQUIRED_DOSSIER_KINDS) {
-      await http
-        .post(`/assets/${assetId}/documents`)
-        .set(auth(officerToken))
-        .send({ kind, title: kind, contentBase64: CONTENT })
-        .expect(201);
-    }
-    await http
-      .post(`/assets/${assetId}/custody`)
-      .set(auth(officerToken))
-      .send({ custodianName: "Trust Co.", location: "Vault 12" })
-      .expect(204);
-    for (const item of CHECKLIST_ITEMS) {
-      await http.post(`/assets/${assetId}/checklist/${item}`).set(auth(officerToken)).expect(204);
-    }
-    await http.post(`/assets/${assetId}/approve`).set(auth(officerToken)).expect(204);
-    await http
+    const assetId = await seedApprovedAsset(server, officerToken, "Yield SPV");
+    await request(server)
       .post(`/assets/${assetId}/tokenize`)
       .set(auth(officerToken))
       .send({ symbol: "YLD" })

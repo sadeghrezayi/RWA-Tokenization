@@ -132,7 +132,8 @@ const ok = async (actor: Actor, path: string, data?: unknown): Promise<APIRespon
 };
 
 // An asset all the way to a token: proposed → structured → dossier complete →
-// custody recorded → checklist confirmed → approved → tokenized. The long way
+// every document REVIEWED → custody recorded → checklist confirmed → approved →
+// tokenized. The long way
 // round on purpose — the shortcut would skip the legal-before-token gate this
 // platform exists to enforce.
 export const seedTokenizedAsset = async (officer: Actor, name: string): Promise<string> => {
@@ -146,6 +147,10 @@ export const seedTokenizedAsset = async (officer: Actor, name: string): Promise<
       title: kind,
       contentBase64: Buffer.from(`${kind} for ${name}`).toString("base64"),
     });
+    // 4.3: approval requires that a person reviewed and accepted each
+    // document. Skipping this would be skipping the gate, not shortening the
+    // setup — the same reason this helper takes the long way round at all.
+    await ok(officer, `/assets/${assetId}/documents/${kind}/accept`);
   }
   await ok(officer, `/assets/${assetId}/custody`, {
     custodianName: "Pilot Custodian Co.",
