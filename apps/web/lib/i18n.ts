@@ -459,7 +459,6 @@ export interface Dictionary {
   cashMovementsLabel: string;
   cashNone: string;
   cashReferenceLabel: string;
-  cashStatusLabel: string;
   tabOverview: string;
   tabCompliance: string;
   tabInvestments: string;
@@ -1068,7 +1067,6 @@ export const dictionaries: Record<Locale, Dictionary> = {
     cashMovementsLabel: "Deposits & settlements",
     cashNone: "No deposit has been declared.",
     cashReferenceLabel: "Reference",
-    cashStatusLabel: "Status",
     tabOverview: "Overview",
     tabCompliance: "Identity & compliance",
     tabInvestments: "Investments",
