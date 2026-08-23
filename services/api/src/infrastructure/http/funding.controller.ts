@@ -89,6 +89,16 @@ export class FundingController {
     return this.cancelFunding.execute({ requestId: id, investorId: investorIdOf(principal) });
   }
 
+  // 4.3 Investor 360, Cash & payments: one investor's cash movements, read by
+  // an officer reviewing their file. Behind INVESTOR_READ — this reads a
+  // person's record, it does not move money, so it does not need treasury's
+  // power to credit a ledger.
+  @RequirePermission(PERMISSIONS.INVESTOR_READ)
+  @Get("investors/:investorId")
+  forInvestor(@Param("investorId") investorId: string): Promise<FundingRequestView[]> {
+    return this.listMine.execute({ investorId });
+  }
+
   // --- treasury. Confirming a deposit IS crediting the ledger, so it sits
   // behind the same permission as a direct credit and inherits maker-checker.
 

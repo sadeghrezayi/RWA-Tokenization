@@ -252,6 +252,17 @@ export interface RiskAssessmentDto {
   advisory: string;
 }
 
+export interface InvestorFundingDto {
+  id: string;
+  status: string;
+  amountRial: string;
+  reference: string;
+  requestedAt: string;
+  settledAt?: string;
+  settledAmountRial?: string;
+  rejectionReason?: string;
+}
+
 export interface DocumentAwaitingReviewDto {
   assetId: string;
   assetName: string;
@@ -658,6 +669,8 @@ export interface ApiClient {
   // 4.3 document review. A rejection always carries its reason: the API
   // refuses an empty one, and so does the screen.
   documentsAwaitingReview(officerToken: string): Promise<DocumentAwaitingReviewDto[]>;
+  // 4.3 Investor 360, Cash & payments: one investor's cash movements.
+  investorFunding(officerToken: string, investorId: string): Promise<InvestorFundingDto[]>;
   acceptDocument(officerToken: string, assetId: string, kind: string): Promise<void>;
   rejectDocument(
     officerToken: string,
@@ -1377,6 +1390,8 @@ export const createApiClient = (
     dueReviews: (officerToken) => json(call("/investors/reviews/due", { token: officerToken })),
     documentsAwaitingReview: (officerToken) =>
       json(call("/assets/documents/awaiting-review", { token: officerToken })),
+    investorFunding: (officerToken, investorId) =>
+      json(call(`/funding/investors/${encodeURIComponent(investorId)}`, { token: officerToken })),
     acceptDocument: async (officerToken, assetId, kind) => {
       await call(
         `/assets/${encodeURIComponent(assetId)}/documents/${encodeURIComponent(kind)}/accept`,

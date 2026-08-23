@@ -222,6 +222,34 @@ describe("Funding API (e2e, real Postgres)", () => {
     expect(rows.every((row) => row.status === "pending")).toBe(true);
   });
 
+  it("lets an officer read ONE investor's cash movements, for the 360", async () => {
+    // The Cash & payments tab stands on this: an officer reviewing a file has
+    // to see the money that moved, not only the balance it left behind.
+    await request(server)
+      .post("/funding/me")
+      .set(auth(bearer))
+      .send({ amountRial: "77000000" })
+      .expect(201);
+
+    const res = await request(server)
+      .get(`/funding/investors/${investorId}`)
+      .set(auth(officer))
+      .expect(200);
+
+    const rows = res.body as { amountRial: string; reference: string; status: string }[];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.some((row) => row.amountRial === "77000000")).toBe(true);
+    // The reference is what an officer matches against a bank statement.
+    expect(rows[0]?.reference).toMatch(/^TP-/);
+  });
+
+  it("keeps one investor's cash movements away from another investor (403)", async () => {
+    await request(server)
+      .get(`/funding/investors/${investorId}`)
+      .set(auth(strangerBearer))
+      .expect(403);
+  });
+
   it("keeps an investor out of treasury's endpoints (403)", async () => {
     await request(server).get("/funding/pending").set(auth(bearer)).expect(403);
     await request(server)

@@ -455,6 +455,18 @@ export interface Dictionary {
   issuerNothingMissing: string;
   documentTooLarge: string;
   claimsOwedLabel: string;
+  investorTabsLabel: string;
+  cashMovementsLabel: string;
+  cashNone: string;
+  cashReferenceLabel: string;
+  cashStatusLabel: string;
+  tabOverview: string;
+  tabCompliance: string;
+  tabInvestments: string;
+  tabPortfolio: string;
+  tabCash: string;
+  tabTransfers: string;
+  tabCommunications: string;
   documentReviewTitle: string;
   documentReviewNone: string;
   documentReviewAccept: string;
@@ -1052,6 +1064,18 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerNothingMissing: "Every required document has been supplied.",
     documentTooLarge: "That file is larger than 10 MB.",
     claimsOwedLabel: "Approved investors awaiting an on-chain claim",
+    investorTabsLabel: "Investor file sections",
+    cashMovementsLabel: "Deposits & settlements",
+    cashNone: "No deposit has been declared.",
+    cashReferenceLabel: "Reference",
+    cashStatusLabel: "Status",
+    tabOverview: "Overview",
+    tabCompliance: "Identity & compliance",
+    tabInvestments: "Investments",
+    tabPortfolio: "Portfolio",
+    tabCash: "Cash & payments",
+    tabTransfers: "Transfers",
+    tabCommunications: "Communications",
     documentReviewTitle: "Document review",
     documentReviewNone: "No document is waiting on a reviewer.",
     documentReviewAccept: "Accept",

@@ -114,6 +114,13 @@ const apiWith = (overrides: Partial<ApiClient>): ApiClient =>
     ...overrides,
   }) as ApiClient;
 
+// 4.3: the file is tabbed now. These tests are about the content, not where
+// it sits, so they open the tab that holds it first.
+const openTab = async (name: RegExp) => {
+  await screen.findByRole("tab", { name: /overview/i });
+  fireEvent.click(screen.getByRole("tab", { name }));
+};
+
 const renderPage = (api: ApiClient) =>
   render(
     <InvestorDetailPage locale="en" api={api} token="tok" investorId="sara-id" onBack={vi.fn()} />,
@@ -129,8 +136,11 @@ describe("InvestorDetailPage", () => {
     expect(screen.getAllByText("6,250,000,000 ﷼").length).toBeGreaterThan(0); // portfolio value
   });
 
-  it("renders_the_subscription_history_and_valued_portfolio", async () => {
+  // The valued portfolio moved to its own tab in 4.3 and is covered there
+  // (investor-360-tabs.test.tsx); this checks the subscription history.
+  it("renders_the_subscription_history", async () => {
     renderPage(apiWith({}));
+    await openTab(/investments/i);
     await screen.findByRole("heading", { name: "sara@demo.com" });
 
     expect(screen.getByText("Subscription history")).toBeInTheDocument();
@@ -171,6 +181,7 @@ describe("InvestorDetailPage", () => {
   it("posts_a_note_from_the_composer", async () => {
     const addInvestorNote = vi.fn().mockResolvedValue({ noteId: "n2" });
     renderPage(apiWith({ addInvestorNote }));
+    await openTab(/communications/i);
     await screen.findByRole("heading", { name: "sara@demo.com" });
 
     await userEvent.type(screen.getByLabelText("Add a note"), "Followed up by phone.");
@@ -183,6 +194,7 @@ describe("InvestorDetailPage", () => {
 
   it("shows_the_merged_timeline_with_notes_and_events", async () => {
     renderPage(apiWith({}));
+    await openTab(/communications/i);
     await screen.findByRole("heading", { name: "sara@demo.com" });
 
     expect(screen.getByText("Called about the offering.")).toBeInTheDocument();
@@ -196,6 +208,7 @@ describe("InvestorDetailPage", () => {
   it("completes_an_overdue_follow_up", async () => {
     const completeFollowUp = vi.fn().mockResolvedValue(undefined);
     renderPage(apiWith({ completeFollowUp }));
+    await openTab(/communications/i);
     await screen.findByRole("heading", { name: "sara@demo.com" });
 
     expect(screen.getByText("Overdue")).toBeInTheDocument();
@@ -209,6 +222,7 @@ describe("InvestorDetailPage", () => {
   it("creates_a_follow_up", async () => {
     const createFollowUp = vi.fn().mockResolvedValue({ followUpId: "f9" });
     renderPage(apiWith({ createFollowUp }));
+    await openTab(/communications/i);
     await screen.findByRole("heading", { name: "sara@demo.com" });
 
     await userEvent.type(screen.getByLabelText("Follow-up"), "Quarterly review call");
