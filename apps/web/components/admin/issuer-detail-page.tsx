@@ -7,6 +7,7 @@ import { dictionaries } from "../../lib/i18n";
 import type { Dictionary, Locale } from "../../lib/i18n";
 import { Badge } from "../ui/badge";
 import { Button, Card, EmptyState, Field, SelectField, Skeleton, Stat } from "../ui/primitives";
+import { IssuerDecisionCard } from "./issuer-decision-card";
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -134,6 +135,19 @@ export const IssuerDetailPage = ({
           <p className="muted">{organisation.rejectionReason}</p>
         )}
       </Card>
+
+      {/* 4.3: the decision sits with the identity and the team it is about,
+          instead of only in the queue row two screens away. */}
+      <IssuerDecisionCard
+        locale={locale}
+        api={api}
+        csrfToken={csrfToken}
+        organisationId={organisation.id}
+        state={organisation.state}
+        onDecided={() => {
+          void load();
+        }}
+      />
 
       <Card title={t.issuerTeamTitle} subtitle={t.issuerTeamSubtitle}>
         <div className="stack">

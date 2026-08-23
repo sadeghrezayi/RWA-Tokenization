@@ -573,7 +573,7 @@
   "current_milestone": {
     "phase": "4.3",
     "name": "Document review — evidence is not evidence until someone read it",
-    "state": "First slice shipped and browser-verified: every dossier document carries a review, approval refuses while any required document is unreviewed or rejected, and `/admin/documents` is the queue where an officer decides. Closes a real gap — a document counted the moment it was attached, including one an ISSUER attached, so an asset could be approved on files nobody opened. Remaining in 4.3: investor/org review workspaces and Investor 360 completion (the 10-tab layout in information-architecture.md). Investor 360 now presents one person's file as seven tabs; the three the IA names but nothing backs (Documents, Cases, Audit) are absent rather than empty.",
+    "state": "First slice shipped and browser-verified: every dossier document carries a review, approval refuses while any required document is unreviewed or rejected, and `/admin/documents` is the queue where an officer decides. Closes a real gap — a document counted the moment it was attached, including one an ISSUER attached, so an asset could be approved on files nobody opened. Remaining in 4.3: investor/org review workspaces and Investor 360 completion (the 10-tab layout in information-architecture.md). Investor 360 now presents one person's file as seven tabs; the three the IA names but nothing backs (Documents, Cases, Audit) are absent rather than empty. Review workspaces close the last 4.3 line: the decision now sits with the evidence for both an investor and an organisation.",
     "completed_slices": [
       "4.3a DocumentReview in the dossier domain + approval gate",
       "4.3b ReviewDossierDocument use case, both decisions audited",
@@ -581,10 +581,12 @@
       "4.3d endpoints + ListDocumentsAwaitingReview",
       "4.3e officer queue at /admin/documents",
       "4.3f Investor 360: seven tabs with real content, three deliberately absent",
-      "4.3g GET /funding/investors/:id + the Cash & payments tab (declared vs arrived)"
+      "4.3g GET /funding/investors/:id + the Cash & payments tab (declared vs arrived)",
+      "4.3h investor review workspace: the KYC decision on the compliance tab, with an advisory gaps warning",
+      "4.3i org review workspace: the review decision on the issuer detail page, sharing one state-machine definition with the queue",
+      "K-37 CI: the unbounded devnet-deploy step that spent a whole job budget"
     ],
     "exit_criteria_remaining": [
-      "investor/org review workspaces — the last part of 4.3",
       "Investor 360's remaining three tabs, each blocked on its own feature: Documents (would duplicate identity evidence), Cases (/ops/cases not built), Audit (no per-investor audit trail)"
     ]
   },
@@ -689,6 +691,7 @@
     "4.2: should the periodic-review list join the ops work queue? Its contents (pending KYC + approvals + redemptions) were YOUR decision on 2026-07-28, so I built this as its own screen rather than widening that queue.",
     "4.3: should a document decision need four eyes (a second reviewer), as payouts do? Today one officer accepting a document is enough to move an asset toward approval.",
     "4.3: should the document review queue carry an SLA or ageing indicator? It currently shows what is outstanding but not how long it has waited.",
-    "4.3 Investor 360: an Audit tab needs a per-investor audit trail, which does not exist — `asset_events` is asset-scoped. Should privileged actions ON a person (KYC decisions, screenings, risk ratings, tag/stage changes) be recorded in a queryable per-subject trail? That is a schema addition, not a UI one."
+    "4.3 Investor 360: an Audit tab needs a per-investor audit trail, which does not exist — `asset_events` is asset-scoped. Should privileged actions ON a person (KYC decisions, screenings, risk ratings, tag/stage changes) be recorded in a queryable per-subject trail? That is a schema addition, not a UI one.",
+    "4.3: should approving a KYC application be BLOCKED when the applicant has never been screened or risk-rated? Today the workspace warns at the moment of deciding but still allows it — a gate is a compliance-policy decision."
   ]
 }

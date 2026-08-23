@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { ApiClient, IssuerOrganisationDto, IssuerStateDto } from "../../lib/api";
+import type { ApiClient, IssuerOrganisationDto } from "../../lib/api";
 import { formatDate } from "../../lib/format";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
@@ -10,6 +10,7 @@ import { Badge } from "../ui/badge";
 import { issuerStateLabel, issuerStateTone } from "../ui/issuer-state";
 import { Modal } from "../ui/modal";
 import { Button, Card, EmptyState, Field, Skeleton } from "../ui/primitives";
+import { canDecide, canReinstate, canStartReview, canSuspend } from "./issuer-review-actions";
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -17,10 +18,6 @@ const messageOf = (error: unknown): string =>
 // Which decision an officer is offered, and when. Deliberately mirrors the
 // domain's state machine: showing an action the server would refuse with a 409
 // is a fake button, and the mandate forbids those.
-const canStartReview = (state: IssuerStateDto) => state === "applied";
-const canDecide = (state: IssuerStateDto) => state === "in_review";
-const canSuspend = (state: IssuerStateDto) => state === "approved";
-const canReinstate = (state: IssuerStateDto) => state === "suspended";
 
 interface Pending {
   organisation: IssuerOrganisationDto;

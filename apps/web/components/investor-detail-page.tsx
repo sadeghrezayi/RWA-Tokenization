@@ -10,6 +10,7 @@ import { OnboardingReviewCard } from "./admin/onboarding-review-card";
 import { ScreeningCard } from "./admin/screening-card";
 import { RiskCard } from "./admin/risk-card";
 import { InvestorCashCard } from "./admin/investor-cash-card";
+import { KycDecisionCard } from "./admin/kyc-decision-card";
 import { INVESTOR_360_TABS } from "./admin/investor-360-tabs";
 import type { Investor360TabId } from "./admin/investor-360-tabs";
 import { Address } from "./ui/address";
@@ -250,8 +251,21 @@ export const InvestorDetailPage = ({
           aria-labelledby="investor-tab-compliance"
           className="stack"
         >
+          {/* 4.3: the decision sits WITH the evidence. Before this an officer
+              approved from a queue row showing an email and a badge, while the
+              identity file, screening and risk rating were on another screen. */}
+          <KycDecisionCard
+            locale={locale}
+            api={api}
+            token={token}
+            investorId={investorId}
+            kycState={detail.investor.kycState}
+            onDecided={() => {
+              void refresh();
+            }}
+          />
           {/* 2.3f: the verification file is what an officer opens this page to
-          read before deciding, so it leads the compliance tab. */}
+              read before deciding, so it leads the evidence below. */}
           <OnboardingReviewCard
             locale={locale}
             api={api}

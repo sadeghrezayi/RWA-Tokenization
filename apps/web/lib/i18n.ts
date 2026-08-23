@@ -455,6 +455,18 @@ export interface Dictionary {
   issuerNothingMissing: string;
   documentTooLarge: string;
   claimsOwedLabel: string;
+  issuerDecisionTitle: string;
+  issuerReasonLabel: string;
+  issuerReasonRequired: string;
+  issuerNoActions: string;
+  kycDecisionTitle: string;
+  kycStartReviewButton: string;
+  kycNoActions: string;
+  kycRejectReasonLabel: string;
+  kycRejectReasonRequired: string;
+  kycGapsPrefix: string;
+  kycGapNotScreened: string;
+  kycGapNotRated: string;
   investorTabsLabel: string;
   cashMovementsLabel: string;
   cashNone: string;
@@ -1063,6 +1075,20 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerNothingMissing: "Every required document has been supplied.",
     documentTooLarge: "That file is larger than 10 MB.",
     claimsOwedLabel: "Approved investors awaiting an on-chain claim",
+    issuerDecisionTitle: "Review decision",
+    issuerReasonLabel: "Reason",
+    issuerReasonRequired:
+      "Refusing or suspending an organisation needs a reason — they are told it and have to know what went wrong.",
+    issuerNoActions: "No decision is open on this organisation.",
+    kycDecisionTitle: "Verification decision",
+    kycStartReviewButton: "Start review",
+    kycNoActions: "No decision is open on this application.",
+    kycRejectReasonLabel: "Reason for rejection",
+    kycRejectReasonRequired:
+      "A rejection needs a reason — the applicant is shown it and has to know what went wrong.",
+    kycGapsPrefix: "Before deciding, note that this applicant has:",
+    kycGapNotScreened: "not been screened",
+    kycGapNotRated: "no risk rating",
     investorTabsLabel: "Investor file sections",
     cashMovementsLabel: "Deposits & settlements",
     cashNone: "No deposit has been declared.",

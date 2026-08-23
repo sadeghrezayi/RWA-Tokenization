@@ -108,8 +108,11 @@ jobs:
         run: pnpm --filter @tokenization/api exec prisma migrate deploy
 
       - name: Start anvil devnet
+        timeout-minutes: 2
         run: |
-          anvil --mnemonic "$PLATFORM_OPERATOR_MNEMONIC" &
+          # Its own log, and not the step's stdout: a background process holding
+          # the step's output open is its own way of hanging a job (K-32).
+          anvil --mnemonic "$PLATFORM_OPERATOR_MNEMONIC" > "$RUNNER_TEMP/anvil.log" 2>&1 &
           for i in $(seq 1 30); do
             if curl -sf -X POST -H 'Content-Type: application/json' \
               --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
@@ -119,10 +122,25 @@ jobs:
 
       - name: Deploy contracts to devnet
         working-directory: contracts
+        # BOUNDED for the reason the restart step below is: this step hung for
+        # 22 minutes on 9231f7a and the job died at its 25-minute budget,
+        # reporting "cancelled" with no failing test — the third time this class
+        # of defect has cost a diagnosis (K-22, K-32). A deploy that takes
+        # longer than five minutes is broken, and failing at five leaves the
+        # rest of the battery its budget.
+        timeout-minutes: 5
         run: |
+          set -euo pipefail
           forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast | tee deploy.log
           grep -E '^\s*(ONCHAINID_CLAIM_ISSUER_ADDRESS|ATTESTATION_REGISTRY_ADDRESS)=' deploy.log \
             | sed 's/^ *//' >> "$GITHUB_ENV"
+
+      # A CI-only failure has to carry its own evidence: job logs are 403 to an
+      # anonymous reader, so a devnet that died silently would otherwise leave
+      # nothing to diagnose (K-25).
+      - name: Surface the devnet log when the deploy fails
+        if: failure()
+        run: cat "$RUNNER_TEMP/anvil.log" || true
 
       - name: Integration tests (Postgres + IPFS + anvil)
         run: pnpm --filter @tokenization/api test:integration
