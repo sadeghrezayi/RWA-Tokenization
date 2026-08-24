@@ -30,6 +30,15 @@ const expectNoViolations = (results: Awaited<ReturnType<typeof scan>>, where: st
 };
 
 test.describe("accessibility (WCAG 2.1 A/AA, machine-detectable)", () => {
+  // Every test here loads a page and then runs a FULL axe scan, which is
+  // seconds of work on its own. Playwright's default test budget is 30s, and
+  // an assertion timeout of 30s inside a 30s test can never be reached — the
+  // test dies first. That is exactly how this failed on CI (`9862d4c`: "Test
+  // timeout of 30000ms exceeded") while passing locally in 17s. The budget
+  // must exceed the patience it contains, so it is set once here rather than
+  // leaving the same trap in each new test someone adds.
+  test.describe.configure({ timeout: 120_000 });
+
   for (const path of ["/en", "/en/browse"]) {
     test(`${path} has no detectable violations`, async ({ page }) => {
       await page.goto(path);
@@ -65,6 +74,8 @@ test.describe("accessibility (WCAG 2.1 A/AA, machine-detectable)", () => {
   test("a signed-in investor's portal has no detectable violations", async ({ page }) => {
     // Past the login is where the real screens are — tables, badges, empty
     // states — and none of them had ever been checked.
+    //
+    // The slowest test here: register over HTTP, load, sign in, then scan.
     const { email, password } = await registerInvestor(page);
     await page.goto("/en/portfolio");
     await signIn(page, email, password);
