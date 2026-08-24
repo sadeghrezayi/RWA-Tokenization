@@ -3,6 +3,7 @@ import { CreateOffering } from "../../../src/application/offerings/create-offeri
 import { OpenOffering } from "../../../src/application/offerings/open-offering.js";
 import { SubscribeToOffering } from "../../../src/application/offerings/subscribe-to-offering.js";
 import { CloseOffering } from "../../../src/application/offerings/close-offering.js";
+import { MintAllocation } from "../../../src/application/offerings/mint-allocation.js";
 import { GetOffering } from "../../../src/application/offerings/get-offering.js";
 import {
   AssetNotTokenizedError,
@@ -23,6 +24,7 @@ import {
   FakeSettlementRail,
   FixedClock,
   InMemoryOfferingRepository,
+  InMemoryAllocationMintLog,
   RecordingAssetTokenIssuer,
 } from "../../fakes/offering-fakes.js";
 
@@ -75,7 +77,14 @@ const setup = async () => {
     create: new CreateOffering(offerings, assets, new SequentialIdGenerator(), events),
     open: new OpenOffering(offerings, events, clock),
     subscribe: new SubscribeToOffering(offerings, investors, rail, events, clock),
-    close: new CloseOffering(offerings, rail, issuer, events, clock),
+    close: new CloseOffering(
+      offerings,
+      rail,
+      issuer,
+      events,
+      clock,
+      new MintAllocation(issuer, new InMemoryAllocationMintLog()),
+    ),
     getOffering: new GetOffering(offerings, assets, investors),
   };
 };

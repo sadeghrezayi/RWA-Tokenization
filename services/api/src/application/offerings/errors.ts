@@ -24,3 +24,16 @@ export class InsufficientFundsError extends ApplicationError {
     super("insufficient ledger balance for this subscription");
   }
 }
+
+// P0-2 step 1: a mint was claimed but never confirmed, so its on-chain outcome
+// is unknown. Deliberately fails the settlement rather than guessing: minting
+// again may double-issue, and skipping silently leaves a holder who paid with
+// nothing and nothing to complain about. A person has to reconcile it.
+export class UnresolvedMintError extends ApplicationError {
+  constructor(offeringId: string, investorId: string) {
+    super(
+      `the mint for investor ${investorId} on offering ${offeringId} was started but never ` +
+        `confirmed — its on-chain outcome must be reconciled before this offering can settle`,
+    );
+  }
+}

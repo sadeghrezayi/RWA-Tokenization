@@ -52,6 +52,7 @@ model Tenant {
 
   screeningResults ScreeningResult[]
   riskAssessments  RiskAssessment[]
+  allocationMints  AllocationMint[]
   @@map("tenants")
 }
 
@@ -401,6 +402,8 @@ enum OfferingState {
 }
 
 model Offering {
+  allocationMints AllocationMint[]
+
   id             String                 @id
   tenantId       String                 @default("default") @map("tenant_id")
   tenant         Tenant                 @relation(fields: [tenantId], references: [id])
@@ -519,6 +522,7 @@ model Investor {
 
   screeningResults ScreeningResult[]
   riskAssessments  RiskAssessment[]
+  allocationMints  AllocationMint[]
   @@unique([tenantId, email])
   @@map("investors")
 }
@@ -771,6 +775,32 @@ model RiskAssessment {
   @@index([tenantId])
   @@index([subjectId])
   @@map("risk_assessments")
+}
+
+// P0-2 step 1: which allocations have had their tokens issued (FR-PI-3).
+//
+// The unique key on (offering, investor) IS the idempotency guarantee — two
+// concurrent deliveries race to insert and exactly one wins, rather than both
+// reading "not minted" and both minting.
+//
+// `confirmed_at` null means an attempt was CLAIMED but never confirmed: the
+// chain's answer is unknown. Deliberately distinguishable from "never
+// attempted", because the safe response differs.
+model AllocationMint {
+  id          String    @id
+  tenantId    String    @default("default") @map("tenant_id")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  offeringId  String    @map("offering_id")
+  offering    Offering  @relation(fields: [offeringId], references: [id])
+  investorId  String    @map("investor_id")
+  investor    Investor  @relation(fields: [investorId], references: [id])
+  tokens      String
+  claimedAt   DateTime  @default(now()) @map("claimed_at")
+  confirmedAt DateTime? @map("confirmed_at")
+
+  @@unique([offeringId, investorId])
+  @@index([tenantId])
+  @@map("allocation_mints")
 }
 
 model ScreeningResult {

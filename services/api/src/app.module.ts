@@ -80,6 +80,8 @@ import type {
 } from "./application/assets/ports.js";
 import { TrexAssetTokenDeployer } from "./infrastructure/chain/trex-asset-token-deployer.js";
 import { CloseOffering } from "./application/offerings/close-offering.js";
+import { MintAllocation } from "./application/offerings/mint-allocation.js";
+import { PrismaAllocationMintLog } from "./infrastructure/persistence/prisma-allocation-mint-log.js";
 import { CreateOffering } from "./application/offerings/create-offering.js";
 import { GetOffering, ListOfferings } from "./application/offerings/get-offering.js";
 import { OpenOffering } from "./application/offerings/open-offering.js";
@@ -1097,8 +1099,24 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
         issuer: AssetTokenIssuer,
         events: AssetEventLog,
         clock: Clock,
-      ) => new CloseOffering(offerings, rail, issuer, events, clock),
-      inject: [OFFERING_REPOSITORY, SETTLEMENT_RAIL, ASSET_TOKEN_ISSUER, ASSET_EVENT_LOG, CLOCK],
+        mintAllocation: MintAllocation,
+      ) => new CloseOffering(offerings, rail, issuer, events, clock, mintAllocation),
+      inject: [
+        OFFERING_REPOSITORY,
+        SETTLEMENT_RAIL,
+        ASSET_TOKEN_ISSUER,
+        ASSET_EVENT_LOG,
+        CLOCK,
+        MintAllocation,
+      ],
+    },
+    {
+      // P0-2 step 1: issuing one allocation's tokens, at most once. Its own
+      // provider because step 2 gives the outbox handler the same instance.
+      provide: MintAllocation,
+      useFactory: (issuer: AssetTokenIssuer, prisma: PrismaService, ids: IdGenerator) =>
+        new MintAllocation(issuer, new PrismaAllocationMintLog(prisma, ids)),
+      inject: [ASSET_TOKEN_ISSUER, SCOPED_PRISMA, ID_GENERATOR],
     },
     {
       provide: GetOffering,

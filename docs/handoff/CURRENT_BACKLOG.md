@@ -40,7 +40,14 @@ officer (P1-9) — are also **DONE** as of 2026-08-23.
   - `mint` is **not idempotent**: it mints unconditionally, so a redelivered message issues tokens
     twice. Nothing today records that an allocation was minted.
 - **Suggested order for the coherent slice** (one change, not four commits):
-  1. Record mint-per-allocation and make it idempotent — a redelivered message must be a no-op.
+  1. ~~Record mint-per-allocation and make it idempotent~~ — **DONE 2026-08-24.** `MintAllocation`
+     + `AllocationMintLog`, backed by `allocation_mints` with a UNIQUE index on
+     (offering_id, investor_id). The index — not the application's read-then-write — is the
+     guarantee: four simultaneous claims were fired at real Postgres and exactly one won.
+     Three states, because two cannot be honest: `unminted` (mint it), `minted` (the no-op),
+     and **`unresolved`** — claimed but never confirmed, so the chain's answer is unknown.
+     That last one REFUSES rather than guessing, because re-minting may double-issue and
+     skipping leaves a paying holder with nothing and nothing to complain about.
   2. Move the mint onto the outbox, so it retries until the holder is registered.
   3. Decide what happens between capture and mint: money currently moves first and nothing
      reconciles the two halves. **This is a product question as much as an engineering one** and is

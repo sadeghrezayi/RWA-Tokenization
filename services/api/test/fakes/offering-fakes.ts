@@ -1,5 +1,8 @@
 import type { Offering } from "../../src/domain/offerings/offering.js";
 import type {
+  AllocationKey,
+  AllocationMintLog,
+  AllocationMintState,
   AssetTokenIssuer,
   Clock,
   OfferingRepository,
@@ -74,8 +77,15 @@ export class FakeSettlementRail implements SettlementRail {
 export class RecordingAssetTokenIssuer implements AssetTokenIssuer {
   readonly minted: { tokenAddress: string; investorId: string; tokens: bigint }[] = [];
   readonly finalized: string[] = [];
+  // Set to make the next mint reject, so a chain refusal can be exercised.
+  failNextMint?: Error | undefined;
 
   mint(tokenAddress: string, investorId: string, tokens: bigint): Promise<void> {
+    const failure = this.failNextMint;
+    if (failure !== undefined) {
+      this.failNextMint = undefined;
+      return Promise.reject(failure);
+    }
     this.minted.push({ tokenAddress, investorId, tokens });
     return Promise.resolve();
   }
@@ -91,5 +101,47 @@ export class FixedClock implements Clock {
 
   now(): Date {
     return this.current;
+  }
+}
+
+// P0-2 step 1. The reference implementation the Prisma adapter is held to.
+export class InMemoryAllocationMintLog implements AllocationMintLog {
+  private readonly rows = new Map<string, { tokens: bigint; confirmed: boolean }>();
+
+  private id(key: AllocationKey): string {
+    return `${key.offeringId}:${key.investorId}`;
+  }
+
+  // Test seam: fires once, between this caller's read and its write, so the
+  // "another delivery claimed it first" race can be exercised deterministically
+  // instead of hoped for.
+  onNextStateRead?: (() => void) | undefined;
+
+  stateOf(key: AllocationKey): Promise<AllocationMintState> {
+    const row = this.rows.get(this.id(key));
+    const state: AllocationMintState =
+      row === undefined ? "unminted" : row.confirmed ? "minted" : "unresolved";
+    // Fires AFTER the read, so the other caller's claim lands in the window
+    // between this caller reading "unminted" and writing its own claim — which
+    // is the race, and firing before the read would only model losing earlier.
+    const hook = this.onNextStateRead;
+    if (hook !== undefined) {
+      this.onNextStateRead = undefined;
+      hook();
+    }
+    return Promise.resolve(state);
+  }
+
+  claim(key: AllocationKey, tokens: bigint): Promise<boolean> {
+    const id = this.id(key);
+    if (this.rows.has(id)) return Promise.resolve(false);
+    this.rows.set(id, { tokens, confirmed: false });
+    return Promise.resolve(true);
+  }
+
+  confirm(key: AllocationKey): Promise<void> {
+    const row = this.rows.get(this.id(key));
+    if (row !== undefined) row.confirmed = true;
+    return Promise.resolve();
   }
 }

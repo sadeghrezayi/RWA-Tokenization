@@ -1,6 +1,7 @@
 import type { Allocation, OfferingState } from "../../domain/offerings/offering.js";
 import type { AssetEventLog } from "../assets/ports.js";
 import { loadOffering } from "./load-offering.js";
+import type { MintAllocation } from "./mint-allocation.js";
 import type { AssetTokenIssuer, Clock, OfferingRepository, SettlementRail } from "./ports.js";
 
 // FR-PI-3: the close decision persists FIRST (like a compliance decision),
@@ -13,6 +14,10 @@ export class CloseOffering {
     private readonly issuer: AssetTokenIssuer,
     private readonly events: AssetEventLog,
     private readonly clock: Clock,
+    // P0-2 step 1: minting one allocation, idempotently. Its own unit because
+    // step 2 moves exactly this onto the outbox, where the handler needs to
+    // call it without dragging the whole close along.
+    private readonly mintAllocation: MintAllocation,
   ) {}
 
   async execute(input: {
@@ -34,6 +39,18 @@ export class CloseOffering {
       },
     });
 
+    await this.settleAllocations(closed.id, closed.tokenAddress, allocations);
+    if (closed.state === "closed_success") {
+      await this.issuer.finalize(closed.tokenAddress);
+    }
+    return { state: closed.state, allocations };
+  }
+
+  private async settleAllocations(
+    offeringId: string,
+    tokenAddress: string,
+    allocations: readonly Allocation[],
+  ): Promise<void> {
     for (const allocation of allocations) {
       if (allocation.costRial > 0n) {
         await this.rail.capture(allocation.investorId, allocation.costRial);
@@ -42,12 +59,13 @@ export class CloseOffering {
         await this.rail.release(allocation.investorId, allocation.refundRial);
       }
       if (allocation.allocated > 0n) {
-        await this.issuer.mint(closed.tokenAddress, allocation.investorId, allocation.allocated);
+        await this.mintAllocation.execute({
+          offeringId,
+          tokenAddress,
+          investorId: allocation.investorId,
+          tokens: allocation.allocated,
+        });
       }
     }
-    if (closed.state === "closed_success") {
-      await this.issuer.finalize(closed.tokenAddress);
-    }
-    return { state: closed.state, allocations };
   }
 }
