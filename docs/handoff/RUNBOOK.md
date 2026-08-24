@@ -201,6 +201,28 @@ Notes:
   K-23). Reads stayed instant throughout, so the node looks healthy right up until you time it.
 - The integration config runs files **serially** (`fileParallelism: false`).
 
+### Reproducing CI's database before diagnosing a CI-only failure
+
+**Do this FIRST when integration passes locally and fails on CI.** The dev database
+accumulates state — 160 investors and 65 assets by 2026-08-24 — while CI starts empty. That
+difference hides failures that depend on a table being empty, on insert order, or on a foreign
+key that only bites once some other suite has created a row.
+
+```bash
+docker exec tokenization-postgres psql -U tokenization -d postgres -c "CREATE DATABASE ci_repro OWNER tokenization;"
+cd services/api
+DATABASE_URL="postgresql://tokenization:tokenization@localhost:5433/ci_repro" pnpm exec prisma migrate deploy
+DATABASE_URL="postgresql://tokenization:tokenization@localhost:5433/ci_repro" pnpm test:integration
+docker exec tokenization-postgres psql -U tokenization -d postgres -c "DROP DATABASE ci_repro;"
+```
+
+It costs about a minute and leaves the dev database untouched. **K-38 took five CI cycles**
+partly because this was reached for last rather than first — the diagnostics that named the
+failing suite were necessary, but a fresh database is what actually reproduced it.
+
+Note the four anvil-backed suites will still fail locally on an aged devnet (K-23); that is
+environmental and independent of the database.
+
 ## 9. Lint, format, typecheck, build
 
 ```bash
