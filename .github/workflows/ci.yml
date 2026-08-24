@@ -142,11 +142,18 @@ jobs:
         if: failure()
         run: cat "$RUNNER_TEMP/anvil.log" || true
 
+      # `--outputFile` is relative to services/api, because `pnpm --filter` runs
+      # the script with THAT as its working directory. Writing
+      # "services/api/integration-report.json" here lands the file in
+      # services/api/services/api/, where the reporter step never looks — which
+      # is how two runs published nothing and looked like a broken parser.
+      # A YAML comment, not a shell one: `run: >` folds its lines into a single
+      # command, so a `#` inside would comment out the rest of that line.
       - name: Integration tests (Postgres + IPFS + anvil)
         run: >
           pnpm --filter @tokenization/api test:integration
           --reporter=default --reporter=json
-          --outputFile=services/api/integration-report.json
+          --outputFile=integration-report.json
 
       # The same treatment the browser suite already gets, for the same reason:
       # job logs need admin rights to read, so a CI-only integration failure was
@@ -159,7 +166,20 @@ jobs:
           script: |
             const fs = require('fs');
             const path = 'services/api/integration-report.json';
-            if (!fs.existsSync(path)) { core.info('no integration json report'); return; }
+            if (!fs.existsSync(path)) {
+              // Publishing this rather than logging it: a silent return is
+              // indistinguishable from "no failures", and that ambiguity cost
+              // two cycles on `3a9de2c` and `3b03ee0`.
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: 'failure',
+                context: 'integration-report-missing',
+                description: `no report at ${path} — the run died before writing one, or the path is wrong`,
+              });
+              return;
+            }
             const report = JSON.parse(fs.readFileSync(path, 'utf8'));
             const failures = [];
             for (const file of report.testResults ?? []) {
