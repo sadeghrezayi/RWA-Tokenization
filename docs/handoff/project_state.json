@@ -573,15 +573,16 @@
   "current_milestone": {
     "phase": "4.4",
     "name": "External portal — started with the one piece that needed no new decisions",
-    "state": "FR-RA-4 (a MUST requirement) is complete: an auditor can verify total supply vs registry (already existed) and now distributions vs bank records (built this slice), via the EXISTING auditor role and REPORTING_READ permission. Reading the code before building surfaced that a ledger entry carried no link to the distribution that caused it — fixed at the domain port, the Prisma column, and the adapter, with a round-trip test proving the fix (TypeScript alone did not catch the adapter silently ignoring the new parameter). The rest of 4.4 — external accounts for auditor/regulator/valuer, an /external portal shell, and what a valuer submits — is deliberately NOT started: it needs owner decisions the code cannot answer, listed below. Owner decisions received 2026-08-23: external parties reuse StaffUser with roles (no separate identity); Regulator deferred, matching the PRD's '(future)' marking; valuer submission stays staff-entered, so ATTESTATION_PUBLISH is unchanged and no external write path is built. With those answers, 4.4's remaining scope is the /external portal shell only.",
+    "state": "FR-RA-4 (a MUST requirement) is complete: an auditor can verify total supply vs registry (already existed) and now distributions vs bank records (built this slice), via the EXISTING auditor role and REPORTING_READ permission. Reading the code before building surfaced that a ledger entry carried no link to the distribution that caused it — fixed at the domain port, the Prisma column, and the adapter, with a round-trip test proving the fix (TypeScript alone did not catch the adapter silently ignoring the new parameter). The rest of 4.4 — external accounts for auditor/regulator/valuer, an /external portal shell, and what a valuer submits — is deliberately NOT started: it needs owner decisions the code cannot answer, listed below. Owner decisions received 2026-08-23: external parties reuse StaffUser with roles (no separate identity); Regulator deferred, matching the PRD's '(future)' marking; valuer submission stays staff-entered, so ATTESTATION_PUBLISH is unchanged and no external write path is built. With those answers, 4.4's remaining scope is the /external portal shell only. The /external portal shell was deliberately NOT built: with external parties reusing StaffUser, the permission-filtered admin nav already gives an auditor a read-only console, and a parallel portal would re-present the same screens. Verified by signing in as the auditor.",
     "completed_slices": [
       "4.4a DistributionLedger.payout carries a required reference; migration adds LedgerEntry.reference (nullable, honest about pre-existing rows)",
       "4.4b ReconcileDistributions + PrismaLedgerCreditReader, wired to the existing REPORTING_READ surface",
-      "4.4c auditor staff account seeded (OFFICER3_*), giving the read-only role someone who can log in; read-only enforced by e2e"
+      "4.4c auditor staff account seeded (OFFICER3_*), giving the read-only role someone who can log in; read-only enforced by e2e",
+      "4.4d reconciliation screen at /admin/reconciliation, reached through the auditor's permission-filtered nav",
+      "4.4e session reports the caller's own roles; the shell names them instead of hard-coding 'officer'",
+      "K-35 closed: approver account seeded (officer-4), proven end to end"
     ],
-    "exit_criteria_remaining": [
-      "the /external portal shell named in information-architecture.md — a scoped read-only landing for the auditor role. The API surface it would read is complete and reachable today via the admin console's reporting screens."
-    ]
+    "exit_criteria_remaining": []
   },
   "previous_milestones": [
     {

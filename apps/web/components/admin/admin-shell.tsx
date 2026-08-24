@@ -32,6 +32,7 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
     status,
     csrf,
     permissions,
+    roles,
     reload: loadSession,
     clear: clearSession,
   } = useBrowserSession(api, isOfficer);
@@ -146,6 +147,15 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
     {
       label: t.navGroupReporting,
       items: [
+        {
+          // FR-RA-4: the auditor's verification of distributions against what
+          // actually reached holders. REPORTING_READ, so the read-only auditor
+          // role sees it through the same permission-filtered nav as everyone.
+          href: `${base}/reconciliation`,
+          label: t.reconciliationTitle,
+          icon: "⚖",
+          permission: PERMISSIONS.REPORTING_READ,
+        },
         {
           href: `${base}/registry`,
           label: t.registryTitle,
@@ -270,7 +280,15 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
           <div className="sidebar__footer">
             <span className="sidebar__session">
               <span className="sidebar__session-label">{t.signedInAs}</span>
-              <span className="sidebar__session-value">officer</span>
+              {/* The person's actual roles. This was hard-coded to "officer"
+                  for everyone, which with four distinct staff roles told a
+                  checker nothing about whether they were maker or checker, and
+                  let an auditor believe they held operator powers. A legacy
+                  token carries no roles, so the generic word stands in — it is
+                  honest about what is known. */}
+              <span className="sidebar__session-value" data-testid="signed-in-as">
+                {roles.length > 0 ? roles.join(", ") : t.signedInGenericStaff}
+              </span>
             </span>
             <button
               type="button"

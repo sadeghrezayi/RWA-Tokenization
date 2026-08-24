@@ -478,6 +478,17 @@ export interface Dictionary {
   tabCash: string;
   tabTransfers: string;
   tabCommunications: string;
+  reconciliationTitle: string;
+  reconciliationNone: string;
+  reconciliationDeclared: string;
+  reconciliationCredited: string;
+  reconciliationDifference: string;
+  reconciliationAgrees: string;
+  reconciliationDisagrees: string;
+  reconciliationNotChecked: string;
+  reconciliationNotCheckedHint: string;
+  reconciliationSummaryClean: string;
+  reconciliationSummaryExceptions: string;
   documentReviewTitle: string;
   documentReviewNone: string;
   documentReviewAccept: string;
@@ -517,6 +528,7 @@ export interface Dictionary {
   issuerRemoveButton: string;
   issuerOrganisationTitle: string;
   signedInAs: string;
+  signedInGenericStaff: string;
   investorPortalTitle: string;
   backToAssets: string;
   backToOfferings: string;
@@ -1100,6 +1112,18 @@ export const dictionaries: Record<Locale, Dictionary> = {
     tabCash: "Cash & payments",
     tabTransfers: "Transfers",
     tabCommunications: "Communications",
+    reconciliationTitle: "Distribution reconciliation",
+    reconciliationNone: "No distribution has been paid yet.",
+    reconciliationDeclared: "Declared",
+    reconciliationCredited: "Reached holders",
+    reconciliationDifference: "Difference",
+    reconciliationAgrees: "Agrees",
+    reconciliationDisagrees: "Does not agree",
+    reconciliationNotChecked: "Not checked",
+    reconciliationNotCheckedHint:
+      "Paid before payouts recorded which distribution they came from, so this cannot be verified either way.",
+    reconciliationSummaryClean: "0 distributions disagree.",
+    reconciliationSummaryExceptions: "distributions do not agree and need investigation.",
     documentReviewTitle: "Document review",
     documentReviewNone: "No document is waiting on a reviewer.",
     documentReviewAccept: "Accept",
@@ -1140,6 +1164,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerInviteEmailRequired: "Enter the email address of the person to invite.",
     issuerRemoveButton: "Remove",
     signedInAs: "Signed in as",
+    signedInGenericStaff: "officer",
     investorPortalTitle: "Investor Portal",
     backToAssets: "← Back to assets",
     backToOfferings: "← Back to offerings",

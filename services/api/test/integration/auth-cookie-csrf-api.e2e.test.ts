@@ -76,9 +76,27 @@ describe("Auth cookie + CSRF API (e2e, real Postgres)", () => {
     const login = await request(server).post("/auth/login").send({ email, password: "Passw0rd-9" });
     const jar = cookieHeader(cookiesFrom(login));
     const res = await request(server).get("/auth/session").set("Cookie", jar).expect(200);
+    // An investor has no staff roles, so the field is absent rather than an
+    // empty array pretending to be a role list.
     expect(res.body).toEqual({ kind: "investor", permissions: ["investor.portal"] });
     // No session ⇒ 401 (the shell then shows the login screen).
     await request(server).get("/auth/session").expect(401);
+  });
+
+  it("tells a staff member which ROLES they are signed in with", async () => {
+    // The admin shell showed a hard-coded "Signed in as officer" to everyone.
+    // With four distinct staff roles that is actively misleading: a checker
+    // cannot tell whether they are the maker or the checker, and an auditor
+    // could believe they hold operator powers. The session has to say.
+    const login = await request(server)
+      .post("/auth/officer/login")
+      .send({ email: "auditor@platform.local", password: "officer-dev-pass" })
+      .expect(200);
+    const jar = cookieHeader(cookiesFrom(login));
+
+    const res = await request(server).get("/auth/session").set("Cookie", jar).expect(200);
+    expect((res.body as { kind: string; roles?: string[] }).kind).toBe("officer");
+    expect((res.body as { roles?: string[] }).roles).toEqual(["auditor"]);
   });
 
   it("rejects_a_cookie_authenticated_POST_without_the_csrf_header", async () => {

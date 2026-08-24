@@ -13,6 +13,7 @@ export interface BrowserSession {
   // pages for state-changing requests.
   csrf: string;
   permissions: readonly string[];
+  roles: readonly string[];
   // Re-read after a fresh login: permissions drive the nav, so flipping the
   // status alone left a signed-in user looking at an empty sidebar.
   reload: () => Promise<void>;
@@ -35,6 +36,7 @@ export const useBrowserSession = (
   const [status, setStatus] = useState<SessionStatus>("loading");
   const [csrf, setCsrf] = useState<string>("");
   const [permissions, setPermissions] = useState<readonly string[]>([]);
+  const [roles, setRoles] = useState<readonly string[]>([]);
 
   const reload = useCallback(async () => {
     try {
@@ -45,6 +47,7 @@ export const useBrowserSession = (
       }
       setCsrf(readCsrfToken() ?? "");
       setPermissions(session.permissions);
+      setRoles(session.roles ?? []);
       setStatus("authed");
     } catch (failure) {
       // A RATE LIMIT is not a logout. Showing the sign-in panel to someone who
@@ -73,5 +76,5 @@ export const useBrowserSession = (
     void reload();
   }, [reload]);
 
-  return { status, csrf, permissions, reload, clear };
+  return { status, csrf, permissions, roles, reload, clear };
 };

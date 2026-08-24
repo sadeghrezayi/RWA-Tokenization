@@ -252,6 +252,17 @@ export interface RiskAssessmentDto {
   advisory: string;
 }
 
+export interface DistributionReconciliationDto {
+  distributionId: string;
+  assetId: string;
+  paidAt?: string;
+  declaredRial: string;
+  // Absent when the credits cannot be traced at all — never rendered as zero.
+  creditedRial?: string;
+  differenceRial?: string;
+  status: "agrees" | "disagrees" | "not_reconcilable";
+}
+
 export interface InvestorFundingDto {
   id: string;
   status: string;
@@ -499,7 +510,14 @@ export interface ApiClient {
   // verify rejects (ApiError 400) on an invalid or expired token.
   requestEmailVerification(email: string): Promise<void>;
   verifyEmail(token: string): Promise<void>;
-  getSession(): Promise<{ kind: "investor" | "officer"; permissions: string[] }>;
+  // `roles` is present only for a staff session whose token carries them —
+  // absent for an investor, and for a legacy officer token minted before
+  // roles existed. An empty array would be a different claim.
+  getSession(): Promise<{
+    kind: "investor" | "officer";
+    permissions: string[];
+    roles?: string[];
+  }>;
   logout(csrfToken: string): Promise<void>;
   me(token: string): Promise<InvestorViewDto>;
   startOnboarding(csrfToken: string): Promise<OnboardingProgressDto>;
@@ -671,6 +689,8 @@ export interface ApiClient {
   documentsAwaitingReview(officerToken: string): Promise<DocumentAwaitingReviewDto[]>;
   // 4.3 Investor 360, Cash & payments: one investor's cash movements.
   investorFunding(officerToken: string, investorId: string): Promise<InvestorFundingDto[]>;
+  // FR-RA-4: declared vs what actually reached holders' ledgers.
+  distributionReconciliation(officerToken: string): Promise<DistributionReconciliationDto[]>;
   acceptDocument(officerToken: string, assetId: string, kind: string): Promise<void>;
   rejectDocument(
     officerToken: string,
@@ -1392,6 +1412,8 @@ export const createApiClient = (
       json(call("/assets/documents/awaiting-review", { token: officerToken })),
     investorFunding: (officerToken, investorId) =>
       json(call(`/funding/investors/${encodeURIComponent(investorId)}`, { token: officerToken })),
+    distributionReconciliation: (officerToken) =>
+      json(call("/reporting/distributions/reconciliation", { token: officerToken })),
     acceptDocument: async (officerToken, assetId, kind) => {
       await call(
         `/assets/${encodeURIComponent(assetId)}/documents/${encodeURIComponent(kind)}/accept`,

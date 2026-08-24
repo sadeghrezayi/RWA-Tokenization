@@ -58,6 +58,44 @@ const renderSignedIn = async (): Promise<void> => {
 };
 
 describe("AdminShell", () => {
+  it("names the ROLES the person is signed in with, not a hard-coded 'officer'", async () => {
+    // Every staff member used to see "Signed in as officer" regardless of who
+    // they were. With four distinct roles that is misleading: a checker cannot
+    // tell whether they are maker or checker, and an auditor could believe
+    // they hold operator powers.
+    getSession.mockResolvedValue({
+      kind: "officer",
+      permissions: [PERMISSIONS.REPORTING_READ],
+      roles: ["auditor"],
+    });
+    render(
+      <AdminShell locale="en">
+        <SessionProbe />
+      </AdminShell>,
+    );
+    await screen.findByTestId("probe");
+
+    expect((await screen.findByTestId("signed-in-as")).textContent).toMatch(/auditor/i);
+  });
+
+  it("falls back to a generic label when a legacy token carries no roles", async () => {
+    // Tokens minted before roles existed still verify. Showing nothing, or an
+    // empty space, would look broken; the generic word is honest about what is
+    // known.
+    getSession.mockResolvedValue({
+      kind: "officer",
+      permissions: [PERMISSIONS.REPORTING_READ],
+    });
+    render(
+      <AdminShell locale="en">
+        <SessionProbe />
+      </AdminShell>,
+    );
+    await screen.findByTestId("probe");
+
+    expect((await screen.findByTestId("signed-in-as")).textContent).toMatch(/officer/i);
+  });
+
   beforeEach(() => {
     mockPathname = "/en/admin/overview";
     getSession.mockReset();

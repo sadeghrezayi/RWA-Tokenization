@@ -182,8 +182,19 @@ export class AuthController {
   session(@CurrentPrincipal() principal: Principal): {
     kind: Principal["kind"];
     permissions: string[];
+    roles?: string[];
   } {
-    return { kind: principal.kind, permissions: [...permissionsForPrincipal(principal)] };
+    return {
+      kind: principal.kind,
+      permissions: [...permissionsForPrincipal(principal)],
+      // A person's OWN roles, so the shell can say who they are signed in as
+      // rather than calling every staff member "officer". Omitted for an
+      // investor, and for a legacy officer token minted before roles existed —
+      // an empty array would read as "no roles", which is a different claim.
+      ...(principal.kind === "officer" && principal.roles !== undefined
+        ? { roles: [...principal.roles] }
+        : {}),
+    };
   }
 
   @Post("logout")
