@@ -56,7 +56,7 @@ cp services/api/.env.example services/api/.env
 | `ATTESTATION_REGISTRY_ADDRESS` | API | for on-chain anchoring | Printed by the deploy script |
 | `LEDGER_CREDIT_APPROVAL_THRESHOLD_RIAL` | API | no | Above this, a credit needs maker-checker. **Placeholder value — requires local policy validation** |
 | `SCHEDULED_JOBS_ENABLED`, `FOLLOW_UP_DUE_CRON` | API | no | pg-boss cron opt-in |
-| `OUTBOX_DRAIN_INTERVAL_MS` | API | no | Outbox drain tick |
+| `OUTBOX_DRAIN_INTERVAL_MS` | API | no | Outbox drain tick, default **1000ms — ON**. Set it to `0` to disable, which the integration suite does so it can drive draining itself. **Do not leave it disabled in a running deployment:** password resets, email verifications and important notifications are all ENQUEUED rather than sent inline (B7), so nothing is delivered without it |
 | `REVALIDATE_SECRET` | **API *and* web** | yes if using ISR | Must be **the same value on both** or a freshly published offering stays out of the public catalogue for the whole revalidate window |
 | `WEB_ORIGIN`, `SITE_URL` | API/web | no | Absolute links and CORS/cookies |
 | `NEXT_PUBLIC_API_URL` / `API_URL` | web | no | Defaults to `http://localhost:3001` |

@@ -68,4 +68,10 @@ export const setup = async (): Promise<void> => {
   // wholesale deletes safe, so it is worth a test of its own.
   process.env.DATABASE_URL_BEFORE_TESTS = configured;
   process.env.DATABASE_URL = testUrl;
+
+  // The outbox drain worker now runs BY DEFAULT (an outbox nothing drains
+  // delivers nothing — it had stranded 187 messages). Tests must keep driving
+  // the drainer themselves, so the background timer is switched off here rather
+  // than left to race assertions about what has and has not been delivered.
+  process.env.OUTBOX_DRAIN_INTERVAL_MS = "0";
 };
