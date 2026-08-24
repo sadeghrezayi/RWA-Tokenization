@@ -571,26 +571,41 @@
     }
   ],
   "current_milestone": {
-    "phase": "4.3",
-    "name": "Document review — evidence is not evidence until someone read it",
-    "state": "First slice shipped and browser-verified: every dossier document carries a review, approval refuses while any required document is unreviewed or rejected, and `/admin/documents` is the queue where an officer decides. Closes a real gap — a document counted the moment it was attached, including one an ISSUER attached, so an asset could be approved on files nobody opened. Remaining in 4.3: investor/org review workspaces and Investor 360 completion (the 10-tab layout in information-architecture.md). Investor 360 now presents one person's file as seven tabs; the three the IA names but nothing backs (Documents, Cases, Audit) are absent rather than empty. Review workspaces close the last 4.3 line: the decision now sits with the evidence for both an investor and an organisation.",
+    "phase": "4.4",
+    "name": "External portal — started with the one piece that needed no new decisions",
+    "state": "FR-RA-4 (a MUST requirement) is complete: an auditor can verify total supply vs registry (already existed) and now distributions vs bank records (built this slice), via the EXISTING auditor role and REPORTING_READ permission. Reading the code before building surfaced that a ledger entry carried no link to the distribution that caused it — fixed at the domain port, the Prisma column, and the adapter, with a round-trip test proving the fix (TypeScript alone did not catch the adapter silently ignoring the new parameter). The rest of 4.4 — external accounts for auditor/regulator/valuer, an /external portal shell, and what a valuer submits — is deliberately NOT started: it needs owner decisions the code cannot answer, listed below.",
     "completed_slices": [
-      "4.3a DocumentReview in the dossier domain + approval gate",
-      "4.3b ReviewDossierDocument use case, both decisions audited",
-      "4.3c Prisma columns + repository contract extended (caught the adapter dropping the review)",
-      "4.3d endpoints + ListDocumentsAwaitingReview",
-      "4.3e officer queue at /admin/documents",
-      "4.3f Investor 360: seven tabs with real content, three deliberately absent",
-      "4.3g GET /funding/investors/:id + the Cash & payments tab (declared vs arrived)",
-      "4.3h investor review workspace: the KYC decision on the compliance tab, with an advisory gaps warning",
-      "4.3i org review workspace: the review decision on the issuer detail page, sharing one state-machine definition with the queue",
-      "K-37 CI: the unbounded devnet-deploy step that spent a whole job budget"
+      "4.4a DistributionLedger.payout carries a required reference; migration adds LedgerEntry.reference (nullable, honest about pre-existing rows)",
+      "4.4b ReconcileDistributions + PrismaLedgerCreditReader, wired to the existing REPORTING_READ surface"
     ],
     "exit_criteria_remaining": [
-      "Investor 360's remaining three tabs, each blocked on its own feature: Documents (would duplicate identity evidence), Cases (/ops/cases not built), Audit (no per-investor audit trail)"
+      "external accounts for auditor/regulator/valuer — reuse StaffUser with new roles, or a genuinely separate identity? (owner decision)",
+      "what a regulator may see — the PRD marks Regulator explicitly '(future)'; confirm this pilot is in scope before building it",
+      "valuer submission — ATTESTATION_PUBLISH already exists as a staff-only permission; does 'valuer submission' mean giving an outside valuer their own login to attest directly, or staff continuing to enter on their behalf?",
+      "the /external portal shell named in information-architecture.md — not started"
     ]
   },
   "previous_milestones": [
+    {
+      "phase": "4.3",
+      "name": "Document review — evidence is not evidence until someone read it",
+      "state": "First slice shipped and browser-verified: every dossier document carries a review, approval refuses while any required document is unreviewed or rejected, and `/admin/documents` is the queue where an officer decides. Closes a real gap — a document counted the moment it was attached, including one an ISSUER attached, so an asset could be approved on files nobody opened. Remaining in 4.3: investor/org review workspaces and Investor 360 completion (the 10-tab layout in information-architecture.md). Investor 360 now presents one person's file as seven tabs; the three the IA names but nothing backs (Documents, Cases, Audit) are absent rather than empty. Review workspaces close the last 4.3 line: the decision now sits with the evidence for both an investor and an organisation.",
+      "completed_slices": [
+        "4.3a DocumentReview in the dossier domain + approval gate",
+        "4.3b ReviewDossierDocument use case, both decisions audited",
+        "4.3c Prisma columns + repository contract extended (caught the adapter dropping the review)",
+        "4.3d endpoints + ListDocumentsAwaitingReview",
+        "4.3e officer queue at /admin/documents",
+        "4.3f Investor 360: seven tabs with real content, three deliberately absent",
+        "4.3g GET /funding/investors/:id + the Cash & payments tab (declared vs arrived)",
+        "4.3h investor review workspace: the KYC decision on the compliance tab, with an advisory gaps warning",
+        "4.3i org review workspace: the review decision on the issuer detail page, sharing one state-machine definition with the queue",
+        "K-37 CI: the unbounded devnet-deploy step that spent a whole job budget"
+      ],
+      "exit_criteria_remaining": [
+        "Investor 360's remaining three tabs, each blocked on its own feature: Documents (would duplicate identity evidence), Cases (/ops/cases not built), Audit (no per-investor audit trail)"
+      ]
+    },
     {
       "phase": "4.2",
       "name": "Sanctions & PEP screening — a mock that cannot lie about itself",
@@ -692,6 +707,9 @@
     "4.3: should a document decision need four eyes (a second reviewer), as payouts do? Today one officer accepting a document is enough to move an asset toward approval.",
     "4.3: should the document review queue carry an SLA or ageing indicator? It currently shows what is outstanding but not how long it has waited.",
     "4.3 Investor 360: an Audit tab needs a per-investor audit trail, which does not exist — `asset_events` is asset-scoped. Should privileged actions ON a person (KYC decisions, screenings, risk ratings, tag/stage changes) be recorded in a queryable per-subject trail? That is a schema addition, not a UI one.",
-    "4.3: should approving a KYC application be BLOCKED when the applicant has never been screened or risk-rated? Today the workspace warns at the moment of deciding but still allows it — a gate is a compliance-policy decision."
+    "4.3: should approving a KYC application be BLOCKED when the applicant has never been screened or risk-rated? Today the workspace warns at the moment of deciding but still allows it — a gate is a compliance-policy decision.",
+    "4.4: should auditor/regulator/valuer get a NEW external identity type with its own login surface, or additional roles on the existing StaffUser (reusing officer login, just gated differently)? This decides the whole shape of the external portal.",
+    "4.4: the PRD's own roles table marks Regulator '(future)'. Is a domestic regulatory framework close enough to build a regulator surface now, or should 4.4 ship auditor + valuer only and leave regulator for when a framework exists?",
+    "4.4: 'valuer submission' — does this mean an outside valuer gets their own login to publish attestations directly, replacing today's staff-only ATTESTATION_PUBLISH? If so, an attestation from an unvetted external party needs its own review/countersign step before it can move a token's valuation."
   ]
 }

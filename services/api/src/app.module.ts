@@ -199,6 +199,8 @@ import { GetSystemHealth } from "./application/reporting/system-health.js";
 import { GetAuditTrail } from "./application/reporting/audit-trail.js";
 import type { AssetEventReader, HealthProbe } from "./application/reporting/ports.js";
 import { GetHolderRegistry } from "./application/registry/get-holder-registry.js";
+import { ReconcileDistributions } from "./application/reporting/reconcile-distributions.js";
+import { PrismaLedgerCreditReader } from "./infrastructure/persistence/prisma-ledger-credit-reader.js";
 import {
   ExportHolderRegistryCsv,
   ExportTransferHistoryCsv,
@@ -1445,6 +1447,12 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       provide: ExportTransferHistoryCsv,
       useFactory: (registry: GetHolderRegistry) => new ExportTransferHistoryCsv(registry),
       inject: [GetHolderRegistry],
+    },
+    {
+      provide: ReconcileDistributions,
+      useFactory: (distributions: DistributionRepository, prisma: PrismaService) =>
+        new ReconcileDistributions(distributions, new PrismaLedgerCreditReader(prisma)),
+      inject: [DISTRIBUTION_REPOSITORY, SCOPED_PRISMA],
     },
     {
       provide: GetAuditTrail,

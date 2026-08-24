@@ -8,6 +8,8 @@ import type { WorkQueueView } from "../../application/ops/get-work-queue.js";
 import { GetAuditTrail } from "../../application/reporting/audit-trail.js";
 import type { AuditEventView } from "../../application/reporting/audit-trail.js";
 import { GetHolderRegistry } from "../../application/registry/get-holder-registry.js";
+import { ReconcileDistributions } from "../../application/reporting/reconcile-distributions.js";
+import type { DistributionReconciliationView } from "../../application/reporting/reconcile-distributions.js";
 import type { HolderRegistryView } from "../../application/registry/get-holder-registry.js";
 import {
   ExportHolderRegistryCsv,
@@ -36,6 +38,7 @@ export class ReportingController {
     private readonly historyCsv: ExportTransferHistoryCsv,
     private readonly auditTrail: GetAuditTrail,
     private readonly workQueue: GetWorkQueue,
+    private readonly reconcileDistributions: ReconcileDistributions,
   ) {}
 
   // 1.8: everything currently waiting on a human decision, oldest first.
@@ -73,6 +76,14 @@ export class ReportingController {
     @Res({ passthrough: true }) res: CsvResponse,
   ): Promise<string> {
     return asDownload(await this.historyCsv.execute({ assetId: id }), res);
+  }
+
+  // FR-RA-4: "distributions vs bank records" — what an auditor role must be
+  // able to verify. Reads REPORTING_READ, the same as everything else on this
+  // controller, so the auditor role reaches it with no new permission.
+  @Get("distributions/reconciliation")
+  distributionsReconciliation(): Promise<DistributionReconciliationView[]> {
+    return this.reconcileDistributions.execute();
   }
 
   @Get("audit")

@@ -173,9 +173,12 @@ describe("PayDistribution (FR-YD-1 payout, FR-YD-2 credit-and-hold)", () => {
     const result = await s.pay.execute({ distributionId, actor: ACTOR });
 
     expect(result.state).toBe("paid");
+    // 4.4 / FR-RA-4: each credit names the distribution that caused it.
+    // Without that, an auditor can see money moved but cannot tie it to what
+    // was declared — which is the check the requirement asks for.
     expect(s.ledger.credited).toEqual([
-      { investorId: "a", amountRial: 67_000n },
-      { investorId: "b", amountRial: 33_000n },
+      { investorId: "a", amountRial: 67_000n, reference: distributionId },
+      { investorId: "b", amountRial: 33_000n, reference: distributionId },
     ]);
     expect((await s.get.execute({ distributionId })).state).toBe("paid");
     expect(s.events.events.map((e) => e.event)).toContain("distribution_paid");

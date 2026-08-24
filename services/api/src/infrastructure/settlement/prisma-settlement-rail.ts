@@ -70,12 +70,15 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
 
   // FR-YD-1 / D5b: a distribution payout credits the balance directly, with a
   // distinct ledger-entry kind for the audit trail.
-  async payout(investorId: string, amountRial: bigint): Promise<void> {
+  async payout(investorId: string, amountRial: bigint, reference: string): Promise<void> {
     this.assertPositive(amountRial);
     await this.inTransaction(async (tx) => {
       await this.creditBalance(tx, investorId, amountRial);
       await tx.ledgerEntry.create({
-        data: { investorId, kind: "distribution", amountRial, actor: "platform" },
+        // 4.4 / FR-RA-4: the distribution this money came from. Carried
+        // explicitly — TypeScript accepts an adapter that ignores this
+        // parameter, so only the round-trip test protects the link.
+        data: { investorId, kind: "distribution", amountRial, actor: "platform", reference },
       });
     });
   }

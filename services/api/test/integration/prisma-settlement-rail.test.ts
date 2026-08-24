@@ -38,6 +38,22 @@ describe("PrismaSettlementRail (integration, real Postgres)", () => {
     expect(entries[0]).toMatchObject({ kind: "redemption", amountRial: 312_500_000n });
   });
 
+  it("records WHICH distribution a payout came from (FR-RA-4)", async () => {
+    // TypeScript cannot catch this: a method taking fewer parameters still
+    // satisfies the port, so an adapter that ignores `reference` compiles
+    // cleanly and silently loses the auditor's only link back to what was
+    // declared. Only a round trip against the real column proves it.
+    await rail.payout("inv-d", 100_000n, "dist-1");
+
+    const entries = await prisma.ledgerEntry.findMany({ where: { investorId: "inv-d" } });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      kind: "distribution",
+      amountRial: 100_000n,
+      reference: "dist-1",
+    });
+  });
+
   it("rejects_a_hold_beyond_the_balance_without_moving_anything", async () => {
     await rail.credit("inv-1", 5_000n, "officer-1");
 

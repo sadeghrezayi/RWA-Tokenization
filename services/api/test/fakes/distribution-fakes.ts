@@ -41,10 +41,10 @@ export class StubHolderSnapshotProvider implements HolderSnapshotProvider {
 }
 
 export class RecordingDistributionLedger implements DistributionLedger {
-  readonly credited: { investorId: string; amountRial: bigint }[] = [];
+  readonly credited: { investorId: string; amountRial: bigint; reference: string }[] = [];
 
-  payout(investorId: string, amountRial: bigint): Promise<void> {
-    this.credited.push({ investorId, amountRial });
+  payout(investorId: string, amountRial: bigint, reference: string): Promise<void> {
+    this.credited.push({ investorId, amountRial, reference });
     return Promise.resolve();
   }
 }

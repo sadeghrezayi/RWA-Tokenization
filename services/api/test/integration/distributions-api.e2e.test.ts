@@ -130,6 +130,17 @@ describe("Distributions API (e2e, real Postgres + ledger, stub snapshot)", () =>
       (e) => e.kind,
     );
     expect(kinds).toEqual(["distribution"]);
+
+    // FR-RA-4: an auditor must be able to verify distributions against bank
+    // records. This is that check — declared vs what actually landed.
+    const reconciliation = await http
+      .get("/reporting/distributions/reconciliation")
+      .set(auth(officerToken))
+      .expect(200);
+    const row = (
+      reconciliation.body as { distributionId: string; status: string; creditedRial: string }[]
+    ).find((r) => r.distributionId === distributionId);
+    expect(row).toMatchObject({ status: "agrees", declaredRial: "100000", creditedRial: "100000" });
   }, 30_000);
 
   it("rejects_paying_twice_and_never_double_credits", async () => {

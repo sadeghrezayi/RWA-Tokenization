@@ -35,7 +35,7 @@ export class PayDistribution {
       details: { distributionId: paid.id, totalAmountRial: String(paid.totalAmountRial) },
     });
     for (const payout of paid.payouts) {
-      await this.ledger.payout(payout.investorId, payout.amountRial);
+      await this.ledger.payout(payout.investorId, payout.amountRial, paid.id);
     }
     // 1.7c-ii: tell each holder what landed. Notifying AFTER the credits means a
     // notification never promises money that was not actually paid.

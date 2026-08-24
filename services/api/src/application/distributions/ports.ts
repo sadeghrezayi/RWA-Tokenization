@@ -15,7 +15,11 @@ export interface HolderSnapshotProvider {
 // D5b "credit & hold": a payout credits the investor's Rial balance directly
 // (an internal ledger write that cannot fail like a bank withdrawal would).
 export interface DistributionLedger {
-  payout(investorId: string, amountRial: bigint): Promise<void>;
+  // `reference` names the distribution the money came from. Required, not
+  // optional: a credit nobody can trace back to what was declared is exactly
+  // what FR-RA-4 asks an auditor to check, and an optional field would go
+  // unfilled at the one call site that matters.
+  payout(investorId: string, amountRial: bigint, reference: string): Promise<void>;
 }
 
 // 1.7c-ii: raised once a distribution is paid, so each holder is told what they

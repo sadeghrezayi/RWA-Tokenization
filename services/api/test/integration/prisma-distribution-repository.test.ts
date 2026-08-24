@@ -26,11 +26,15 @@ describe("PrismaSettlementRail.payout (integration)", () => {
     await prisma.ledgerAccount.deleteMany();
     const rail = new PrismaSettlementRail(prisma);
 
-    await rail.payout("inv-yd", 67_000n);
+    await rail.payout("inv-yd", 67_000n, "dist-yd");
 
     expect(await rail.balanceOf("inv-yd")).toEqual({ balanceRial: 67_000n, heldRial: 0n });
     const entries = await prisma.ledgerEntry.findMany({ where: { investorId: "inv-yd" } });
     expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ kind: "distribution", amountRial: 67_000n });
+    expect(entries[0]).toMatchObject({
+      kind: "distribution",
+      amountRial: 67_000n,
+      reference: "dist-yd",
+    });
   });
 });

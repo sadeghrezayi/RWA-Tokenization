@@ -480,6 +480,11 @@ model LedgerEntry {
   kind       String
   amountRial BigInt   @map("amount_rial")
   actor      String
+  // 4.4 / FR-RA-4: what caused this entry — the distribution id for a payout.
+  // NULLABLE because entries written before this column exists genuinely have
+  // no reference; an auditor must be able to tell "not traceable" from
+  // "traced and wrong", so they are never filled in retrospectively.
+  reference  String?
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([tenantId])

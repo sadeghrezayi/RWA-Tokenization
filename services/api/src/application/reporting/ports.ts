@@ -29,3 +29,12 @@ export interface HealthProbe {
   // because nothing on this side can tell them from a healthy investor.
   approvedWithoutOnchainIdentity(): Promise<number>;
 }
+
+// 4.4 / FR-RA-4: how much reached holders' ledgers, grouped by what caused it.
+//
+// Keyed by reference (a distribution id). Entries written before the reference
+// column existed are absent rather than zero — an auditor has to be able to
+// tell "not traceable" from "traced and found to be nothing".
+export interface LedgerCreditReader {
+  creditedPerReference(): Promise<Map<string, bigint>>;
+}
