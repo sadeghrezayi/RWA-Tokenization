@@ -37,3 +37,13 @@ export class UnresolvedMintError extends ApplicationError {
     );
   }
 }
+
+// P0-2 step 2: a mint that was refused BEFORE any transaction was sent — the
+// holder has no on-chain identity yet, or the token is paused.
+//
+// The distinction matters because it decides whether a retry is safe. Nothing
+// can land later, so the allocation's claim is released and the work can be
+// tried again. Any OTHER failure might mean a transaction is in flight, where
+// retrying could double-issue — those keep the claim and become `unresolved`,
+// which asks for a person.
+export class MintPreconditionError extends ApplicationError {}

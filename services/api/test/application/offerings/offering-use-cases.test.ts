@@ -4,6 +4,7 @@ import { OpenOffering } from "../../../src/application/offerings/open-offering.j
 import { SubscribeToOffering } from "../../../src/application/offerings/subscribe-to-offering.js";
 import { CloseOffering } from "../../../src/application/offerings/close-offering.js";
 import { MintAllocation } from "../../../src/application/offerings/mint-allocation.js";
+import { MintWithRetry } from "../../../src/application/offerings/mint-with-retry.js";
 import { GetOffering } from "../../../src/application/offerings/get-offering.js";
 import {
   AssetNotTokenizedError,
@@ -83,7 +84,11 @@ const setup = async () => {
       issuer,
       events,
       clock,
-      new MintAllocation(issuer, new InMemoryAllocationMintLog()),
+      // Inline-first, so the close still mints synchronously here; the outbox
+      // only sees a message if the chain refuses.
+      new MintWithRetry(new MintAllocation(issuer, new InMemoryAllocationMintLog()), {
+        enqueue: () => Promise.resolve(),
+      }),
     ),
     getOffering: new GetOffering(offerings, assets, investors),
   };

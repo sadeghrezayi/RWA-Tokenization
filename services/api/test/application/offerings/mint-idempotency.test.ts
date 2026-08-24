@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { MintAllocation } from "../../../src/application/offerings/mint-allocation.js";
-import { UnresolvedMintError } from "../../../src/application/offerings/errors.js";
+import {
+  MintPreconditionError,
+  UnresolvedMintError,
+} from "../../../src/application/offerings/errors.js";
 import {
   InMemoryAllocationMintLog,
   RecordingAssetTokenIssuer,
@@ -61,14 +64,27 @@ describe("MintAllocation", () => {
     expect(issuer.minted).toEqual([]);
   });
 
-  it("does not record a mint that the chain rejected", async () => {
-    // If the claim survived a failed mint, the allocation would be stuck
-    // `unresolved` forever over what was really a clean failure. It stays
-    // claimed — which is honest, because the transaction may still land — and
-    // that is exactly why the unresolved state refuses rather than guesses.
-    issuer.failNextMint = new Error("chain refused: holder not registered");
+  it("RELEASES the claim when the mint never reached the chain", async () => {
+    // A precondition failure — the holder has no on-chain identity yet, or the
+    // token is paused — is checked BEFORE any transaction is sent. Nothing can
+    // land later, so leaving the claim in place would strand the allocation as
+    // `unresolved` forever over a clean, retryable failure. That is exactly
+    // what broke the queued retry in step 2: it always refused.
+    issuer.failNextMint = new MintPreconditionError(
+      "investor alice has no on-chain identity — the KYC claim must be issued first",
+    );
 
-    await expect(mint.execute(ALLOCATION)).rejects.toThrow(/chain refused/);
+    await expect(mint.execute(ALLOCATION)).rejects.toThrow(/on-chain identity/);
+    expect(await mints.stateOf(KEY)).toBe("unminted");
+  });
+
+  it("KEEPS the claim when a mint failed after it may have been submitted", async () => {
+    // Any other failure might mean the transaction is in flight and will land.
+    // Releasing the claim there would let a retry double-issue, so the
+    // allocation stays unresolved and asks for a person.
+    issuer.failNextMint = new Error("timed out waiting for the receipt");
+
+    await expect(mint.execute(ALLOCATION)).rejects.toThrow(/timed out/);
     expect(await mints.stateOf(KEY)).toBe("unresolved");
   });
 

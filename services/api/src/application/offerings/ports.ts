@@ -50,6 +50,10 @@ export interface AllocationMintLog {
   // redelivery, not merely a sequential one.
   claim(key: AllocationKey, tokens: bigint): Promise<boolean>;
   confirm(key: AllocationKey): Promise<void>;
+  // Undo a claim whose mint provably never reached the chain, so the work can
+  // be retried. Only ever called for a precondition failure — releasing a
+  // claim whose transaction might still land would invite a double-issue.
+  release(key: AllocationKey): Promise<void>;
 }
 
 export interface Clock {

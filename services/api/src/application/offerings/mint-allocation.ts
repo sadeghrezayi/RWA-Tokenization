@@ -1,4 +1,4 @@
-import { UnresolvedMintError } from "./errors.js";
+import { MintPreconditionError, UnresolvedMintError } from "./errors.js";
 import type { AllocationMintLog, AssetTokenIssuer } from "./ports.js";
 
 // P0-2 step 1: issue one allocation's tokens, at most once.
@@ -43,7 +43,20 @@ export class MintAllocation {
     if (!(await this.mints.claim(key, input.tokens))) {
       return;
     }
-    await this.issuer.mint(input.tokenAddress, input.investorId, input.tokens);
+    try {
+      await this.issuer.mint(input.tokenAddress, input.investorId, input.tokens);
+    } catch (error: unknown) {
+      if (error instanceof MintPreconditionError) {
+        // Refused before anything was sent, so nothing can land later. Release
+        // the claim or the allocation is stranded `unresolved` over a clean,
+        // retryable failure — which is precisely what stopped step 2's queued
+        // retry from ever succeeding.
+        await this.mints.release(key);
+      }
+      // Every other failure keeps the claim: a transaction may be in flight,
+      // and a retry that assumed otherwise could issue the tokens twice.
+      throw error;
+    }
     await this.mints.confirm(key);
   }
 }

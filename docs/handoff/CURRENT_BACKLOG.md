@@ -48,7 +48,17 @@ officer (P1-9) — are also **DONE** as of 2026-08-23.
      and **`unresolved`** — claimed but never confirmed, so the chain's answer is unknown.
      That last one REFUSES rather than guessing, because re-minting may double-issue and
      skipping leaves a paying holder with nothing and nothing to complain about.
-  2. Move the mint onto the outbox, so it retries until the holder is registered.
+  2. ~~Move the mint onto the outbox~~ — **DONE 2026-08-24.** Inline-first, per this entry's own
+     acceptance that "the devnet fast path is preserved for tests": `MintWithRetry` attempts the
+     mint synchronously and hands it to the outbox only if the chain refuses, so a close still
+     produces tokens immediately and the browser journey is untouched. The queued retry calls the
+     SAME idempotent use case, so a retry racing the inline attempt is a no-op.
+     **A flaw found by testing, not by reading:** after an inline failure the allocation stayed
+     CLAIMED, so `stateOf` returned `unresolved` and the queued retry always refused — the retry
+     could never have succeeded. Fixed by distinguishing failures that never reached the chain
+     (`MintPreconditionError` — no on-chain identity, token paused, both checked before any
+     transaction is sent) from those that might be in flight. The former releases the claim and is
+     retryable; the latter keeps it and asks for a person. Both directions mutation-checked.
   3. Decide what happens between capture and mint: money currently moves first and nothing
      reconciles the two halves. **This is a product question as much as an engineering one** and is
      worth the owner's view before it is coded.

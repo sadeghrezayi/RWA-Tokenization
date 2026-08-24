@@ -4,6 +4,7 @@ import type { ContractTransactionResponse } from "ethers";
 import type { PrismaClient } from "@prisma/client";
 import type { AssetTokenIssuer } from "../../application/offerings/ports.js";
 import type { OnchainidConfig } from "./onchainid-claim-issuer.js";
+import { MintPreconditionError } from "../../application/offerings/errors.js";
 
 const TOKEN_ABI = [
   "function identityRegistry() view returns (address)",
@@ -58,7 +59,11 @@ export class TrexAssetTokenIssuer implements AssetTokenIssuer {
     const wallet = await this.walletFor(investorId);
     const identity = await this.prisma.onchainIdentity.findFirst({ where: { investorId } });
     if (!identity) {
-      throw new Error(
+      // A PRECONDITION failure: nothing has been submitted to the chain, so
+      // this is safely retryable once the KYC claim drains. Typed so the
+      // caller can release the allocation's claim and try again rather than
+      // stranding it as unresolved (P0-2 step 2).
+      throw new MintPreconditionError(
         `investor ${investorId} has no on-chain identity — the KYC claim must be issued first`,
       );
     }

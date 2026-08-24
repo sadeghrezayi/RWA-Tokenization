@@ -1,7 +1,7 @@
 import type { Allocation, OfferingState } from "../../domain/offerings/offering.js";
 import type { AssetEventLog } from "../assets/ports.js";
 import { loadOffering } from "./load-offering.js";
-import type { MintAllocation } from "./mint-allocation.js";
+import type { MintWithRetry } from "./mint-with-retry.js";
 import type { AssetTokenIssuer, Clock, OfferingRepository, SettlementRail } from "./ports.js";
 
 // FR-PI-3: the close decision persists FIRST (like a compliance decision),
@@ -14,10 +14,11 @@ export class CloseOffering {
     private readonly issuer: AssetTokenIssuer,
     private readonly events: AssetEventLog,
     private readonly clock: Clock,
-    // P0-2 step 1: minting one allocation, idempotently. Its own unit because
-    // step 2 moves exactly this onto the outbox, where the handler needs to
-    // call it without dragging the whole close along.
-    private readonly mintAllocation: MintAllocation,
+    // P0-2 steps 1-2: mints one allocation idempotently, inline, and hands it
+    // to the outbox to retry if the chain refuses. A mint that fails because
+    // the holder's KYC claim has not drained yet no longer fails the close —
+    // which by that point has already captured the money (K-34).
+    private readonly mintAllocation: MintWithRetry,
   ) {}
 
   async execute(input: {

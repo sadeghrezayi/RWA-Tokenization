@@ -81,6 +81,8 @@ import type {
 import { TrexAssetTokenDeployer } from "./infrastructure/chain/trex-asset-token-deployer.js";
 import { CloseOffering } from "./application/offerings/close-offering.js";
 import { MintAllocation } from "./application/offerings/mint-allocation.js";
+import { MintWithRetry } from "./application/offerings/mint-with-retry.js";
+import { MintAllocationHandler } from "./infrastructure/outbox/mint-allocation-handler.js";
 import { PrismaAllocationMintLog } from "./infrastructure/persistence/prisma-allocation-mint-log.js";
 import { CreateOffering } from "./application/offerings/create-offering.js";
 import { GetOffering, ListOfferings } from "./application/offerings/get-offering.js";
@@ -961,9 +963,17 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     },
     {
       provide: DrainOutbox,
-      useFactory: (store: OutboxStore, email: EmailSender, clock: Clock) =>
-        new DrainOutbox(store, emailOutboxHandlers(email), clock),
-      inject: [OUTBOX_STORE, EMAIL_SENDER, CLOCK],
+      useFactory: (store: OutboxStore, email: EmailSender, clock: Clock, mint: MintAllocation) =>
+        new DrainOutbox(
+          store,
+          // P0-2 step 2: without this handler registered, a queued mint retry
+          // finds no handler, fails every attempt and dead-letters — the
+          // tokens would never be issued and the queue would say so only in a
+          // column nobody reads.
+          [...emailOutboxHandlers(email), new MintAllocationHandler(mint)],
+          clock,
+        ),
+      inject: [OUTBOX_STORE, EMAIL_SENDER, CLOCK, MintAllocation],
     },
     {
       provide: OutboxDrainWorker,
@@ -1099,7 +1109,7 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
         issuer: AssetTokenIssuer,
         events: AssetEventLog,
         clock: Clock,
-        mintAllocation: MintAllocation,
+        mintAllocation: MintWithRetry,
       ) => new CloseOffering(offerings, rail, issuer, events, clock, mintAllocation),
       inject: [
         OFFERING_REPOSITORY,
@@ -1107,8 +1117,13 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
         ASSET_TOKEN_ISSUER,
         ASSET_EVENT_LOG,
         CLOCK,
-        MintAllocation,
+        MintWithRetry,
       ],
+    },
+    {
+      provide: MintWithRetry,
+      useFactory: (mint: MintAllocation, outbox: OutboxStore) => new MintWithRetry(mint, outbox),
+      inject: [MintAllocation, OUTBOX_STORE],
     },
     {
       // P0-2 step 1: issuing one allocation's tokens, at most once. Its own

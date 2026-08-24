@@ -53,6 +53,31 @@ export const allocationMintLogContract = (
       expect(await log.claim(key, 10n)).toBe(false);
     });
 
+    it("releases an unconfirmed claim so the work can be retried", async () => {
+      const key = { offeringId: "off-1", investorId: "dave" };
+      await seed(key);
+      await log.claim(key, 5n);
+
+      await log.release(key);
+
+      expect(await log.stateOf(key)).toBe("unminted");
+      // And it can be claimed again, which is the point.
+      expect(await log.claim(key, 5n)).toBe(true);
+    });
+
+    it("REFUSES to release a mint that was confirmed", async () => {
+      // Releasing a confirmed mint would let a retry issue the tokens twice —
+      // the exact failure the whole record exists to prevent.
+      const key = { offeringId: "off-1", investorId: "erin" };
+      await seed(key);
+      await log.claim(key, 5n);
+      await log.confirm(key);
+
+      await log.release(key);
+
+      expect(await log.stateOf(key)).toBe("minted");
+    });
+
     it("keeps allocations for different investors on one offering apart", async () => {
       const alice = { offeringId: "off-2", investorId: "alice" };
       const bob = { offeringId: "off-2", investorId: "bob" };

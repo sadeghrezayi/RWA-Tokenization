@@ -139,6 +139,13 @@ export class InMemoryAllocationMintLog implements AllocationMintLog {
     return Promise.resolve(true);
   }
 
+  release(key: AllocationKey): Promise<void> {
+    const row = this.rows.get(this.id(key));
+    // Never release a confirmed mint — that would let a retry double-issue.
+    if (row !== undefined && !row.confirmed) this.rows.delete(this.id(key));
+    return Promise.resolve();
+  }
+
   confirm(key: AllocationKey): Promise<void> {
     const row = this.rows.get(this.id(key));
     if (row !== undefined) row.confirmed = true;

@@ -55,6 +55,14 @@ export class PrismaAllocationMintLog implements AllocationMintLog {
     }
   }
 
+  // Scoped to UNCONFIRMED rows: a confirmed mint must never be released, or a
+  // retry would issue the tokens a second time.
+  async release(key: AllocationKey): Promise<void> {
+    await this.prisma.allocationMint.deleteMany({
+      where: { offeringId: key.offeringId, investorId: key.investorId, confirmedAt: null },
+    });
+  }
+
   async confirm(key: AllocationKey): Promise<void> {
     await this.prisma.allocationMint.updateMany({
       where: { offeringId: key.offeringId, investorId: key.investorId },
