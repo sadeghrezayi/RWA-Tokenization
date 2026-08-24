@@ -314,6 +314,8 @@ import { PrismaEmailVerificationTokenStore } from "./infrastructure/persistence/
 import { PrismaMfaStore } from "./infrastructure/persistence/prisma-mfa-store.js";
 import { CryptoTokenGenerator } from "./infrastructure/auth/crypto-token-generator.js";
 import { DevEmailSender } from "./infrastructure/auth/dev-email-sender.js";
+import { SmtpEmailSender, smtpConfigFromEnv } from "./infrastructure/auth/smtp-email-sender.js";
+import { createTransport } from "nodemailer";
 import { OtplibTotpService } from "./infrastructure/auth/otplib-totp-service.js";
 import { CryptoRecoveryCodeGenerator } from "./infrastructure/auth/crypto-recovery-code-generator.js";
 import { JwtMfaChallengeService } from "./infrastructure/auth/jwt-mfa-challenge-service.js";
@@ -930,7 +932,22 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       inject: [PrismaService],
     },
     { provide: TOKEN_GENERATOR, useClass: CryptoTokenGenerator },
-    { provide: EMAIL_SENDER, useFactory: () => new DevEmailSender() },
+    {
+      // P0-3 / OD-7: real SMTP when a host is configured, the loudly-labelled
+      // dev sender otherwise. Absent configuration must never mean "silently
+      // send nowhere" — an operator who has not set SMTP_HOST keeps the sender
+      // that prints [DEV EMAIL — NOT DELIVERED] next to every link.
+      provide: EMAIL_SENDER,
+      useFactory: (): EmailSender => {
+        const smtp = smtpConfigFromEnv(process.env);
+        if (smtp === undefined) {
+          return new DevEmailSender();
+        }
+        const from = process.env.SMTP_FROM ?? "no-reply@platform.local";
+        const webBaseUrl = process.env.WEB_BASE_URL ?? "http://localhost:3000";
+        return new SmtpEmailSender(createTransport(smtp), { from, webBaseUrl });
+      },
+    },
     // 1.6b durable-delivery spine. The outbox store uses the RAW client
     // (platform-level, UNSCOPED_MODELS); the drainer dispatches queued emails via
     // the EMAIL_SENDER handlers; the worker ticks it on an interval (opt-in via

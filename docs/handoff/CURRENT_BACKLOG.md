@@ -47,14 +47,20 @@ officer (P1-9) — are also **DONE** as of 2026-08-23.
      worth the owner's view before it is coded.
   4. Only then move the claim — by that point its ordering dependency has dissolved.
 
-### P0-3 — No real email delivery
-- **What:** every notification email goes to a dev sink. There is no SMTP adapter.
-- **Why it matters:** password reset, email verification and KYC decisions are undeliverable, so
-  no real pilot user could complete a flow.
-- **Files:** `services/api/src/application/identity/email-outbox.ts`, the `EmailSender` port.
-- **Prerequisites:** OD-7 — the owner must name a provider.
-- **Acceptance:** a nodemailer-backed adapter behind the existing port, configured by env, with
-  the dev sink still used in tests; at-least-once delivery still proven by the outbox tests.
+### P0-3 — No real email delivery — **DONE** (2026-08-23)
+`SmtpEmailSender` (nodemailer, approved in OD-4) sits behind the existing `EmailSender` port.
+**Which provider is deployment configuration, not a code decision** — the adapter takes any SMTP
+host, so OD-7 no longer blocks delivery; it only chooses where to point it.
+
+**The default is deliberately unchanged:** with no `SMTP_HOST`, the platform keeps the dev sender
+that prints `[DEV EMAIL — NOT DELIVERED]` next to every link. Silently sending nowhere is the
+failure this avoids.
+
+Send failures **propagate**, because the outbox (B7) is what makes delivery durable and it can only
+retry a send that actually threw. A non-numeric `SMTP_PORT` fails loudly rather than defaulting.
+
+Verified against a real SMTP conversation on a socket, not just mocks: `MAIL FROM`, `RCPT TO` and
+the subject arrived on the wire, and the token was URL-encoded.
 
 ### P0-4 — Secrets and key management
 - **What:** `AUTH_TOKEN_SECRET`, `KYC_EVIDENCE_KEY`, `PLATFORM_OPERATOR_MNEMONIC` and the officer
