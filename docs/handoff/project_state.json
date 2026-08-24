@@ -572,17 +572,18 @@
   ],
   "current_milestone": {
     "phase": "P0-2",
-    "name": "Chain writes off the hot path — step 1 of 4 done",
-    "state": "Step 1 (record the mint per allocation and make it idempotent) is COMPLETE and CI-green at df5594e. MintAllocation + AllocationMintLog, backed by allocation_mints with a UNIQUE index on (offering_id, investor_id) — the index is the guarantee, proven by firing four simultaneous claims at real Postgres. Three states: unminted, minted, and unresolved (claimed but never confirmed), where unresolved REFUSES rather than guessing, because re-minting may double-issue and skipping leaves a paying holder with nothing. Steps 2 and 4 remain; step 3 is blocked on an owner decision.",
+    "name": "Chain writes off the hot path — 3 of 4 steps done, step 3 blocked on the owner",
+    "state": "Steps 1, 2 and 4 are COMPLETE and CI-green at 9ba6ea7. A mint is recorded per allocation and idempotent (the UNIQUE index is the guarantee, proven with four simultaneous claims against real Postgres); a refused mint retries through the outbox instead of failing the close; and a KYC approval survives a chain outage by queueing its claim rather than answering 503. STEP 3 IS THE ONLY ONE LEFT AND IT NEEDS AN OWNER DECISION: money is still captured before the mint, so a failure leaves cash taken with no route back (K-34). Found and fixed on the way: K-39 — no email had EVER been delivered, because the outbox drain worker was opt-in via a variable set nowhere; 187 messages were stranded, the oldest six days old.",
     "completed_slices": [
-      "P0-2 step 1: MintAllocation, AllocationMintLog, allocation_mints migration, shared contract (fake + Prisma)",
-      "K-38: one owner for the list of tables that block deleting an investor (test/support/clear-investors.ts)",
-      "CI: integration failures and suite-level hook failures are now published as readable commit statuses"
+      "P0-2 step 1: MintAllocation + AllocationMintLog + allocation_mints, shared contract (fake + Prisma)",
+      "P0-2 step 2: MintWithRetry — inline first, outbox retry on refusal (owner chose this shape over enqueue-and-return)",
+      "P0-2 step 4: a KYC approval queues its claim instead of answering 503; K-2's guarantees preserved via the health probe and ReissueKycClaim",
+      "K-38: one owner for the tables that block deleting an investor (test/support/clear-investors.ts)",
+      "K-39: the outbox drain worker runs by default — no email had ever been delivered",
+      "CI: integration failures AND suite-level hook failures publish readable commit statuses"
     ],
     "exit_criteria_remaining": [
-      "P0-2 step 2: move the mint onto the outbox so it retries until the holder is registered",
-      "P0-2 step 3: BLOCKED ON OWNER — what happens between capture and mint (K-34). Money currently moves before tokens exist",
-      "P0-2 step 4: move the KYC claim async, once its ordering dependency has dissolved"
+      "P0-2 step 3 — BLOCKED ON OWNER. Capture happens before the mint, so a mint failure leaves money taken with no route back (K-34). Three options and a recommendation are in open-product-decisions.md (2026-08-24)."
     ]
   },
   "previous_milestones": [
