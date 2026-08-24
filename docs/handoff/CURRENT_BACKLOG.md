@@ -62,7 +62,16 @@ officer (P1-9) — are also **DONE** as of 2026-08-23.
   3. Decide what happens between capture and mint: money currently moves first and nothing
      reconciles the two halves. **This is a product question as much as an engineering one** and is
      worth the owner's view before it is coded.
-  4. Only then move the claim — by that point its ordering dependency has dissolved.
+  4. ~~Only then move the claim~~ — **DONE 2026-08-24.** Its dependency really had dissolved, and
+     specifically on step 2 rather than step 3: the stated blocker was "the claim cannot go async
+     before the mint can survive it", and a close-time mint now RETRIES on `MintPreconditionError`,
+     which is literally the "no on-chain identity" error a deferred claim causes.
+     A chain outage during approval no longer answers 503 for an officer to notice and retry by
+     hand — the claim goes to the outbox and retries itself. K-2's guarantees are preserved through
+     different mechanisms: a claim that never lands still shows in `approvedWithoutOnchainIdentity`
+     on the health probe, and `ReissueKycClaim` remains the manual lever — which is also where K-2's
+     "the approval stands, here is what is left" wording moved, since that is where an officer
+     explicitly asked and is owed an answer.
 
 ### P0-3 — No real email delivery — **DONE** (2026-08-23)
 `SmtpEmailSender` (nodemailer, approved in OD-4) sits behind the existing `EmailSender` port.

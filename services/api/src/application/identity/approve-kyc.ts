@@ -1,12 +1,16 @@
 import { loadInvestor } from "./load-investor.js";
-import { ClaimIssuanceFailedError } from "./errors.js";
 import type { ClaimIssuer, InvestorRepository, KycDecisionNotifier } from "./ports.js";
+import type { OutboxEnqueue } from "../outbox/ports.js";
+
+// P0-2 step 4: the queued retry of a KYC claim.
+export const KYC_CLAIM_TYPE = "identity.issue_kyc_claim";
 
 export class ApproveKyc {
   constructor(
     private readonly investors: InvestorRepository,
     private readonly claims: ClaimIssuer,
     private readonly notifier: KycDecisionNotifier,
+    private readonly outbox: OutboxEnqueue,
   ) {}
 
   async execute(input: { investorId: string }): Promise<void> {
@@ -26,9 +30,27 @@ export class ApproveKyc {
     try {
       await this.claims.issueKycApprovedClaim(approved.id);
     } catch (cause) {
-      // Still a failure — the officer must not be told everything worked —
-      // but one that says which part failed and what is left to do.
-      throw new ClaimIssuanceFailedError(cause);
+      // P0-2 step 4: the claim retries itself rather than failing the request.
+      //
+      // This used to throw, so a devnet hiccup turned a KYC approval into a 503
+      // an officer had to notice and retry by hand. The compliance decision is
+      // committed either way, so failing added noise rather than safety.
+      //
+      // It was only safe to defer once the close-time mint could survive it
+      // (step 2): a mint that arrives before the claim has drained now retries
+      // instead of failing the close. That ordering is what reverted the
+      // previous attempt at this.
+      //
+      // A claim that NEVER lands is still visible — `approvedWithoutOnchainIdentity`
+      // on the health probe counts exactly this — and ReissueKycClaim remains
+      // the manual lever (K-2).
+      await this.outbox.enqueue({
+        type: KYC_CLAIM_TYPE,
+        payload: {
+          investorId: approved.id,
+          reason: cause instanceof Error ? cause.message : String(cause),
+        },
+      });
     }
   }
 }

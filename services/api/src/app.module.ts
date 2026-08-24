@@ -83,6 +83,7 @@ import { CloseOffering } from "./application/offerings/close-offering.js";
 import { MintAllocation } from "./application/offerings/mint-allocation.js";
 import { MintWithRetry } from "./application/offerings/mint-with-retry.js";
 import { MintAllocationHandler } from "./infrastructure/outbox/mint-allocation-handler.js";
+import { KycClaimHandler } from "./infrastructure/outbox/kyc-claim-handler.js";
 import { PrismaAllocationMintLog } from "./infrastructure/persistence/prisma-allocation-mint-log.js";
 import { CreateOffering } from "./application/offerings/create-offering.js";
 import { GetOffering, ListOfferings } from "./application/offerings/get-offering.js";
@@ -639,9 +640,13 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     },
     {
       provide: ApproveKyc,
-      useFactory: (repo: InvestorRepository, claims: ClaimIssuer, notifier: KycDecisionNotifier) =>
-        new ApproveKyc(repo, claims, notifier),
-      inject: [INVESTOR_REPOSITORY, CLAIM_ISSUER, KYC_DECISION_NOTIFIER],
+      useFactory: (
+        repo: InvestorRepository,
+        claims: ClaimIssuer,
+        notifier: KycDecisionNotifier,
+        outbox: OutboxStore,
+      ) => new ApproveKyc(repo, claims, notifier, outbox),
+      inject: [INVESTOR_REPOSITORY, CLAIM_ISSUER, KYC_DECISION_NOTIFIER, OUTBOX_STORE],
     },
     {
       provide: RejectKyc,
@@ -954,8 +959,8 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     },
     // 1.6b durable-delivery spine. The outbox store uses the RAW client
     // (platform-level, UNSCOPED_MODELS); the drainer dispatches queued emails via
-    // the EMAIL_SENDER handlers; the worker ticks it on an interval (opt-in via
-    // OUTBOX_DRAIN_INTERVAL_MS).
+    // the EMAIL_SENDER handlers, plus the chain retries added in P0-2; the
+    // worker ticks it on an interval (ON by default since K-39).
     {
       provide: OUTBOX_STORE,
       useFactory: (prisma: PrismaService) => new PrismaOutboxStore(prisma),
@@ -963,17 +968,27 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
     },
     {
       provide: DrainOutbox,
-      useFactory: (store: OutboxStore, email: EmailSender, clock: Clock, mint: MintAllocation) =>
+      useFactory: (
+        store: OutboxStore,
+        email: EmailSender,
+        clock: Clock,
+        mint: MintAllocation,
+        claims: ClaimIssuer,
+      ) =>
         new DrainOutbox(
           store,
           // P0-2 step 2: without this handler registered, a queued mint retry
           // finds no handler, fails every attempt and dead-letters — the
           // tokens would never be issued and the queue would say so only in a
           // column nobody reads.
-          [...emailOutboxHandlers(email), new MintAllocationHandler(mint)],
+          [
+            ...emailOutboxHandlers(email),
+            new MintAllocationHandler(mint),
+            new KycClaimHandler(claims),
+          ],
           clock,
         ),
-      inject: [OUTBOX_STORE, EMAIL_SENDER, CLOCK, MintAllocation],
+      inject: [OUTBOX_STORE, EMAIL_SENDER, CLOCK, MintAllocation, CLAIM_ISSUER],
     },
     {
       provide: OutboxDrainWorker,

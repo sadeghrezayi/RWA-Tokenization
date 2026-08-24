@@ -8,6 +8,7 @@ import { PrismaService } from "../../src/infrastructure/persistence/prisma.servi
 import { seedSubmittedKyc } from "./support/kyc.js";
 import { RecordingClaimIssuer } from "../fakes/identity-fakes.js";
 import { clearInvestors } from "../support/clear-investors.js";
+import { DrainOutbox } from "../../src/application/outbox/drain-outbox.js";
 
 const OFFICER = { email: "officer@example.com", password: "0fficer-pass" };
 const INVESTOR = { email: "investor@example.com", password: "s3cure-pass" };
@@ -337,6 +338,38 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
       .get(`/investors/${investorId}/screenings`)
       .set("authorization", `Bearer ${token}`)
       .expect(403);
+  });
+
+  it("approves through a chain outage and lands the claim on the queued retry", async () => {
+    // P0-2 step 4, end to end over real HTTP and Postgres. A devnet outage
+    // during approval used to answer 503 and wait for an officer to press
+    // reissue; the claim now retries itself.
+    const { investorId } = await registerAndLogin();
+    const officer = await officerToken();
+    await seedSubmittedKyc(prisma, investorId);
+    await request(server)
+      .post(`/investors/${investorId}/kyc/start-review`)
+      .set("authorization", `Bearer ${officer}`)
+      .expect(204);
+
+    claims.failWith = new Error("connect ECONNREFUSED 127.0.0.1:8545");
+    // The approval SUCCEEDS — this was a 503 before.
+    await request(server)
+      .post(`/investors/${investorId}/kyc/approve`)
+      .set("authorization", `Bearer ${officer}`)
+      .expect(204);
+    expect(claims.issuedFor).toEqual([]);
+
+    // The work is durable, and the chain comes back.
+    const queued = await prisma.outboxMessage.findFirst({
+      where: { type: "identity.issue_kyc_claim", status: "pending" },
+    });
+    expect(queued).not.toBeNull();
+    claims.failWith = undefined;
+
+    await app.get(DrainOutbox).drain();
+
+    expect(claims.issuedFor).toEqual([investorId]);
   });
 
   it("records_a_rejection_reason_visible_to_the_investor", async () => {
