@@ -33,7 +33,14 @@ test.describe("accessibility (WCAG 2.1 A/AA, machine-detectable)", () => {
   for (const path of ["/en", "/en/browse"]) {
     test(`${path} has no detectable violations`, async ({ page }) => {
       await page.goto(path);
-      await expect(page.getByRole("link", { name: /open offerings/i })).toBeVisible();
+      // Readiness, not the assertion under test — the scan below is. This spec
+      // added ten tests to a run that already saturates its workers, and the
+      // default 5s patience was not always enough for the first paint under
+      // that load. Same distinction K-24 drew: check the subject is right,
+      // then be patient about waiting for it.
+      await expect(page.getByRole("link", { name: /open offerings/i })).toBeVisible({
+        timeout: 30_000,
+      });
 
       expectNoViolations(await scan(page), path);
     });
@@ -43,14 +50,14 @@ test.describe("accessibility (WCAG 2.1 A/AA, machine-detectable)", () => {
     // A login nobody can operate with a keyboard or a screen reader locks the
     // person out of the whole platform, so this page matters more than most.
     await page.goto("/en/portfolio");
-    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(page.getByLabel("Email")).toBeVisible({ timeout: 30_000 });
 
     expectNoViolations(await scan(page), "the investor sign-in form");
   });
 
   test("the officer sign-in form is reachable and labelled", async ({ page }) => {
     await page.goto("/en/admin");
-    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(page.getByLabel("Email")).toBeVisible({ timeout: 30_000 });
 
     expectNoViolations(await scan(page), "the officer sign-in form");
   });

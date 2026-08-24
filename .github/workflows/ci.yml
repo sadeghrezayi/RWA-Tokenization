@@ -255,6 +255,19 @@ jobs:
           API_LOG_PATH: /tmp/api.log
         run: pnpm --filter @tokenization/web test:layout
 
+      # Accessibility runs in its OWN Playwright invocation, deliberately.
+      # Sharing a run with the journey put ten chain-free tests into the same
+      # fullyParallel worker pool as the chain-heavy one, and the journey blew
+      # its 240-second budget on `8dc1872` — the a11y tests were fine, they
+      # just stole the machine. Separate lanes, and the journey keeps running
+      # immediately after its devnet restart (K-23) as it did before.
+      - name: Accessibility (WCAG 2.1 A/AA)
+        timeout-minutes: 10
+        env:
+          WEB_BASE_URL: http://localhost:3000
+          API_BASE_URL: http://localhost:3001
+        run: pnpm --filter @tokenization/web test:a11y
+
       # Playwright keeps a trace for every failed test (trace: retain-on-failure).
       # Without this upload that trace dies with the runner, and a CI-only
       # failure has to be guessed at from the outside — job logs need admin

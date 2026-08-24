@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "test:layout": "playwright test"
+    "test:layout": "playwright test e2e/layout.spec.ts e2e/journey.spec.ts",
+    "test:a11y": "playwright test e2e/a11y.spec.ts"
   },
   "dependencies": {
     "next": "^15.3.0",
