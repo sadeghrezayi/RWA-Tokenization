@@ -8,6 +8,7 @@ import { PrismaService } from "../../src/infrastructure/persistence/prisma.servi
 import { REQUIRED_DOSSIER_KINDS } from "../../src/domain/assets/legal-dossier.js";
 import { CHECKLIST_ITEMS } from "../../src/domain/assets/onboarding-checklist.js";
 import { FakeDocumentStore, RecordingTokenDeployer } from "../fakes/asset-fakes.js";
+import { clearInvestors } from "../support/clear-investors.js";
 
 const CONTENT = Buffer.from("pilot deed bytes").toString("base64");
 
@@ -37,7 +38,7 @@ describe("Assets API (e2e, real Postgres, fake document store)", () => {
     officerToken = (officer.body as { token: string }).token;
 
     await prisma.onchainIdentity.deleteMany();
-    await prisma.investor.deleteMany();
+    await clearInvestors(prisma);
     await request(server)
       .post("/investors")
       .send({ email: "inv@example.com", password: "s3cure-pass" })

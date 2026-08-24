@@ -13,6 +13,14 @@
 -- row means mint it, an unconfirmed one means a person must reconcile it
 -- before the offering can settle.
 --
+-- WARNING FOR TESTS: `investor_id` is ON DELETE RESTRICT, so this table is the
+-- THIRD child that blocks `DELETE FROM investors` (after screening_results and
+-- risk_assessments). Adding it broke five suites that wipe investors — and the
+-- failure surfaced in the ONCHAINID suite, which has nothing to do with
+-- minting, costing several CI cycles to trace. Test suites clear investors
+-- through `test/support/clear-investors.ts`; add any new RESTRICT-ing child
+-- there and every suite is fixed at once.
+--
 -- EXISTING OFFERINGS HAVE NO ROWS, and that is correct rather than a gap: they
 -- were minted before this record existed. It says "no attempt recorded", which
 -- is true. Re-settling one of those would mint again, so do not — they are

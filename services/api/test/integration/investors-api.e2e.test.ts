@@ -7,6 +7,7 @@ import { AppModule, CLAIM_ISSUER } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 import { seedSubmittedKyc } from "./support/kyc.js";
 import { RecordingClaimIssuer } from "../fakes/identity-fakes.js";
+import { clearInvestors } from "../support/clear-investors.js";
 
 const OFFICER = { email: "officer@example.com", password: "0fficer-pass" };
 const INVESTOR = { email: "investor@example.com", password: "s3cure-pass" };
@@ -33,13 +34,10 @@ describe("Investors API (e2e, real Postgres, authenticated)", () => {
   });
 
   beforeEach(async () => {
-    // Children first: screenings and identities both reference investors with
-    // ON DELETE RESTRICT, so deleting the parent while either exists fails.
-    await prisma.screeningResult.deleteMany();
-    // Same ON DELETE RESTRICT trap as screenings: clear before the parent.
-    await prisma.riskAssessment.deleteMany();
-    await prisma.onchainIdentity.deleteMany();
-    await prisma.investor.deleteMany();
+    // Several tables reference investors with ON DELETE RESTRICT, and the list
+    // grows. The helper owns that list so a new child is added in one place
+    // rather than in every suite that wipes investors.
+    await clearInvestors(prisma);
     claims.issuedFor.length = 0;
   });
 

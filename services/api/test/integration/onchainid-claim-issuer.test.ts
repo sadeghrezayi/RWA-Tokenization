@@ -15,6 +15,7 @@ import {
   OnchainidClaimIssuer,
 } from "../../src/infrastructure/chain/onchainid-claim-issuer.js";
 import { operatorSigner } from "../../src/infrastructure/chain/custodial-wallets.js";
+import { clearInvestors } from "../support/clear-investors.js";
 
 // Requires a running anvil devnet (pnpm devnet) — well-known anvil test mnemonic.
 const RPC_URL = process.env.DEVNET_RPC_URL ?? "http://127.0.0.1:8545";
@@ -54,7 +55,7 @@ describe("OnchainidClaimIssuer (integration, anvil devnet)", () => {
 
   beforeEach(async () => {
     await prisma.onchainIdentity.deleteMany();
-    await prisma.investor.deleteMany();
+    await clearInvestors(prisma);
     await prisma.investor.create({
       data: {
         id: "inv-chain-1",

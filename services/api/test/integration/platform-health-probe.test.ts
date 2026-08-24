@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { PlatformHealthProbe } from "../../src/infrastructure/reporting/platform-health-probe.js";
+import { clearInvestors } from "../support/clear-investors.js";
 
 // K-2: the count that tells an officer someone was approved while the chain
 // was unreachable, and cannot hold anything until their claim is reissued.
@@ -36,7 +37,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await prisma.onchainIdentity.deleteMany();
-  await prisma.investor.deleteMany();
+  await clearInvestors(prisma);
 });
 
 describe("PlatformHealthProbe.approvedWithoutOnchainIdentity", () => {
