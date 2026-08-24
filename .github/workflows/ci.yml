@@ -163,8 +163,11 @@ jobs:
             const report = JSON.parse(fs.readFileSync(path, 'utf8'));
             const failures = [];
             for (const file of report.testResults ?? []) {
+              const name = (file.name ?? '').split('/').pop();
+              let failedHere = 0;
               for (const test of file.assertionResults ?? []) {
                 if (test.status !== 'failed') continue;
+                failedHere += 1;
                 // The assertion message names WHAT broke; the title alone only
                 // says where. A CI-only failure needs both to be diagnosable.
                 const detail = (test.failureMessages ?? [])
@@ -174,6 +177,19 @@ jobs:
                   .map((line) => line.trim())
                   .filter(Boolean)[0] ?? '';
                 failures.push(`${test.title.slice(0, 40)} :: ${detail}`.slice(0, 130));
+              }
+              // A SUITE-level failure — a beforeAll hook throwing, or the file
+              // failing to import — reports no failing assertion at all: vitest
+              // marks the file failed, skips every test, and leaves `message`
+              // empty. Reporting only assertions published NOTHING for exactly
+              // that case on `3a9de2c`, which is how a red build stayed
+              // unexplained. The file name is the one signal available, and it
+              // is enough to know where to look.
+              if (file.status === 'failed' && failedHere === 0) {
+                const skipped = (file.assertionResults ?? []).length;
+                failures.push(
+                  `SUITE ${name} failed before its tests ran (hook or import); ${skipped} skipped`.slice(0, 130),
+                );
               }
             }
             core.info(`failing integration tests: ${failures.length}`);
