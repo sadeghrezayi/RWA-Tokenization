@@ -165,9 +165,23 @@ brand-500 scores 5.09 as text on the dark surface but only 3.68 as a background 
 brand-600 is the reverse (3.62 / 5.17). One token cannot satisfy both, so solid brand fills behind
 white text now use `--brand-solid`.
 
-### P1-7 — Rate limiter is in-memory
-`AuthRateLimitGuard` keeps counters per process. Behind more than one instance it is not a limit.
-Move to Postgres or accept single-instance deployment explicitly.
+### P1-7 — Rate limiter is in-memory — **memory leak FIXED; the multi-instance choice is yours**
+**Fixed 2026-08-23:** the counter map kept every key it had ever seen, forever — a fixed-window
+bucket has no natural end, so nothing removed it. A scanner rotating source addresses grew it until
+the process died. Buckets whose window has closed are now dropped, swept at most once per window so
+the scan is not paid on the hot path. Live buckets are never evicted (that would hand an attacker a
+fresh budget by making noise from other addresses) — mutation-checked.
+
+**Still open, and a deployment decision rather than an engineering one:** counters are per-process,
+so behind N instances the effective ceiling is N x max. **The limitation is narrower than it
+sounds:** brute force against a SPECIFIC account is stopped by `LoginAttemptStore`, which is
+Postgres-backed and therefore already shared across instances (T4). This limiter is the secondary,
+per-IP defence against guessing spread across many accounts.
+
+The cost of moving it to a shared store is a round trip on **every** auth request — including the
+`GET /auth/session` that every page load performs (K-27). Options: accept single-instance for the
+pilot, move only the credential bucket (rare, security-critical) and leave the read ceiling
+per-process, or move both.
 
 ---
 
