@@ -21,6 +21,7 @@ describe("Registry & Audit API (e2e, real Postgres, fake chain)", () => {
   let prisma: PrismaService;
   let server: Parameters<typeof request>[0];
   let officerToken: string;
+  let auditorToken: string;
   let aliceToken: string;
   let aliceId: string;
   let bobId: string;
@@ -41,6 +42,12 @@ describe("Registry & Audit API (e2e, real Postgres, fake chain)", () => {
     server = app.getHttpServer() as Parameters<typeof request>[0];
 
     const tokenOf = (res: { body: unknown }) => (res.body as { token: string }).token;
+    auditorToken = tokenOf(
+      await request(server)
+        .post("/auth/officer/login")
+        .send({ email: "auditor@platform.local", password: "officer-dev-pass" })
+        .expect(200),
+    );
     officerToken = tokenOf(
       await request(server)
         .post("/auth/officer/login")
@@ -359,5 +366,37 @@ describe("Registry & Audit API (e2e, real Postgres, fake chain)", () => {
     ]) {
       await request(server).get(path).set(auth(aliceToken)).expect(403);
     }
+  });
+
+  // FR-RA-4: "a read-only auditor role MUST be able to verify total supply vs
+  // registry, distributions vs bank records, attestation trails." Until 4.4
+  // the role existed but nobody could log in as one, so it verified nothing.
+  it("lets_an_auditor_verify_supply_registry_and_distributions", async () => {
+    for (const path of [
+      "/reporting/assets/asset-reg-1/registry",
+      "/reporting/distributions/reconciliation",
+      "/reporting/audit",
+    ]) {
+      await request(server).get(path).set(auth(auditorToken)).expect(200);
+    }
+  });
+
+  it("refuses_an_auditor_every_action_that_changes_anything", async () => {
+    // "Read-only" has to be enforced, not merely described. If any of these
+    // start succeeding, the PRD's auditor role is no longer what it says.
+    await request(server)
+      .post("/assets")
+      .set(auth(auditorToken))
+      .send({ name: "Auditor Should Not Create This" })
+      .expect(403);
+    await request(server)
+      .post(`/investors/${aliceId}/kyc/approve`)
+      .set(auth(auditorToken))
+      .expect(403);
+    await request(server)
+      .post("/distributions")
+      .set(auth(auditorToken))
+      .send({ assetId: "asset-reg-1", totalAmountRial: "1000" })
+      .expect(403);
   });
 });
