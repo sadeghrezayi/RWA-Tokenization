@@ -58,6 +58,9 @@ platform-overview.zip
 # === Playwright (layout-regression harness) ===
 test-results/
 playwright-report/
+# CI diagnostic reports — written by the test run, never committed.
+playwright-report.json
+integration-report.json
 blob-report/
 .playwright/
 

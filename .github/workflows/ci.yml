@@ -143,7 +143,50 @@ jobs:
         run: cat "$RUNNER_TEMP/anvil.log" || true
 
       - name: Integration tests (Postgres + IPFS + anvil)
-        run: pnpm --filter @tokenization/api test:integration
+        run: >
+          pnpm --filter @tokenization/api test:integration
+          --reporter=default --reporter=json
+          --outputFile=services/api/integration-report.json
+
+      # The same treatment the browser suite already gets, for the same reason:
+      # job logs need admin rights to read, so a CI-only integration failure was
+      # invisible from outside and had to be guessed at. It cost a cycle on
+      # `53a6139`, where the full battery passed locally (K-25).
+      - name: Publish the failing integration tests where they can be read
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'services/api/integration-report.json';
+            if (!fs.existsSync(path)) { core.info('no integration json report'); return; }
+            const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const failures = [];
+            for (const file of report.testResults ?? []) {
+              for (const test of file.assertionResults ?? []) {
+                if (test.status !== 'failed') continue;
+                // The assertion message names WHAT broke; the title alone only
+                // says where. A CI-only failure needs both to be diagnosable.
+                const detail = (test.failureMessages ?? [])
+                  .join(' ')
+                  .replace(/\u001b\[[0-9;]*m/g, '')
+                  .split('\n')
+                  .map((line) => line.trim())
+                  .filter(Boolean)[0] ?? '';
+                failures.push(`${test.title.slice(0, 40)} :: ${detail}`.slice(0, 130));
+              }
+            }
+            core.info(`failing integration tests: ${failures.length}`);
+            for (const [i, description] of failures.slice(0, 8).entries()) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: 'failure',
+                context: `integration-failure-${i + 1}`,
+                description,
+              });
+            }
 
       # A FRESH devnet for the browser journey, for the same reason the
       # integration suite gets its own database: a suite must not inherit a
