@@ -18,6 +18,7 @@ import type { PasswordHasher, StaffUserRepository } from "../../application/iden
 // which is a larger decision than "give this role a login".
 const SECOND_STAFF_ID = "officer-2";
 const THIRD_STAFF_ID = "officer-3";
+const FOURTH_STAFF_ID = "officer-4";
 const DEV_STAFF_PASSWORD = "officer-dev-pass";
 
 export class StaffBootstrap implements OnModuleInit {
@@ -32,6 +33,7 @@ export class StaffBootstrap implements OnModuleInit {
     await this.seedSuperAdmin();
     await this.seedTreasury();
     await this.seedAuditor();
+    await this.seedApprover();
   }
 
   private async seedSuperAdmin(): Promise<void> {
@@ -80,6 +82,31 @@ export class StaffBootstrap implements OnModuleInit {
     await this.users.save(
       StaffUser.create(THIRD_STAFF_ID, EmailAddress.of(email), PasswordHash.of(passwordHash), [
         "auditor",
+      ]),
+    );
+  }
+
+  // K-35: `approval.decide` is held only by super_admin and approver, and
+  // self-approval is refused — correctly. With no approver account, a four-eyes
+  // request made BY the super-admin could never be decided by anyone, which
+  // since 4.1 stranded every payout they requested. This gives the checker role
+  // a real login, the same way the auditor got one.
+  //
+  // Deliberately the LEAST committal of K-35's three options: it neither grants
+  // `approval.decide` to a role that should not have it, nor builds a
+  // staff-management surface, which is a larger decision than this one.
+  private async seedApprover(): Promise<void> {
+    const email = process.env.OFFICER4_EMAIL ?? "approver@platform.local";
+    const configuredHash = process.env.OFFICER4_PASSWORD_HASH;
+    if (!configuredHash) {
+      this.log.warn(
+        `OFFICER4_PASSWORD_HASH is not set — dev approver password is "${DEV_STAFF_PASSWORD}"`,
+      );
+    }
+    const passwordHash = configuredHash ?? (await this.hasher.hash(DEV_STAFF_PASSWORD));
+    await this.users.save(
+      StaffUser.create(FOURTH_STAFF_ID, EmailAddress.of(email), PasswordHash.of(passwordHash), [
+        "approver",
       ]),
     );
   }

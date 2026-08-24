@@ -112,6 +112,52 @@ describe("Staff RBAC + real two-officer maker-checker (e2e, real Postgres)", () 
     expect(await balance()).toBe("5000");
   });
 
+  it("closes K-35: a request the SUPER-ADMIN makes can now be decided by the approver", async () => {
+    // Before the approver account existed this was unreachable. Only
+    // super_admin and approver hold `approval.decide`, self-approval is
+    // refused, and no approver could exist — so a request the super-admin made
+    // was stranded forever. Since 4.1 every payout goes through four eyes.
+    const approverToken = await login({
+      email: "approver@platform.local",
+      password: "officer-dev-pass",
+    });
+
+    const parked = await request(server)
+      .post(`/ledger/${investorId}/credit`)
+      .set(auth(adminToken))
+      .send({ amountRial: "7000" })
+      .expect(202);
+    const approvalId = (parked.body as { approvalId: string }).approvalId;
+    const before = await balance();
+
+    // The maker still cannot wave through their own request, even as admin.
+    await request(server)
+      .post(`/approvals/${approvalId}/approve`)
+      .set(auth(adminToken))
+      .expect(409);
+    expect(await balance()).toBe(before);
+
+    // The approver decides it — the path that did not exist before.
+    await request(server)
+      .post(`/approvals/${approvalId}/approve`)
+      .set(auth(approverToken))
+      .expect(204);
+    expect(BigInt(await balance())).toBe(BigInt(before) + 7000n);
+  });
+
+  it("keeps the approver a checker only — it cannot originate a credit", async () => {
+    const approverToken = await login({
+      email: "approver@platform.local",
+      password: "officer-dev-pass",
+    });
+
+    await request(server)
+      .post(`/ledger/${investorId}/credit`)
+      .set(auth(approverToken))
+      .send({ amountRial: "1000" })
+      .expect(403);
+  });
+
   it("alerts the eligible checker when treasury parks an approval, not the maker (1.7c)", async () => {
     await request(server)
       .post(`/ledger/${investorId}/credit`)

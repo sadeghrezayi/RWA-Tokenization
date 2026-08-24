@@ -45,6 +45,7 @@ cp services/api/.env.example services/api/.env
 | `OFFICER_EMAIL`, `OFFICER_PASSWORD_HASH` | API | **yes** for admin login | Hash generated with argon2 — the template shows the one-liner |
 | `OFFICER2_EMAIL`, `OFFICER2_PASSWORD_HASH` | API | no | Seeds a treasury user for real two-officer maker-checker |
 | `OFFICER3_EMAIL`, `OFFICER3_PASSWORD_HASH` | API | no | Seeds the read-only **auditor** account (default `auditor@platform.local`) — FR-RA-4. Set the hash in production; without it the dev password applies, same as the other two |
+| `OFFICER4_EMAIL`, `OFFICER4_PASSWORD_HASH` | API | no | Seeds the **approver** (checker) account (default `approver@platform.local`) — closes K-35, so a four-eyes request made by the super-admin can be decided. Set the hash in production |
 | `KYC_EVIDENCE_KEY` | API | **yes in any real use** | 32 bytes. **Unset ⇒ loud warning + an INSECURE dev key; identity documents are not protected** |
 | `FUNDING_BANK_NAME`, `FUNDING_ACCOUNT_HOLDER`, `FUNDING_ACCOUNT_NUMBER`, `FUNDING_NOTICE` | API | no locally | The platform's own bank details. Unset ⇒ "NOT CONFIGURED" placeholders + a warning |
 | `DEVNET_RPC_URL`, `PLATFORM_OPERATOR_MNEMONIC`, `ONCHAINID_CLAIM_ISSUER_ADDRESS` | API | all three, or none | All three present ⇒ real ONCHAINID adapter; otherwise a logging placeholder and the app still boots |

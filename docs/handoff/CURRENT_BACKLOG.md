@@ -1,4 +1,4 @@
-# CURRENT BACKLOG (as of `9e63980`, 2026-08-16)
+# CURRENT BACKLOG (as of `ba820fa`, 2026-08-23)
 
 Ordered by priority. "Prerequisites" means work that must land first. Acceptance criteria are
 suggestions consistent with the project's Definition of Done (failing test first, CI-green,
@@ -11,8 +11,8 @@ verified by running it).
 ### ~~P0-1 — Issuer applications have no user interface~~ → **DONE for the review queue** (3.2f, `d0e6a71`)
 An officer can now sign in and walk an application through review, approval, rejection with a
 reason, suspension and reinstatement at `/[locale]/admin/issuers`, behind `issuer.manage`.
-Verified live in a browser. **What remains, split out below:** the team panel (P1-8) and naming
-the deciding officer (P1-9).
+Verified live in a browser. Both follow-ups — the team panel (P1-8) and naming the deciding
+officer (P1-9) — are also **DONE** as of 2026-08-23.
 
 ### P0-2 — Chain writes are synchronous on a single hot key
 - **What:** tokenize / mint / transfer / burn / claim-issue all run inside the HTTP request using
@@ -115,7 +115,7 @@ the deciding officer (P1-9).
 - Should issuer staff be barred from investing?
 - Should draft (unopened) offerings be visible to signed-in investors at all?
 
-### P1-8 — Issuer team panel
+### P1-8 — Issuer team panel — **DONE** (verified 2026-08-23: `issuer-detail-page.tsx` invites by email, lists email+role, removes members)
 - **What:** add / list / remove an issuer's people in the browser. Endpoints exist and are tested
   (`GET|POST /issuers/:id/members`, `DELETE /issuers/:id/members/:userId`).
 - **Why:** the individual-verification gate — the rule the whole phase exists to enforce — is
@@ -125,7 +125,7 @@ the deciding officer (P1-9).
   says why; the list shows email + role, and nothing more about a person.
 - **Risks:** an issuer's people list is PII. Show only what the API returns.
 
-### P1-9 — Name the officer who decided
+### P1-9 — Name the officer who decided — **DONE** (verified 2026-08-23: `issuer-views.ts` resolves `decidedByLabel`, both screens fall back to the id)
 - **What:** the issuer queue prints `decidedBy` verbatim — "Decided by officer-1".
 - **Why:** the project already fixed this class of thing once (`fix(notifications): human labels
   in the approval alert, not raw ids`).

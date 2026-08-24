@@ -44,6 +44,8 @@ describe("StaffBootstrap", () => {
     delete process.env.OFFICER2_PASSWORD_HASH;
     delete process.env.OFFICER3_EMAIL;
     delete process.env.OFFICER3_PASSWORD_HASH;
+    delete process.env.OFFICER4_EMAIL;
+    delete process.env.OFFICER4_PASSWORD_HASH;
   });
 
   afterEach(() => {
@@ -97,11 +99,37 @@ describe("StaffBootstrap", () => {
     ]);
   });
 
+  it("seeds an APPROVER, so a super-admin's four-eyes request can be decided (K-35)", async () => {
+    // K-35: `approval.decide` is held only by super_admin and approver, and
+    // self-approval is correctly refused — so with no approver account, a
+    // request made BY the super_admin could never be decided by anyone. Since
+    // 4.1 every payout goes through four eyes, so this stranded every payout
+    // the super-admin requested.
+    await boot();
+
+    const approver = await users.findByEmail(EmailAddress.of("approver@platform.local"));
+    expect(approver).toBeDefined();
+    expect(approver?.roles).toEqual(["approver"]);
+  });
+
+  it("gives the approver the power to DECIDE but never to make the request", () => {
+    // A checker who can also originate is not a second pair of eyes.
+    const granted = ROLE_PERMISSIONS.approver;
+    expect(granted.has(PERMISSIONS.APPROVAL_DECIDE)).toBe(true);
+    for (const maker of [
+      PERMISSIONS.LEDGER_CREDIT,
+      PERMISSIONS.DISTRIBUTION_MANAGE,
+      PERMISSIONS.REDEMPTION_MANAGE,
+    ]) {
+      expect(granted.has(maker)).toBe(false);
+    }
+  });
+
   it("is idempotent — a second boot replaces rather than duplicates", async () => {
     await boot();
     await new StaffBootstrap(users, hasher).onModuleInit();
 
-    expect(users.saved.size).toBe(3);
+    expect(users.saved.size).toBe(4);
   });
 
   it("honours a configured auditor email and password hash", async () => {
