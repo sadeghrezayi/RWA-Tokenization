@@ -37,7 +37,7 @@
   height: 32px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
-  background: var(--brand);
+  background: var(--brand-solid);
   color: #fff;
   font-weight: 700;
 }
@@ -220,7 +220,7 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-sm);
-  background: var(--brand);
+  background: var(--brand-solid);
   color: #fff;
   font-weight: 700;
 }
@@ -399,11 +399,12 @@
   width: 100%;
 }
 .btn--primary {
-  background: var(--brand);
+  background: var(--brand-solid);
   color: #fff;
 }
 .btn--primary:hover:not(:disabled) {
-  background: var(--brand-hover);
+  /* Solid fill behind white text, so the hover state has to clear AA too. */
+  background: var(--brand-solid-hover);
 }
 .btn--secondary {
   background: var(--surface);
@@ -1192,12 +1193,17 @@ textarea.field__input {
   align-items: center;
   gap: var(--space-5);
 }
-.public__nav a {
+/* `:not(.btn)` because this rule outranks `.btn--primary` on specificity
+   (0,1,1 against 0,1,0), so the "Sign in" button in the public header was
+   painting dark slate text on its blue fill — a serious contrast failure and
+   plainly wrong to look at. An element that has opted into .btn keeps the
+   button's own colours. Found by axe (P1-6). */
+.public__nav a:not(.btn) {
   color: var(--text);
   font-size: var(--text-sm);
   text-decoration: none;
 }
-.public__nav a:hover {
+.public__nav a:not(.btn):hover {
   color: var(--brand);
 }
 @media (max-width: 560px) {
@@ -1229,6 +1235,11 @@ textarea.field__input {
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
   }
+  /* The name is hidden on a phone so the bar keeps one row. The link itself
+     carries an aria-label (see the public layout), so hiding this text no
+     longer leaves the home link without a discernible name — the fix lives on
+     the element rather than in a clip-rect trick, which would trip the
+     overflow guard in layout.spec. Found by axe (P1-6). */
   .public__bar .brand-text {
     display: none;
   }

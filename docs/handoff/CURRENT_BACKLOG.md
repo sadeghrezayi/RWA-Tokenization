@@ -134,8 +134,30 @@ officer (P1-9) — are also **DONE** as of 2026-08-23.
 - **Acceptance:** a name or email is shown; an id that cannot be resolved degrades to the id
   rather than blanking the row.
 
-### P1-6 — Accessibility assertions
-axe-core was approved in OD-4 but no automated a11y checks exist. Add them to the Playwright run.
+### P1-6 — Accessibility assertions — **DONE** (2026-08-23)
+`e2e/a11y.spec.ts` scans the public pages, both sign-in forms and the signed-in investor portal
+against WCAG 2.1 A/AA, on mobile and desktop. It runs inside the existing `test:layout` command
+(`testDir: ./e2e`), so CI picked it up with no workflow change.
+
+**Scope is deliberately WCAG A/AA only** — axe's `best-practice` tag flags judgement calls, and a
+suite that cries wolf gets muted. A clean run means "no machine-detectable violation", NOT
+"accessible"; axe cannot judge whether a label makes sense to a person.
+
+**Three serious defects it found, all fixed:**
+- **No page had a `<title>`** — every route, so a screen-reader user heard nothing identifying the
+  page and browser history was a row of blanks. It also undercut the SEO the public catalogue was
+  approved for (OD-5). Fixed with `metadata` in the locale layout.
+- **The public header's "Sign in" button rendered dark slate text on its blue fill.**
+  `.public__nav a` (0,1,1) outranks `.btn--primary` (0,1,0) on specificity. Visibly wrong, not just
+  an axe technicality. Fixed by scoping that rule with `:not(.btn)`.
+- **The home link had no accessible name on a phone**, because `.brand-text` is `display: none`
+  there and the logo is `aria-hidden`. Fixed with `aria-label` on the link — a clip-rect
+  visually-hidden class was tried first and tripped `layout.spec`'s own overflow guard.
+
+**Also corrected on the way:** `--brand` was serving two roles that pull opposite ways. Measured,
+brand-500 scores 5.09 as text on the dark surface but only 3.68 as a background behind white text;
+brand-600 is the reverse (3.62 / 5.17). One token cannot satisfy both, so solid brand fills behind
+white text now use `--brand-solid`.
 
 ### P1-7 — Rate limiter is in-memory
 `AuthRateLimitGuard` keeps counters per process. Behind more than one instance it is not a limit.

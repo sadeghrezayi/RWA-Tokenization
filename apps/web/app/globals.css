@@ -46,8 +46,16 @@
   --text: var(--slate-900);
   --text-muted: var(--slate-500);
   --text-inverse: #ffffff;
+  /* A11y (P1-6, measured with axe + WCAG maths): --brand serves two roles that
+     pull in opposite directions. As TEXT on the dark surface, brand-500 scores
+     5.09 and brand-600 only 3.62; as a BACKGROUND behind white text it is the
+     reverse — 3.68 against 5.17. One token cannot satisfy both, so anything
+     that paints white text on a solid brand fill uses --brand-solid, which is
+     chosen for that job alone and passes AA in both themes. */
   --brand: var(--brand-600);
   --brand-hover: var(--brand-700);
+  --brand-solid: var(--brand-600);
+  --brand-solid-hover: var(--brand-700);
   --brand-soft: var(--brand-50);
   --header-bg: var(--slate-900);
   --ring: var(--brand-500);
@@ -92,6 +100,9 @@
     --text-muted: #93a1b5;
     --brand: var(--brand-500);
     --brand-hover: var(--brand-600);
+    /* Deliberately NOT brand-500: white on it is 3.68, below AA's 4.5. */
+    --brand-solid: var(--brand-600);
+    --brand-solid-hover: var(--brand-700);
     --brand-soft: #17233c;
     --header-bg: #0a101c;
     --success-soft: #10331f;
@@ -123,6 +134,8 @@
   --text-muted: #93a1b5;
   --brand: var(--brand-500);
   --brand-hover: var(--brand-600);
+  --brand-solid: var(--brand-600);
+  --brand-solid-hover: var(--brand-700);
   --brand-soft: #17233c;
   --header-bg: #0a101c;
 }

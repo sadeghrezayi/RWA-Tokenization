@@ -20,7 +20,10 @@ export default async function PublicLayout({
   return (
     <div className="public">
       <header className="public__bar">
-        <Link href={`/${locale}`} className="brand">
+        {/* Named explicitly: the brand text below is hidden on a phone, which
+            would otherwise leave this link with no discernible name (the logo is
+            aria-hidden). Found by axe (P1-6). */}
+        <Link href={`/${locale}`} className="brand" aria-label={t.appTitle}>
           <span className="brand__logo" aria-hidden="true">
             ◈
           </span>
