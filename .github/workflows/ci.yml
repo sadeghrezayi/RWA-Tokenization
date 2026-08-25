@@ -418,6 +418,45 @@ jobs:
               });
             }
 
+      # K-31: the API's OWN error, published where it can be read without admin
+      # rights. Until now a failing journey left only the browser's view of it
+      # ("tokenize failed (500)") while the cause sat in the step summary below,
+      # which nobody outside the org can open — which is exactly why K-31 has
+      # gone unexplained for weeks. Same fix K-25 applied to browser failures.
+      #
+      # The extraction lives in .github/scripts/api-log-failures.mjs so it can
+      # be run against a real log and checked, rather than being untestable
+      # inline YAML.
+      - name: Publish the API's own error where it can be read
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { apiLogFailures } = await import(
+              `${process.env.GITHUB_WORKSPACE}/.github/scripts/api-log-failures.mjs`
+            );
+            let contents = '';
+            try {
+              contents = fs.readFileSync(process.env.API_LOG_PATH || '/tmp/api.log', 'utf8');
+            } catch {
+              // The workflow's readiness check already reports a missing log.
+              core.info('no api log to read');
+              return;
+            }
+            const failures = apiLogFailures(contents);
+            core.info(`api error lines: ${failures.length}`);
+            for (const [i, description] of failures.entries()) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: 'failure',
+                context: `api-failure-${i + 1}`,
+                description,
+              });
+            }
+
       - name: Surface the API log when the browser tests fail
         if: failure()
         run: |

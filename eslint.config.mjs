@@ -37,5 +37,19 @@ export default tseslint.config(
     files: ["**/*.{js,mjs,cjs}"],
     ...tseslint.configs.disableTypeChecked,
   },
+  {
+    // CI-support scripts run under Node, outside any workspace package, so the
+    // browser-ish default globals do not describe them. Same standalone-script
+    // convention as .claude/hooks: runnable and checkable on their own.
+    files: [".github/scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { process: "readonly", console: "readonly" },
+    },
+    rules: {
+      // Stripping ANSI colour REQUIRES matching the escape byte; the rule
+      // exists to catch control characters that arrived by accident.
+      "no-control-regex": "off",
+    },
+  },
   prettier,
 );
