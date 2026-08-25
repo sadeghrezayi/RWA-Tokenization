@@ -582,10 +582,11 @@
       "K-38: one owner for the tables that block deleting an investor (test/support/clear-investors.ts)",
       "K-39: the outbox drain worker runs by default — no email had ever been delivered",
       "CI: integration failures AND suite-level hook failures publish readable commit statuses",
-      "P0-2 step 3 follow-up: allocationsAwaitingMint on the health probe + admin overview — money held for tokens that do not exist is now visible (no release policy yet; owner's call)"
+      "P0-2 step 3 follow-up: allocationsAwaitingMint on the health probe + admin overview — money held for tokens that do not exist is now visible (no release policy yet; owner's call)",
+      "K-34 residue, part 2: GET /reporting/allocations-awaiting-mint + the 'Escrow awaiting tokens' screen — who, how much, since when, why stuck; unresolved kept apart from not_minted; no release action (no policy yet)"
     ],
     "exit_criteria_remaining": [
-      "K-34 residue — OWNER DECISION. An allocation whose mint never succeeds holds the investor's Rial indefinitely. It is now VISIBLE (health probe + admin overview) but nothing releases it: no per-allocation list, no automatic release after N retries, no manual lever. Two questions: how long to wait, and who may release it."
+      "K-34 residue — OWNER DECISION, narrowed. Stuck escrow is now fully VISIBLE (health count, per-allocation list, admin screen). What does not exist is any way to ACT: no automatic release after N failed retries, no manual lever. Two questions: how long to wait before releasing an investor's escrow, and who is allowed to release it."
     ]
   },
   "previous_milestones": [

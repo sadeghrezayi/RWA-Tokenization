@@ -81,10 +81,12 @@ officer (P1-9) — are also **DONE** as of 2026-08-23.
      reports `allocationsAwaitingMint` (count + total Rial held) and the admin overview shows it
      when non-zero, so the state is at least no longer invisible; it decides no policy. A
      claimed-but-unconfirmed mint counts, since that is the case most wanting a person.
-     Still missing, and needing a decision rather than code: a per-allocation list (who, which
-     offering, how much, since when, why the last attempt failed), automatic release after N
-     failures, and a lever to release one. Open questions: **how long to wait, and who may
-     release it.**
+     **The per-allocation list also landed** — `GET /reporting/allocations-awaiting-mint` and the
+     "Escrow awaiting tokens" screen (REPORTING_READ) name who, which offering, how much, since
+     when, and the last retry error, and keep `unresolved` (may already be on chain) visibly
+     apart from `not_minted` (never attempted). The screen has NO release button on purpose.
+     Still missing, and needing a decision rather than code: automatic release after N failures,
+     and a lever to release one. Open questions: **how long to wait, and who may release it.**
   4. ~~Only then move the claim~~ — **DONE 2026-08-24.** Its dependency really had dissolved, and
      specifically on step 2 rather than step 3: the stated blocker was "the claim cannot go async
      before the mint can survive it", and a close-time mint now RETRIES on `MintPreconditionError`,

@@ -157,6 +157,15 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
           permission: PERMISSIONS.REPORTING_READ,
         },
         {
+          // K-34's residue: allocations holding money for tokens that were
+          // never issued. REPORTING_READ, alongside the reconciliation screen —
+          // whoever verifies the books is who needs to see stuck escrow.
+          href: `${base}/escrow`,
+          label: t.escrowAwaitingMintTitle,
+          icon: "⧗",
+          permission: PERMISSIONS.REPORTING_READ,
+        },
+        {
           href: `${base}/registry`,
           label: t.registryTitle,
           icon: "▦",

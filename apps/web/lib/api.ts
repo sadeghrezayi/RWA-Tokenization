@@ -313,6 +313,22 @@ export interface SystemHealthDto {
   allocationsAwaitingMint: { count: number; heldRial: string };
 }
 
+// K-34's residue: one allocation holding money for tokens that do not exist.
+// Amounts are STRINGS — a Rial escrow is a bigint server-side and JSON has none.
+export interface AllocationAwaitingMintDto {
+  offeringId: string;
+  assetName: string;
+  investorId: string;
+  investorEmail: string;
+  tokens: string;
+  heldRial: string;
+  since: string;
+  // `unresolved` may already be on the chain; `not_minted` was never attempted.
+  // Opposite handling, so they are never collapsed.
+  mintState: "unresolved" | "not_minted";
+  retry?: { status: string; attempts: number; lastError?: string };
+}
+
 export interface HoldingDto {
   assetId: string;
   assetName: string;
@@ -694,6 +710,8 @@ export interface ApiClient {
   investorFunding(officerToken: string, investorId: string): Promise<InvestorFundingDto[]>;
   // FR-RA-4: declared vs what actually reached holders' ledgers.
   distributionReconciliation(officerToken: string): Promise<DistributionReconciliationDto[]>;
+  // K-34's residue: which allocations hold money for tokens never issued.
+  allocationsAwaitingMint(officerToken: string): Promise<AllocationAwaitingMintDto[]>;
   acceptDocument(officerToken: string, assetId: string, kind: string): Promise<void>;
   rejectDocument(
     officerToken: string,
@@ -1417,6 +1435,8 @@ export const createApiClient = (
       json(call(`/funding/investors/${encodeURIComponent(investorId)}`, { token: officerToken })),
     distributionReconciliation: (officerToken) =>
       json(call("/reporting/distributions/reconciliation", { token: officerToken })),
+    allocationsAwaitingMint: (officerToken) =>
+      json(call("/reporting/allocations-awaiting-mint", { token: officerToken })),
     acceptDocument: async (officerToken, assetId, kind) => {
       await call(
         `/assets/${encodeURIComponent(assetId)}/documents/${encodeURIComponent(kind)}/accept`,

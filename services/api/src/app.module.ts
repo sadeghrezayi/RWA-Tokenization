@@ -83,6 +83,8 @@ import { CloseOffering } from "./application/offerings/close-offering.js";
 import { MintAllocation } from "./application/offerings/mint-allocation.js";
 import { SettleWithRetry } from "./application/offerings/settle-with-retry.js";
 import { SettleAllocation } from "./application/offerings/settle-allocation.js";
+import { ListAllocationsAwaitingMint } from "./application/reporting/allocations-awaiting-mint.js";
+import { PrismaAwaitingMintReader } from "./infrastructure/reporting/prisma-awaiting-mint-reader.js";
 import { SettleAllocationHandler } from "./infrastructure/outbox/settle-allocation-handler.js";
 import { KycClaimHandler } from "./infrastructure/outbox/kyc-claim-handler.js";
 import { PrismaAllocationMintLog } from "./infrastructure/persistence/prisma-allocation-mint-log.js";
@@ -1141,6 +1143,14 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       useFactory: (settle: SettleAllocation, outbox: OutboxStore) =>
         new SettleWithRetry(settle, outbox),
       inject: [SettleAllocation, OUTBOX_STORE],
+    },
+    {
+      // K-34's residue: the list behind the health probe's count — which
+      // allocations hold money for tokens that were never issued.
+      provide: ListAllocationsAwaitingMint,
+      useFactory: (prisma: PrismaService) =>
+        new ListAllocationsAwaitingMint(new PrismaAwaitingMintReader(prisma)),
+      inject: [PrismaService],
     },
     {
       // P0-2 step 3 (K-34): mint-then-capture as one unit. ONE provider shared

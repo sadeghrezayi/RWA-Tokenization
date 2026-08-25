@@ -456,6 +456,14 @@ export interface Dictionary {
   documentTooLarge: string;
   claimsOwedLabel: string;
   escrowAwaitingMintLabel: string;
+  escrowAwaitingMintTitle: string;
+  escrowAwaitingMintIntro: string;
+  escrowAwaitingMintNoneLabel: string;
+  escrowAwaitingMintTotalLabel: string;
+  escrowStateUnresolvedLabel: string;
+  escrowStateNotMintedLabel: string;
+  escrowHeldSinceLabel: string;
+  escrowLastErrorLabel: string;
   issuerDecisionTitle: string;
   issuerReasonLabel: string;
   issuerReasonRequired: string;
@@ -1089,6 +1097,16 @@ export const dictionaries: Record<Locale, Dictionary> = {
     documentTooLarge: "That file is larger than 10 MB.",
     claimsOwedLabel: "Approved investors awaiting an on-chain claim",
     escrowAwaitingMintLabel: "Allocations holding money for tokens not yet issued",
+    escrowAwaitingMintTitle: "Escrow awaiting tokens",
+    escrowAwaitingMintIntro:
+      "Money is captured only once an allocation's tokens exist, so these investors' funds are still held rather than taken. Nothing releases them automatically.",
+    escrowAwaitingMintNoneLabel:
+      "Every allocation received its tokens. No money is held for tokens that do not exist.",
+    escrowAwaitingMintTotalLabel: "Total held",
+    escrowStateUnresolvedLabel: "Unresolved — may already be on chain",
+    escrowStateNotMintedLabel: "Not minted",
+    escrowHeldSinceLabel: "Held since",
+    escrowLastErrorLabel: "Last error",
     issuerDecisionTitle: "Review decision",
     issuerReasonLabel: "Reason",
     issuerReasonRequired:

@@ -2,6 +2,8 @@ import { Controller, Get, Param, Query, Res } from "@nestjs/common";
 import { GetAssetOverview } from "../../application/reporting/asset-overview.js";
 import type { PortfolioOverview } from "../../application/reporting/asset-overview.js";
 import { GetSystemHealth } from "../../application/reporting/system-health.js";
+import { ListAllocationsAwaitingMint } from "../../application/reporting/allocations-awaiting-mint.js";
+import type { AllocationAwaitingMintView } from "../../application/reporting/allocations-awaiting-mint.js";
 import type { SystemHealthView } from "../../application/reporting/system-health.js";
 import { GetWorkQueue } from "../../application/ops/get-work-queue.js";
 import type { WorkQueueView } from "../../application/ops/get-work-queue.js";
@@ -39,6 +41,7 @@ export class ReportingController {
     private readonly auditTrail: GetAuditTrail,
     private readonly workQueue: GetWorkQueue,
     private readonly reconcileDistributions: ReconcileDistributions,
+    private readonly awaitingMint: ListAllocationsAwaitingMint,
   ) {}
 
   // 1.8: everything currently waiting on a human decision, oldest first.
@@ -55,6 +58,14 @@ export class ReportingController {
   @Get("health")
   health(): Promise<SystemHealthView> {
     return this.systemHealth.execute();
+  }
+
+  // K-34's residue: which allocations hold money for tokens that do not exist.
+  // The health probe carries the count; this is the list behind it. Read-only —
+  // releasing the escrow needs a policy that does not exist yet.
+  @Get("allocations-awaiting-mint")
+  allocationsAwaitingMint(): Promise<AllocationAwaitingMintView[]> {
+    return this.awaitingMint.execute();
   }
 
   @Get("assets/:id/registry")
