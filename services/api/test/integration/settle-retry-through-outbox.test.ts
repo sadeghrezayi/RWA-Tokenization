@@ -2,9 +2,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { DrainOutbox } from "../../src/application/outbox/drain-outbox.js";
 import { MintAllocation } from "../../src/application/offerings/mint-allocation.js";
-import { MintWithRetry } from "../../src/application/offerings/mint-with-retry.js";
+import { SettleAllocation } from "../../src/application/offerings/settle-allocation.js";
+import { PrismaSettlementRail } from "../../src/infrastructure/settlement/prisma-settlement-rail.js";
+import { SettleWithRetry } from "../../src/application/offerings/settle-with-retry.js";
 import { MintPreconditionError } from "../../src/application/offerings/errors.js";
-import { MintAllocationHandler } from "../../src/infrastructure/outbox/mint-allocation-handler.js";
+import { SettleAllocationHandler } from "../../src/infrastructure/outbox/settle-allocation-handler.js";
 import { PrismaAllocationMintLog } from "../../src/infrastructure/persistence/prisma-allocation-mint-log.js";
 import { PrismaOutboxStore } from "../../src/infrastructure/persistence/prisma-outbox-store.js";
 import { RecordingAssetTokenIssuer } from "../fakes/offering-fakes.js";
@@ -23,6 +25,8 @@ const INVESTOR_ID = "inv-retry";
 
 const clear = async (): Promise<void> => {
   await prisma.outboxMessage.deleteMany();
+  await prisma.ledgerEntry.deleteMany();
+  await prisma.ledgerAccount.deleteMany();
   await prisma.allocationMint.deleteMany();
   await prisma.offering.deleteMany({ where: { id: OFFERING_ID } });
   await prisma.investor.deleteMany({ where: { id: INVESTOR_ID } });
@@ -83,36 +87,51 @@ beforeEach(async () => {
 // claim has not drained yet. The close must not fail, and the mint must be
 // retried until it succeeds.
 describe("a refused mint is retried through the outbox (integration, real Postgres)", () => {
+  // The real Rial ledger, not a fake: step 3's exactly-once capture is enforced
+  // by a unique index, so proving it needs the database that holds the index.
+  const rail = new PrismaSettlementRail(prisma);
+
   const build = (issuer: RecordingAssetTokenIssuer) => {
     const store = new PrismaOutboxStore(prisma);
     const mint = new MintAllocation(issuer, new PrismaAllocationMintLog(prisma, ids));
+    const settle = new SettleAllocation(mint, rail);
     return {
       store,
-      mintWithRetry: new MintWithRetry(mint, store),
-      drainer: new DrainOutbox(store, [new MintAllocationHandler(mint)], clock),
+      settleWithRetry: new SettleWithRetry(settle, store),
+      drainer: new DrainOutbox(store, [new SettleAllocationHandler(settle)], clock),
     };
+  };
+
+  const fundedEscrow = async (): Promise<void> => {
+    await rail.credit(INVESTOR_ID, 60_000n, "officer-1");
+    await rail.hold(INVESTOR_ID, 60_000n);
   };
 
   it("survives a refusal, queues the work, and mints on the retry", async () => {
     const issuer = new RecordingAssetTokenIssuer();
-    const { mintWithRetry, drainer } = build(issuer);
+    const { settleWithRetry, drainer } = build(issuer);
+    await fundedEscrow();
 
     // The chain refuses: the holder is not registered yet.
     // A precondition failure: nothing reached the chain, so the claim is
     // released and the retry may legitimately try again.
     issuer.failNextMint = new MintPreconditionError("investor has no on-chain identity");
     await expect(
-      mintWithRetry.execute({
+      settleWithRetry.execute({
         offeringId: OFFERING_ID,
         tokenAddress: "0xToken",
         investorId: INVESTOR_ID,
         tokens: 60n,
+        costRial: 60_000n,
       }),
     ).resolves.toBeUndefined();
 
     // Nothing minted yet, but the work is durable.
     expect(issuer.minted).toEqual([]);
     expect(await prisma.outboxMessage.count({ where: { status: "pending" } })).toBe(1);
+    // K-34: the tokens do not exist, so the money has NOT been taken. It is
+    // still the investor's, still in escrow, still releasable by a person.
+    expect(await rail.balanceOf(INVESTOR_ID)).toEqual({ balanceRial: 0n, heldRial: 60_000n });
 
     // The claim drains, the holder is registered, and the retry lands.
     const summary = await drainer.drain();
@@ -121,6 +140,9 @@ describe("a refused mint is retried through the outbox (integration, real Postgr
     expect(issuer.minted).toEqual([
       { tokenAddress: "0xToken", investorId: INVESTOR_ID, tokens: 60n },
     ]);
+    // And only NOW is the money taken — the retry settles both halves.
+    expect(await rail.balanceOf(INVESTOR_ID)).toEqual({ balanceRial: 0n, heldRial: 0n });
+    expect(await prisma.ledgerEntry.count({ where: { kind: "capture" } })).toBe(1);
   });
 
   it("does not issue twice when the queued retry follows a mint that did succeed", async () => {
@@ -128,13 +150,15 @@ describe("a refused mint is retried through the outbox (integration, real Postgr
     // was already queued, or the message is redelivered. Step 1's record is
     // what makes the second one harmless — without it this test double-issues.
     const issuer = new RecordingAssetTokenIssuer();
-    const { store, mintWithRetry, drainer } = build(issuer);
+    const { store, settleWithRetry, drainer } = build(issuer);
+    await fundedEscrow();
 
-    await mintWithRetry.execute({
+    await settleWithRetry.execute({
       offeringId: OFFERING_ID,
       tokenAddress: "0xToken",
       investorId: INVESTOR_ID,
       tokens: 60n,
+      costRial: 60_000n,
     });
     expect(issuer.minted).toHaveLength(1);
 
@@ -154,5 +178,9 @@ describe("a refused mint is retried through the outbox (integration, real Postgr
 
     expect(issuer.minted).toEqual([]);
     expect(await prisma.allocationMint.count({ where: { offeringId: OFFERING_ID } })).toBe(1);
+    // The other half of the same guarantee: the redelivery must not debit the
+    // investor a second time. The unique index on the ledger is what stops it.
+    expect(await prisma.ledgerEntry.count({ where: { kind: "capture" } })).toBe(1);
+    expect(await rail.balanceOf(INVESTOR_ID)).toEqual({ balanceRial: 0n, heldRial: 0n });
   });
 });

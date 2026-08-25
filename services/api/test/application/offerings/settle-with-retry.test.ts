@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   MINT_ALLOCATION_TYPE,
-  MintWithRetry,
-} from "../../../src/application/offerings/mint-with-retry.js";
+  SettleWithRetry,
+} from "../../../src/application/offerings/settle-with-retry.js";
 import { MintAllocation } from "../../../src/application/offerings/mint-allocation.js";
+import { SettleAllocation } from "../../../src/application/offerings/settle-allocation.js";
 import { UnresolvedMintError } from "../../../src/application/offerings/errors.js";
 import {
+  FakeSettlementRail,
   InMemoryAllocationMintLog,
   RecordingAssetTokenIssuer,
 } from "../../fakes/offering-fakes.js";
@@ -29,27 +31,36 @@ class RecordingOutbox implements OutboxEnqueue {
 // immediately and the browser journey is unaffected. Step 1's idempotency is
 // what makes this safe — if a retry ever races the inline attempt, the second
 // one is a no-op rather than a double-issue.
-describe("MintWithRetry", () => {
+describe("SettleWithRetry", () => {
   let issuer: RecordingAssetTokenIssuer;
   let mints: InMemoryAllocationMintLog;
   let outbox: RecordingOutbox;
-  let mint: MintWithRetry;
+  let rail: FakeSettlementRail;
+  let mint: SettleWithRetry;
 
   const ALLOCATION = {
     offeringId: "off-1",
     tokenAddress: "0xToken",
     investorId: "alice",
     tokens: 60n,
+    costRial: 60_000n,
   };
 
   beforeEach(() => {
     issuer = new RecordingAssetTokenIssuer();
     mints = new InMemoryAllocationMintLog();
     outbox = new RecordingOutbox();
-    mint = new MintWithRetry(new MintAllocation(issuer, mints), outbox);
+    rail = new FakeSettlementRail();
+    rail.credit("alice", 60_000n);
+    mint = new SettleWithRetry(
+      new SettleAllocation(new MintAllocation(issuer, mints), rail),
+      outbox,
+    );
   });
 
   it("mints inline when the chain accepts, and queues nothing", async () => {
+    await rail.hold("alice", 60_000n);
+
     await mint.execute(ALLOCATION);
 
     expect(issuer.minted).toHaveLength(1);
@@ -73,6 +84,7 @@ describe("MintWithRetry", () => {
       // bigint is not JSON, so the payload carries a string and the handler
       // converts back — a silently truncated token count would be a disaster.
       tokens: "60",
+      costRial: "60000",
     });
   });
 
@@ -92,5 +104,27 @@ describe("MintWithRetry", () => {
     await mint.execute(ALLOCATION);
 
     expect(String(outbox.enqueued[0]?.payload.reason)).toMatch(/holder not registered/);
+  });
+
+  it("captures the money on the inline path, once the tokens exist", async () => {
+    await rail.hold("alice", 60_000n);
+
+    await mint.execute(ALLOCATION);
+
+    expect(rail.captured.get("alice")).toBe(60_000n);
+  });
+
+  it("captures NOTHING when the mint is refused and the work is queued", async () => {
+    // The K-34 guarantee carried through the retry path: a queued settlement
+    // means the money is still held, not taken. If this ever regresses, an
+    // investor pays at close and waits on a mint that may never land.
+    await rail.hold("alice", 60_000n);
+    issuer.failNextMint = new Error("holder not registered");
+
+    await mint.execute(ALLOCATION);
+
+    expect(rail.captureLog).toEqual([]);
+    expect(rail.held.get("alice")).toBe(60_000n);
+    expect(outbox.enqueued).toHaveLength(1);
   });
 });

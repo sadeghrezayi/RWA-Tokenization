@@ -1,5 +1,5 @@
 import { UnresolvedMintError } from "./errors.js";
-import type { MintAllocation } from "./mint-allocation.js";
+import type { SettleAllocation } from "./settle-allocation.js";
 import type { OutboxEnqueue } from "../outbox/ports.js";
 
 export const MINT_ALLOCATION_TYPE = "offering.mint_allocation";
@@ -17,9 +17,9 @@ export const MINT_ALLOCATION_TYPE = "offering.mint_allocation";
 // browser journey is unaffected. Step 1's idempotency is what makes it safe: if
 // a queued retry ever races the inline attempt, the second is a no-op rather
 // than a double-issue.
-export class MintWithRetry {
+export class SettleWithRetry {
   constructor(
-    private readonly mint: MintAllocation,
+    private readonly settle: SettleAllocation,
     private readonly outbox: OutboxEnqueue,
   ) {}
 
@@ -28,9 +28,10 @@ export class MintWithRetry {
     tokenAddress: string;
     investorId: string;
     tokens: bigint;
+    costRial: bigint;
   }): Promise<void> {
     try {
-      await this.mint.execute(input);
+      await this.settle.execute(input);
     } catch (error: unknown) {
       if (error instanceof UnresolvedMintError) {
         // Deliberately NOT queued. An unresolved attempt needs a person to
@@ -49,6 +50,10 @@ export class MintWithRetry {
           // handler — a token count silently truncated through a float would
           // be worse than the failure being retried.
           tokens: String(input.tokens),
+          // Carried so the retry captures the SAME amount the close intended.
+          // Re-deriving it later from the offering would silently follow a
+          // price that had since been edited.
+          costRial: String(input.costRial),
           // So a queued retry is not a mystery to whoever reads the row.
           reason: error instanceof Error ? error.message : String(error),
         },

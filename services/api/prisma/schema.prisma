@@ -491,6 +491,11 @@ model LedgerEntry {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([tenantId])
+  // P0-2 step 3 (K-34): settlement is retried through the outbox, so the ledger
+  // itself has to refuse a second debit for the same cause. Postgres treats
+  // NULLs as distinct, so entries with no reference stay unconstrained — which
+  // is what keeps every pre-existing entry legal.
+  @@unique([investorId, kind, reference])
   @@map("ledger_entries")
 }
 

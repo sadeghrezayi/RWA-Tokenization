@@ -38,6 +38,10 @@ export class FakeSettlementRail implements SettlementRail {
   readonly balances = new Map<string, bigint>();
   readonly held = new Map<string, bigint>();
   readonly captured = new Map<string, bigint>();
+  // Every capture that actually moved money, in order — what lets a test assert
+  // WHEN the money moved and not merely that it did.
+  readonly captureLog: { investorId: string; amountRial: bigint; reference: string }[] = [];
+  onCapture?: () => void;
 
   credit(investorId: string, amountRial: bigint): void {
     this.balances.set(investorId, (this.balances.get(investorId) ?? 0n) + amountRial);
@@ -63,13 +67,20 @@ export class FakeSettlementRail implements SettlementRail {
     return Promise.resolve();
   }
 
-  capture(investorId: string, amountRial: bigint): Promise<void> {
+  capture(investorId: string, amountRial: bigint, reference: string): Promise<void> {
+    // Mirrors the real rail's partial unique index: the same reference for the
+    // same investor is a no-op, not a second debit.
+    if (this.captureLog.some((c) => c.investorId === investorId && c.reference === reference)) {
+      return Promise.resolve();
+    }
     const held = this.held.get(investorId) ?? 0n;
     if (held < amountRial) {
       return Promise.reject(new Error(`capture exceeds held funds for ${investorId}`));
     }
+    this.onCapture?.();
     this.held.set(investorId, held - amountRial);
     this.captured.set(investorId, (this.captured.get(investorId) ?? 0n) + amountRial);
+    this.captureLog.push({ investorId, amountRial, reference });
     return Promise.resolve();
   }
 }

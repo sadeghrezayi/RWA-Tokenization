@@ -15,6 +15,11 @@ Verified live in a browser. Both follow-ups — the team panel (P1-8) and naming
 officer (P1-9) — are also **DONE** as of 2026-08-23.
 
 ### P0-2 — Chain writes are synchronous on a single hot key
+> **The four-step MINT/CLAIM slice is COMPLETE as of 2026-08-25** — all four sub-items below are
+> struck through, and **K-34 is closed**. What remains of this entry is the REST of its scope:
+> `tokenize`, `transfer` and `burn` still run inside the HTTP request, and the single permanent
+> operator EOA is untouched — that part overlaps P0-4 and still needs the owner's call on signing.
+> Do not read the struck-through list as the whole item being finished.
 - **What:** tokenize / mint / transfer / burn / claim-issue all run inside the HTTP request using
   one operator account derived from `PLATFORM_OPERATOR_MNEMONIC`.
 - **Why it matters:** a devnet hiccup turns a KYC approval or a subscription close into a 500;
@@ -49,7 +54,7 @@ officer (P1-9) — are also **DONE** as of 2026-08-23.
      That last one REFUSES rather than guessing, because re-minting may double-issue and
      skipping leaves a paying holder with nothing and nothing to complain about.
   2. ~~Move the mint onto the outbox~~ — **DONE 2026-08-24.** Inline-first, per this entry's own
-     acceptance that "the devnet fast path is preserved for tests": `MintWithRetry` attempts the
+     acceptance that "the devnet fast path is preserved for tests": `SettleWithRetry` attempts the
      mint synchronously and hands it to the outbox only if the chain refuses, so a close still
      produces tokens immediately and the browser journey is untouched. The queued retry calls the
      SAME idempotent use case, so a retry racing the inline attempt is a no-op.
@@ -59,9 +64,22 @@ officer (P1-9) — are also **DONE** as of 2026-08-23.
      (`MintPreconditionError` — no on-chain identity, token paused, both checked before any
      transaction is sent) from those that might be in flight. The former releases the claim and is
      retryable; the latter keeps it and asks for a person. Both directions mutation-checked.
-  3. Decide what happens between capture and mint: money currently moves first and nothing
-     reconciles the two halves. **This is a product question as much as an engineering one** and is
-     worth the owner's view before it is coded.
+  3. ~~Decide what happens between capture and mint~~ — **DONE 2026-08-25.** Put to the owner as a
+     product question with three options and a recommendation; the answer to repeated asking was
+     "continue", so I took the recommendation and flagged it **reversible**
+     (`open-product-decisions.md`, 2026-08-25). **Money now moves only after the tokens exist.**
+     `CloseOffering` releases the refund first — over-subscribed money was never owed — and then
+     settles the allocation as one unit through `SettleAllocation`: mint, THEN capture. A refused
+     mint leaves the Rial HELD rather than taken, and the queued retry completes both halves.
+     Capture is exactly-once through a UNIQUE index on
+     `ledger_entries (investor_id, kind, reference)`, so a redelivered message cannot debit twice;
+     the ledger entry is written BEFORE the balance moves, inside the same transaction, so the
+     duplicate is a no-op instead of looking like an over-capture. Mutation-checked: restoring the
+     capture-first order fails exactly the two ordering tests and nothing else.
+     **What it does NOT solve, and is still the owner's:** an allocation whose mint never succeeds
+     leaves the money held indefinitely — there is no automatic release after N failures and no
+     screen listing allocations stuck that way. Open questions: how long to wait, and who may
+     release it.
   4. ~~Only then move the claim~~ — **DONE 2026-08-24.** Its dependency really had dissolved, and
      specifically on step 2 rather than step 3: the stated blocker was "the claim cannot go async
      before the mint can survive it", and a close-time mint now RETRIES on `MintPreconditionError`,

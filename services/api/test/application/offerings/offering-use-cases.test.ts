@@ -4,7 +4,9 @@ import { OpenOffering } from "../../../src/application/offerings/open-offering.j
 import { SubscribeToOffering } from "../../../src/application/offerings/subscribe-to-offering.js";
 import { CloseOffering } from "../../../src/application/offerings/close-offering.js";
 import { MintAllocation } from "../../../src/application/offerings/mint-allocation.js";
-import { MintWithRetry } from "../../../src/application/offerings/mint-with-retry.js";
+import { SettleWithRetry } from "../../../src/application/offerings/settle-with-retry.js";
+import { SettleAllocation } from "../../../src/application/offerings/settle-allocation.js";
+import { MintPreconditionError } from "../../../src/application/offerings/errors.js";
 import { GetOffering } from "../../../src/application/offerings/get-offering.js";
 import {
   AssetNotTokenizedError,
@@ -86,9 +88,10 @@ const setup = async () => {
       clock,
       // Inline-first, so the close still mints synchronously here; the outbox
       // only sees a message if the chain refuses.
-      new MintWithRetry(new MintAllocation(issuer, new InMemoryAllocationMintLog()), {
-        enqueue: () => Promise.resolve(),
-      }),
+      new SettleWithRetry(
+        new SettleAllocation(new MintAllocation(issuer, new InMemoryAllocationMintLog()), rail),
+        { enqueue: () => Promise.resolve() },
+      ),
     ),
     getOffering: new GetOffering(offerings, assets, investors),
   };
@@ -248,6 +251,27 @@ describe("CloseOffering (FR-PI-3 both paths)", () => {
     expect(s.issuer.finalized).toEqual(["0xToken1"]);
     expect(s.events.events.map((e) => e.event)).toContain("offering_closed");
     expect((await s.offerings.findById(offeringId))?.state).toBe("closed_success");
+  });
+
+  it("leaves_the_money_held_when_the_close_cannot_mint", async () => {
+    // K-34 / P0-2 step 3. The chain refuses because the holder's KYC claim has
+    // not drained yet. The close still succeeds and the mint is queued — and
+    // because no tokens exist, no money may be taken. Before this, the
+    // investor had paid 80,000 Rial for tokens they did not hold.
+    const s = await setup();
+    const offeringId = await createOpen(s);
+    s.rail.credit("inv-1", 80_000n);
+    await s.subscribe.execute({ offeringId, investorId: "inv-1", tokens: 80n });
+    s.clock.current = AFTER;
+    s.issuer.failNextMint = new MintPreconditionError("holder not registered");
+
+    const result = await s.close.execute({ offeringId, actor: ACTOR });
+
+    expect(result.state).toBe("closed_success");
+    expect(s.issuer.minted).toEqual([]);
+    expect(s.rail.captured.get("inv-1")).toBeUndefined();
+    // Still the investor's money, still recoverable by releasing the hold.
+    expect(s.rail.held.get("inv-1")).toBe(80_000n);
   });
 
   it("throws_for_an_unknown_offering", async () => {

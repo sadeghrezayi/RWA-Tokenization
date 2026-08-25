@@ -12,7 +12,11 @@ export interface OfferingRepository {
 export interface SettlementRail {
   hold(investorId: string, amountRial: bigint): Promise<void>;
   release(investorId: string, amountRial: bigint): Promise<void>;
-  capture(investorId: string, amountRial: bigint): Promise<void>;
+  // P0-2 step 3 (K-34): `reference` identifies WHAT is being paid for, and is
+  // the exactly-once key. Settlement is retried through the outbox now, so a
+  // redelivery must not debit the investor twice; the rail deduplicates on
+  // (investor, reference) rather than trusting the caller to ask only once.
+  capture(investorId: string, amountRial: bigint, reference: string): Promise<void>;
 }
 
 // FR-PI-3: mints allocations of the (per-asset) token and finally enables

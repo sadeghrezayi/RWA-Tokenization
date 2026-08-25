@@ -20,7 +20,7 @@ describe("PrismaSettlementRail (integration, real Postgres)", () => {
     await rail.credit("inv-1", 50_000n, "officer-1");
     await rail.hold("inv-1", 30_000n);
     await rail.release("inv-1", 10_000n);
-    await rail.capture("inv-1", 20_000n);
+    await rail.capture("inv-1", 20_000n, "offering:off-a");
 
     expect(await rail.balanceOf("inv-1")).toEqual({ balanceRial: 30_000n, heldRial: 0n });
     const kinds = (await prisma.ledgerEntry.findMany({ orderBy: { id: "asc" } })).map(
@@ -67,7 +67,49 @@ describe("PrismaSettlementRail (integration, real Postgres)", () => {
     await rail.credit("inv-1", 5_000n, "officer-1");
     await rail.hold("inv-1", 5_000n);
     await expect(rail.release("inv-1", 6_000n)).rejects.toThrow(/release exceeds/);
-    await expect(rail.capture("inv-1", 6_000n)).rejects.toThrow(/capture exceeds/);
+    await expect(rail.capture("inv-1", 6_000n, "offering:off-b")).rejects.toThrow(
+      /capture exceeds/,
+    );
+  });
+
+  // P0-2 step 3 (K-34). Settlement is retried through the outbox, so the same
+  // capture WILL be asked for twice; the ledger has to refuse the second one.
+  it("captures_at_most_once_per_reference_even_when_asked_twice", async () => {
+    await rail.credit("inv-2", 50_000n, "officer-1");
+    await rail.hold("inv-2", 40_000n);
+
+    await rail.capture("inv-2", 40_000n, "offering:off-1");
+    await rail.capture("inv-2", 40_000n, "offering:off-1");
+
+    // Debited once: the balance is what one capture leaves, not two.
+    expect(await rail.balanceOf("inv-2")).toEqual({ balanceRial: 10_000n, heldRial: 0n });
+    expect(await prisma.ledgerEntry.count({ where: { kind: "capture" } })).toBe(1);
+  });
+
+  it("still_captures_separately_for_a_different_offering", async () => {
+    // The guard is per cause, not per investor — an investor settling two
+    // offerings must be debited for both.
+    await rail.credit("inv-3", 50_000n, "officer-1");
+    await rail.hold("inv-3", 40_000n);
+
+    await rail.capture("inv-3", 15_000n, "offering:off-1");
+    await rail.capture("inv-3", 25_000n, "offering:off-2");
+
+    expect(await prisma.ledgerEntry.count({ where: { kind: "capture" } })).toBe(2);
+    expect(await rail.balanceOf("inv-3")).toEqual({ balanceRial: 10_000n, heldRial: 0n });
+  });
+
+  it("does_not_debit_when_the_duplicate_capture_is_a_no_op", async () => {
+    // The dangerous shape of the bug: the second call must not decrement `held`
+    // as a side effect before the unique index rejects the entry.
+    await rail.credit("inv-4", 50_000n, "officer-1");
+    await rail.hold("inv-4", 40_000n);
+    await rail.capture("inv-4", 20_000n, "offering:off-1");
+    const after = await rail.balanceOf("inv-4");
+
+    await rail.capture("inv-4", 20_000n, "offering:off-1");
+
+    expect(await rail.balanceOf("inv-4")).toEqual(after);
   });
 
   it("serializes_concurrent_holds_so_the_balance_never_goes_negative", async () => {

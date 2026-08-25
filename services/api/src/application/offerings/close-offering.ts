@@ -1,7 +1,7 @@
 import type { Allocation, OfferingState } from "../../domain/offerings/offering.js";
 import type { AssetEventLog } from "../assets/ports.js";
 import { loadOffering } from "./load-offering.js";
-import type { MintWithRetry } from "./mint-with-retry.js";
+import type { SettleWithRetry } from "./settle-with-retry.js";
 import type { AssetTokenIssuer, Clock, OfferingRepository, SettlementRail } from "./ports.js";
 
 // FR-PI-3: the close decision persists FIRST (like a compliance decision),
@@ -14,11 +14,11 @@ export class CloseOffering {
     private readonly issuer: AssetTokenIssuer,
     private readonly events: AssetEventLog,
     private readonly clock: Clock,
-    // P0-2 steps 1-2: mints one allocation idempotently, inline, and hands it
-    // to the outbox to retry if the chain refuses. A mint that fails because
-    // the holder's KYC claim has not drained yet no longer fails the close —
-    // which by that point has already captured the money (K-34).
-    private readonly mintAllocation: MintWithRetry,
+    // P0-2 steps 1-3: settles one allocation — mint, then capture — idempotently
+    // and inline, handing it to the outbox to retry if the chain refuses. A
+    // mint that fails because the holder's KYC claim has not drained yet
+    // neither fails the close nor takes the investor's money (K-34).
+    private readonly settleAllocation: SettleWithRetry,
   ) {}
 
   async execute(input: {
@@ -53,18 +53,21 @@ export class CloseOffering {
     allocations: readonly Allocation[],
   ): Promise<void> {
     for (const allocation of allocations) {
-      if (allocation.costRial > 0n) {
-        await this.rail.capture(allocation.investorId, allocation.costRial);
-      }
+      // The refund first, and unconditionally: over-subscribed money was never
+      // owed, so it goes back whether or not the mint that follows succeeds.
       if (allocation.refundRial > 0n) {
         await this.rail.release(allocation.investorId, allocation.refundRial);
       }
+      // Mint THEN capture, as one retryable unit. The capture used to happen
+      // here, before the mint, which is how a refused mint left an investor
+      // who had paid and held nothing (K-34).
       if (allocation.allocated > 0n) {
-        await this.mintAllocation.execute({
+        await this.settleAllocation.execute({
           offeringId,
           tokenAddress,
           investorId: allocation.investorId,
           tokens: allocation.allocated,
+          costRial: allocation.costRial,
         });
       }
     }

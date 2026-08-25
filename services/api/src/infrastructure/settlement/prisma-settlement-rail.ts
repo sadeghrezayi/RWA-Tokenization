@@ -6,6 +6,10 @@ import type { DistributionLedger } from "../../application/distributions/ports.j
 // D3: the off-chain Rial ledger. Every movement is a guarded, atomic
 // balance/held update plus an append-only ledger entry (NFR-2). The guard in
 // the WHERE clause makes concurrent over-spends impossible.
+// Postgres unique-constraint violation. Matched explicitly so a duplicate
+// capture is told apart from a genuine database fault.
+const CAPTURE_ALREADY_RECORDED = "P2002";
+
 export class PrismaSettlementRail implements SettlementRail, DistributionLedger {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -52,20 +56,36 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
     });
   }
 
-  async capture(investorId: string, amountRial: bigint): Promise<void> {
+  // P0-2 step 3 (K-34). `reference` is the exactly-once key: settlement is
+  // retried through the outbox, so this WILL be called twice for the same
+  // allocation and the second call must move nothing.
+  async capture(investorId: string, amountRial: bigint, reference: string): Promise<void> {
     this.assertPositive(amountRial);
-    await this.inTransaction(async (tx) => {
-      const updated = await tx.ledgerAccount.updateMany({
-        where: { investorId, held: { gte: amountRial } },
-        data: { held: { decrement: amountRial } },
+    try {
+      await this.inTransaction(async (tx) => {
+        // The entry is written FIRST so the unique index decides, inside the
+        // same transaction, before any money moves. Decrementing first and
+        // checking afterwards is what made the duplicate look like an
+        // over-capture instead of a no-op.
+        await tx.ledgerEntry.create({
+          data: { investorId, kind: "capture", amountRial, actor: "platform", reference },
+        });
+        const updated = await tx.ledgerAccount.updateMany({
+          where: { investorId, held: { gte: amountRial } },
+          data: { held: { decrement: amountRial } },
+        });
+        if (updated.count === 0) {
+          throw new Error(`capture exceeds held funds for investor ${investorId}`);
+        }
       });
-      if (updated.count === 0) {
-        throw new Error(`capture exceeds held funds for investor ${investorId}`);
+    } catch (error: unknown) {
+      if ((error as { code?: string }).code === CAPTURE_ALREADY_RECORDED) {
+        // Already captured for this cause. The transaction rolled back, so
+        // nothing was debited a second time.
+        return;
       }
-      await tx.ledgerEntry.create({
-        data: { investorId, kind: "capture", amountRial, actor: "platform" },
-      });
-    });
+      throw error;
+    }
   }
 
   // FR-YD-1 / D5b: a distribution payout credits the balance directly, with a

@@ -81,8 +81,9 @@ import type {
 import { TrexAssetTokenDeployer } from "./infrastructure/chain/trex-asset-token-deployer.js";
 import { CloseOffering } from "./application/offerings/close-offering.js";
 import { MintAllocation } from "./application/offerings/mint-allocation.js";
-import { MintWithRetry } from "./application/offerings/mint-with-retry.js";
-import { MintAllocationHandler } from "./infrastructure/outbox/mint-allocation-handler.js";
+import { SettleWithRetry } from "./application/offerings/settle-with-retry.js";
+import { SettleAllocation } from "./application/offerings/settle-allocation.js";
+import { SettleAllocationHandler } from "./infrastructure/outbox/settle-allocation-handler.js";
 import { KycClaimHandler } from "./infrastructure/outbox/kyc-claim-handler.js";
 import { PrismaAllocationMintLog } from "./infrastructure/persistence/prisma-allocation-mint-log.js";
 import { CreateOffering } from "./application/offerings/create-offering.js";
@@ -972,7 +973,7 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
         store: OutboxStore,
         email: EmailSender,
         clock: Clock,
-        mint: MintAllocation,
+        settle: SettleAllocation,
         claims: ClaimIssuer,
       ) =>
         new DrainOutbox(
@@ -983,12 +984,12 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
           // column nobody reads.
           [
             ...emailOutboxHandlers(email),
-            new MintAllocationHandler(mint),
+            new SettleAllocationHandler(settle),
             new KycClaimHandler(claims),
           ],
           clock,
         ),
-      inject: [OUTBOX_STORE, EMAIL_SENDER, CLOCK, MintAllocation, CLAIM_ISSUER],
+      inject: [OUTBOX_STORE, EMAIL_SENDER, CLOCK, SettleAllocation, CLAIM_ISSUER],
     },
     {
       provide: OutboxDrainWorker,
@@ -1124,21 +1125,30 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
         issuer: AssetTokenIssuer,
         events: AssetEventLog,
         clock: Clock,
-        mintAllocation: MintWithRetry,
-      ) => new CloseOffering(offerings, rail, issuer, events, clock, mintAllocation),
+        settleAllocation: SettleWithRetry,
+      ) => new CloseOffering(offerings, rail, issuer, events, clock, settleAllocation),
       inject: [
         OFFERING_REPOSITORY,
         SETTLEMENT_RAIL,
         ASSET_TOKEN_ISSUER,
         ASSET_EVENT_LOG,
         CLOCK,
-        MintWithRetry,
+        SettleWithRetry,
       ],
     },
     {
-      provide: MintWithRetry,
-      useFactory: (mint: MintAllocation, outbox: OutboxStore) => new MintWithRetry(mint, outbox),
-      inject: [MintAllocation, OUTBOX_STORE],
+      provide: SettleWithRetry,
+      useFactory: (settle: SettleAllocation, outbox: OutboxStore) =>
+        new SettleWithRetry(settle, outbox),
+      inject: [SettleAllocation, OUTBOX_STORE],
+    },
+    {
+      // P0-2 step 3 (K-34): mint-then-capture as one unit. ONE provider shared
+      // by the inline path and the outbox handler, so a queued retry settles
+      // through exactly the same idempotent code the close ran.
+      provide: SettleAllocation,
+      useFactory: (mint: MintAllocation, rail: SettlementRail) => new SettleAllocation(mint, rail),
+      inject: [MintAllocation, SETTLEMENT_RAIL],
     },
     {
       // P0-2 step 1: issuing one allocation's tokens, at most once. Its own
