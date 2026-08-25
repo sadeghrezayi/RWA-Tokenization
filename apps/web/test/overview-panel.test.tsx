@@ -41,6 +41,7 @@ const health: SystemHealthDto = {
   chainBlockNumber: 564,
   pausedTokens: 1,
   approvedWithoutOnchainIdentity: 0,
+  allocationsAwaitingMint: { count: 0, heldRial: "0" },
 };
 
 const withValuation = (fresh: boolean): AssetOverviewDto =>
@@ -199,5 +200,52 @@ describe("OverviewPanel — approvals the chain never heard about", () => {
     // Wait for health to have loaded before asserting on an absence.
     await screen.findByText(/healthy/i);
     expect(screen.queryByTestId("claims-owed")).toBeNull();
+  });
+});
+
+// P0-2 step 3 residue (K-34): money is captured only once the tokens exist, so
+// a mint that never lands leaves an investor's Rial in escrow indefinitely.
+// Nothing releases it automatically and no policy has been set for when it
+// should be — so the least this screen owes an operator is that it is HAPPENING.
+describe("OverviewPanel — money held for tokens that do not exist", () => {
+  it("says how many allocations are stuck and how much Rial they hold", async () => {
+    render(
+      <OverviewPanel
+        locale="en"
+        api={apiWith({
+          systemHealth: vi.fn().mockResolvedValue({
+            ...health,
+            allocationsAwaitingMint: { count: 2, heldRial: "140000" },
+          }),
+        })}
+        token="tok"
+      />,
+    );
+
+    const stuck = await screen.findByTestId("escrow-awaiting-mint");
+    expect(stuck.textContent).toMatch(/2/);
+    // The amount matters as much as the count: two stuck allocations holding
+    // 140,000 Rial is a different problem from two holding 14.
+    expect(stuck.textContent).toMatch(/140,?000/);
+    // Owed work is not an outage.
+    expect(screen.queryByText(/degraded/i)).toBeNull();
+  });
+
+  it("stays quiet when every allocation got its tokens", async () => {
+    render(
+      <OverviewPanel
+        locale="en"
+        api={apiWith({
+          systemHealth: vi.fn().mockResolvedValue({
+            ...health,
+            allocationsAwaitingMint: { count: 0, heldRial: "0" },
+          }),
+        })}
+        token="tok"
+      />,
+    );
+
+    await screen.findByText(/healthy/i);
+    expect(screen.queryByTestId("escrow-awaiting-mint")).toBeNull();
   });
 });

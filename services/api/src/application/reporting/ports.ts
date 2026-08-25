@@ -28,6 +28,11 @@ export interface HealthProbe {
   // someone whose identity deployed and whose claim then failed is not counted,
   // because nothing on this side can tell them from a healthy investor.
   approvedWithoutOnchainIdentity(): Promise<number>;
+  // P0-2 step 3 residue (K-34): allocations whose tokens were never issued.
+  // Since capture follows a confirmed mint, their cost is still HELD on the
+  // investor's ledger — money in escrow for tokens that do not exist. bigint
+  // because a Rial escrow total outgrows a float.
+  allocationsAwaitingMint(): Promise<{ count: number; heldRial: bigint }>;
 }
 
 // 4.4 / FR-RA-4: how much reached holders' ledgers, grouped by what caused it.

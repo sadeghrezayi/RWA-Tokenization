@@ -442,6 +442,17 @@ const HealthStrip = ({ locale, health }: { locale: Locale; health: SystemHealthD
             {t.claimsOwedLabel}: {health.approvedWithoutOnchainIdentity}
           </span>
         )}
+        {/* K-34's residue: capture follows the mint now, so a mint that never
+            lands leaves the investor's Rial in escrow with nothing releasing
+            it. The AMOUNT is shown next to the count — two stuck allocations
+            holding 140,000 Rial is a different problem from two holding 14.
+            Quiet at zero, for the same reason as the count above. */}
+        {health.allocationsAwaitingMint.count > 0 && (
+          <span className="text-sm" data-testid="escrow-awaiting-mint">
+            {t.escrowAwaitingMintLabel}: {health.allocationsAwaitingMint.count} (
+            {formatRial(health.allocationsAwaitingMint.heldRial)})
+          </span>
+        )}
       </div>
     </Card>
   );

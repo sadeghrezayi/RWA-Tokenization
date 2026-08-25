@@ -8,6 +8,7 @@ const probe = (overrides: Partial<HealthProbe>): HealthProbe => ({
   chain: () => Promise.resolve({ reachable: true, blockNumber: 42 }),
   pausedTokenCount: () => Promise.resolve(0),
   approvedWithoutOnchainIdentity: () => Promise.resolve(0),
+  allocationsAwaitingMint: () => Promise.resolve({ count: 0, heldRial: 0n }),
   ...overrides,
 });
 
@@ -20,6 +21,7 @@ describe("GetSystemHealth", () => {
       chainBlockNumber: 42,
       pausedTokens: 0,
       approvedWithoutOnchainIdentity: 0,
+      allocationsAwaitingMint: { count: 0, heldRial: "0" },
     });
   });
 
@@ -61,5 +63,37 @@ describe("GetSystemHealth", () => {
     ).execute();
     expect(health.pausedTokens).toBe(2);
     expect(health.overall).toBe("healthy");
+  });
+
+  // P0-2 step 3 residue (K-34). Money is captured only once the tokens exist,
+  // so a mint that never succeeds leaves the investor's Rial sitting in escrow
+  // indefinitely. Nothing released it and nothing listed it — an operator could
+  // not even tell it was happening. This is the at-a-glance signal; it decides
+  // no policy, it only makes the state visible.
+  it("counts allocations still holding money for tokens that do not exist", async () => {
+    const health = await new GetSystemHealth(
+      probe({
+        allocationsAwaitingMint: () => Promise.resolve({ count: 2, heldRial: 140_000n }),
+      }),
+    ).execute();
+
+    expect(health.allocationsAwaitingMint).toEqual({ count: 2, heldRial: "140000" });
+    // Same reasoning as the K-2 count: owed work is not a dependency outage.
+    // Flipping to "degraded" here would cry wolf through every recovery.
+    expect(health.overall).toBe("healthy");
+  });
+
+  it("renders the held amount as a string, so no Rial total is rounded away", async () => {
+    // Rial totals are bigint precisely because they outgrow a float. Serialising
+    // through JSON.stringify would throw on a bigint, and a Number() would
+    // silently lose the low digits of a large escrow.
+    const health = await new GetSystemHealth(
+      probe({
+        allocationsAwaitingMint: () =>
+          Promise.resolve({ count: 1, heldRial: 9_007_199_254_740_993n }),
+      }),
+    ).execute();
+
+    expect(health.allocationsAwaitingMint.heldRial).toBe("9007199254740993");
   });
 });

@@ -455,6 +455,7 @@ export interface Dictionary {
   issuerNothingMissing: string;
   documentTooLarge: string;
   claimsOwedLabel: string;
+  escrowAwaitingMintLabel: string;
   issuerDecisionTitle: string;
   issuerReasonLabel: string;
   issuerReasonRequired: string;
@@ -1087,6 +1088,7 @@ export const dictionaries: Record<Locale, Dictionary> = {
     issuerNothingMissing: "Every required document has been supplied.",
     documentTooLarge: "That file is larger than 10 MB.",
     claimsOwedLabel: "Approved investors awaiting an on-chain claim",
+    escrowAwaitingMintLabel: "Allocations holding money for tokens not yet issued",
     issuerDecisionTitle: "Review decision",
     issuerReasonLabel: "Reason",
     issuerReasonRequired:

@@ -308,6 +308,9 @@ export interface SystemHealthDto {
   chainBlockNumber?: number;
   pausedTokens: number;
   approvedWithoutOnchainIdentity: number;
+  // heldRial is a STRING: a Rial escrow total is a bigint on the server and
+  // JSON has no bigint, so narrowing it to a Number here would drop digits.
+  allocationsAwaitingMint: { count: number; heldRial: string };
 }
 
 export interface HoldingDto {
