@@ -90,8 +90,16 @@ export class RecordingAssetTokenIssuer implements AssetTokenIssuer {
   readonly finalized: string[] = [];
   // Set to make the next mint reject, so a chain refusal can be exercised.
   failNextMint?: Error | undefined;
+  // Set to make EVERY mint reject — a chain that is down rather than one that
+  // hiccupped. `failNextMint` cannot express that: with two drainers racing,
+  // whichever loses the race would find it already cleared and succeed, which
+  // is the opposite of the scenario under test.
+  failEveryMint?: Error | undefined;
 
   mint(tokenAddress: string, investorId: string, tokens: bigint): Promise<void> {
+    if (this.failEveryMint !== undefined) {
+      return Promise.reject(this.failEveryMint);
+    }
     const failure = this.failNextMint;
     if (failure !== undefined) {
       this.failNextMint = undefined;

@@ -276,8 +276,20 @@ per-process, or move both.
 
 ## Missing tests (known)
 
-- No automated accessibility assertions.
+- ~~No automated accessibility assertions.~~ **STALE — corrected 2026-08-25.** `apps/web/e2e/a11y.spec.ts`
+  has existed since P1-6 (2026-08-23) and runs as its own CI lane.
 - No load or performance tests of any kind.
 - No security tests beyond authz matrix + isolation (no fuzzing, no dependency-audit gate in CI).
-- Multi-node outbox draining and multi-tenant scheduled scans are untested.
+- ~~Multi-node outbox draining~~ **now covered (2026-08-25)** by
+  `test/integration/concurrent-settlement-drain.test.ts`: two independent drainers over a queued
+  SETTLEMENT, asserting the investor is charged once and the tokens issued once. This matters more
+  than it did when the outbox only carried email — P0-2 step 3 put money through it.
+  **What writing it found:** the first three assertions passed even with the capture's idempotency
+  key removed, because by then the escrow was empty and a duplicate capture failed on insufficient
+  held funds. That masking is why the fourth test exists — an investor with escrow held for a
+  SECOND offering has money left, and a duplicate capture takes that instead. Observed directly:
+  without the key, a redelivery writes a second capture and drains the other offering's 60,000 to
+  zero. It is deterministic (queue → drain → requeue → drain) rather than racy, because a money
+  guarantee must not depend on winning a race to be noticed.
+  **Multi-tenant scheduled scans are still untested.**
 - No test asserts that PII is absent from logs.
