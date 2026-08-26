@@ -291,7 +291,23 @@ per-process, or move both.
   without the key, a redelivery writes a second capture and drains the other offering's 60,000 to
   zero. It is deterministic (queue → drain → requeue → drain) rather than racy, because a money
   guarantee must not depend on winning a race to be noticed.
-  **Multi-tenant scheduled scans are still untested.**
+  **Multi-tenant scheduled scans — now covered (2026-08-25)** by
+  `test/integration/scheduled-scan-tenancy.test.ts`. There was no bug: the scan runs on a cron with
+  no HTTP request, so `ScheduledJobsBootstrap` wraps it in an explicit TenantContext for the
+  default tenant, and sweeping every tenant is a deliberately deferred operations decision (OD-1a).
+  What was never proven is that the deferral is CONTAINED, which is what the tests pin: another
+  tenant's follow-ups are neither scanned nor quoted in anyone's notification (the reminder body
+  includes the follow-up text, and staff are PLATFORM-level, so an unscoped scan would hand one
+  tenant's private note to whoever can act on CRM); the other tenant's reminder is left
+  unannounced rather than consumed, so its own scan still fires; and running with NO tenant
+  context is refused, because the bootstrap's wrapper is load-bearing — without it the fail-closed
+  proxy throws on every fire and the bootstrap only logs when it announced something, which is
+  K-39's silence exactly. Mutation-checked by making `crmFollowUp` an unscoped model: all five
+  fail.
+  **A note on the fixture:** the first version scanned the DEFAULT tenant and asserted
+  `scanned === 1`. It saw 4 — other suites leave follow-ups in the shared default tenant. Absolute
+  counts over a tenant a test does not own are a property of whatever ran first, not of the scan;
+  it now uses two dedicated tenants.
 - ~~No test asserts that PII is absent from logs.~~ **Covered for the mail adapters (2026-08-25),
   and it found something.** `SmtpEmailSender` — the PRODUCTION adapter — logged the recipient's
   address on every successful send, reasoning that "the address is already in the log by virtue of
