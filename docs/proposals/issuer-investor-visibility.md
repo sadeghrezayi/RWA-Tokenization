@@ -123,6 +123,13 @@ thought to name would pass the latter.
   reached from a link on each asset row.
 - The screen states plainly that identities are withheld, and offers no contact affordance — a
   "contact holder" button would be a promise the platform does not keep.
+- **The happy path is covered end to end** (`issuer-holders-api.e2e.test.ts`): a real cap table
+  over real HTTP, with the chain event source faked exactly as the admin registry's own e2e does
+  — the ethers adapter has its own anvil-backed tests, so minting for real here would test that
+  adapter twice rather than this projection. The disclosure assertion runs against the RAW response
+  bytes rather than a parsed shape, because a leak through an unexpected field would still be in
+  the bytes. Mutation-checked through HTTP: a spread instead of the allow-list fails it, and an
+  unsalted reference fails the cross-asset test.
 
 **Open questions 1–3 above are still open.** Nothing here answers whether email should be
 disclosed, whether issuers need to identify holders as people at all, or whether the pseudonymous
