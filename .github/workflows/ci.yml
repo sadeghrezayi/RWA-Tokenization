@@ -88,6 +88,14 @@ jobs:
       - name: Typecheck
         run: pnpm -r typecheck
 
+      # The failure diagnostic only runs on a red build, so on a healthy repo it
+      # is never exercised — and a diagnostic that has silently rotted is worse
+      # than none, because the outage is when you find out. This runs the step's
+      # OWN script out of this file against a sample log and checks it publishes
+      # what it claims to (KNOWN_ISSUES K-31). Node only, no network, ~instant.
+      - name: Verify the failure diagnostic still works
+        run: node .github/scripts/verify-api-failure-step.mjs
+
       - name: Contract tests (Foundry)
         working-directory: contracts
         run: forge test -vv
