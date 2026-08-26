@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { Logger } from "@nestjs/common";
 import {
   SmtpEmailSender,
   smtpConfigFromEnv,
@@ -124,5 +125,86 @@ describe("which sender the platform selects", () => {
 
   it("selects SMTP as soon as a host is configured", () => {
     expect(smtpConfigFromEnv({ SMTP_HOST: "smtp.example.com" })).toBeDefined();
+  });
+});
+
+// "No test asserts that PII is absent from logs" was on the backlog's own
+// missing-tests list. This is the production mail adapter, which is where the
+// platform most obviously handles an address it could carelessly write down.
+//
+// Why the application log specifically: it is read by developers, shipped to
+// aggregators, and — as this project's own CI does — pasted into build
+// summaries. The mail server's log is a different system with different access
+// controls, so "the address is in a log somewhere anyway" does not license
+// putting it in THIS one.
+describe("SmtpEmailSender — what it writes to the application log", () => {
+  // Its own helpers: the block above scopes these to itself, and reaching into
+  // another describe's closure would couple two suites that should be readable
+  // apart.
+  const transport = () => ({ sendMail: vi.fn().mockResolvedValue({ messageId: "<1@x>" }) });
+  const sender = (t: ReturnType<typeof transport>) =>
+    new SmtpEmailSender(t, { from: "platform@example.com", webBaseUrl: "https://app.example.com" });
+
+  const captureLogs = async (run: () => Promise<void>): Promise<string> => {
+    const lines: string[] = [];
+    const record = (message: unknown) => {
+      lines.push(String(message));
+    };
+    const log = vi.spyOn(Logger.prototype, "log").mockImplementation(record);
+    const warn = vi.spyOn(Logger.prototype, "warn").mockImplementation(record);
+    try {
+      await run();
+    } finally {
+      log.mockRestore();
+      warn.mockRestore();
+    }
+    return lines.join("\n");
+  };
+
+  it("never writes the recipient's address", async () => {
+    const t = transport();
+    const output = await captureLogs(() =>
+      sender(t).sendPasswordReset("alice.smith@example.com", "tok-123"),
+    );
+
+    expect(output).not.toContain("alice.smith@example.com");
+    // The local part alone still identifies a person.
+    expect(output).not.toContain("alice.smith");
+  });
+
+  it("never writes the token, which is a credential and not merely PII", async () => {
+    const t = transport();
+    const output = await captureLogs(() =>
+      sender(t).sendPasswordReset("alice.smith@example.com", "tok-secret-123"),
+    );
+
+    expect(output).not.toContain("tok-secret-123");
+  });
+
+  it("still records THAT mail went out, and which kind", async () => {
+    // Removing the address must not remove the ability to tell mail is flowing.
+    // A log that says nothing is its own outage — K-39 was six days of silence.
+    const t = transport();
+    const output = await captureLogs(() =>
+      sender(t).sendPasswordReset("alice.smith@example.com", "tok-123"),
+    );
+
+    expect(output).toContain("Reset your password");
+  });
+
+  it("correlates repeated mail to the same person without naming them", async () => {
+    // The reason for a reference rather than nothing at all: "why did this
+    // person get four resets" has to stay answerable from the log.
+    const t = transport();
+    const output = await captureLogs(async () => {
+      await sender(t).sendPasswordReset("alice.smith@example.com", "tok-1");
+      await sender(t).sendPasswordReset("alice.smith@example.com", "tok-2");
+      await sender(t).sendPasswordReset("bob.jones@example.com", "tok-3");
+    });
+
+    const references = [...output.matchAll(/to ([0-9a-f]{6,})/g)].map((m) => m[1]);
+    expect(references).toHaveLength(3);
+    expect(references[0], "the same address must give the same reference").toBe(references[1]);
+    expect(references[0], "a different address must give a different one").not.toBe(references[2]);
   });
 });

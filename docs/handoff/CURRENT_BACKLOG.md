@@ -292,4 +292,18 @@ per-process, or move both.
   zero. It is deterministic (queue → drain → requeue → drain) rather than racy, because a money
   guarantee must not depend on winning a race to be noticed.
   **Multi-tenant scheduled scans are still untested.**
-- No test asserts that PII is absent from logs.
+- ~~No test asserts that PII is absent from logs.~~ **Covered for the mail adapters (2026-08-25),
+  and it found something.** `SmtpEmailSender` — the PRODUCTION adapter — logged the recipient's
+  address on every successful send, reasoning that "the address is already in the log by virtue of
+  being sent to". That does not hold: the mail server's log is a different system with different
+  access, while the application log is read by developers, shipped to aggregators, and pasted into
+  CI build summaries. It now logs a stable SHA-256-derived reference instead, so "why did this
+  person get four resets" stays answerable without naming anyone. Pseudonymisation, not
+  anonymisation — a held address can still be hashed and matched; it defeats casual disclosure and
+  log scraping, not a targeted check.
+  `DevEmailSender` deliberately logs the address AND the reset token, because it never sends and
+  the log is the only way a developer gets the link. That exemption is now pinned by its own tests
+  along with the `[DEV EMAIL — NOT DELIVERED]` label, so it is a stated exception rather than an
+  oversight — it matters because that sender is the default whenever `SMTP_HOST` is unset.
+  **Still uncovered:** every other log site (request logging, the drain worker, chain adapters),
+  and there is no repo-wide guard that a new `log.*` call cannot introduce PII.

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Logger } from "@nestjs/common";
 import type { EmailSender } from "../../application/identity/ports.js";
 
@@ -57,6 +58,19 @@ export const smtpConfigFromEnv = (
 // Failures are NOT swallowed. The outbox is what makes delivery durable
 // (decision B7), and it can only retry a message whose send actually threw —
 // catching here would mark it delivered when nothing was sent.
+// A stable, non-obvious reference for a recipient, so "why did this person get
+// four password resets" stays answerable without writing anyone's address into
+// the application log. A log that says nothing is its own kind of outage —
+// K-39 was six days of silence — so the answer is to anonymise the identifier,
+// not to drop it.
+//
+// PSEUDONYMISATION, NOT ANONYMISATION, and worth stating plainly: anyone
+// holding a suspected address can hash it and look for a match. This defeats
+// casual disclosure and log scraping; it does not defeat a targeted "was this
+// person emailed" question. That is a deliberate trade to keep the log useful.
+const recipientReference = (to: string): string =>
+  createHash("sha256").update(to.trim().toLowerCase()).digest("hex").slice(0, 12);
+
 export class SmtpEmailSender implements EmailSender {
   private readonly log = new Logger(SmtpEmailSender.name);
 
@@ -81,8 +95,14 @@ export class SmtpEmailSender implements EmailSender {
 
   private async send(to: string, subject: string, text: string): Promise<void> {
     await this.transport.sendMail({ to, from: this.options.from, subject, text });
-    // The address is already in the log by virtue of being sent to; the token
-    // and body deliberately are not.
-    this.log.log(`sent "${subject}" to ${to}`);
+    // The recipient is recorded as a REFERENCE, never as an address. The token
+    // and body were already left out.
+    //
+    // The line this replaces reasoned that "the address is already in a log by
+    // virtue of being sent to". The mail server's log is a different system
+    // with different access: this one is read by developers, shipped to
+    // aggregators, and pasted into CI build summaries. Being logged somewhere
+    // does not license logging it here.
+    this.log.log(`sent "${subject}" to ${recipientReference(to)}`);
   }
 }
