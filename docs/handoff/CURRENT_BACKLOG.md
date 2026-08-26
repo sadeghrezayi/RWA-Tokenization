@@ -144,6 +144,14 @@ the subject arrived on the wire, and the token was URL-encoded.
   "may this contributor work on this asset" check belongs to the issuer-facing portal (P1-3).
 
 ### P1-2 — Decide and implement what an issuer may see about investors
+- **The proposal now EXISTS and is waiting on the owner:**
+  [`docs/proposals/issuer-investor-visibility.md`](../proposals/issuer-investor-visibility.md).
+  Strike or extend the field list there and the implementation follows it exactly.
+  **Two findings in it change the question:** the platform stores **no investor name** at all
+  (`legalName` is on `IssuerOrganisation`, not on a person), so the "holder name" this entry
+  suggested would mean deciding to COLLECT new identity data, not to disclose existing data; and a
+  raw wallet address is a durable **cross-asset** key, because the same address holds that
+  investor's positions in every other asset on the chain.
 - **What:** the owner answered "all necessary information"; nothing is implemented.
 - **Acceptance:** propose an explicit field list (recommended start: holder name, tokens held,
   allocation date, amount invested), get it struck/extended by the owner, then implement with a
