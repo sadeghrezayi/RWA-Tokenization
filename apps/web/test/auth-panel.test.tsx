@@ -99,6 +99,7 @@ export const stubApi = (overrides: Partial<ApiClient>): ApiClient => ({
   investorFunding: vi.fn(),
   distributionReconciliation: vi.fn(),
   allocationsAwaitingMint: vi.fn(),
+  issuerAssetHolders: vi.fn(),
   acceptDocument: vi.fn(),
   rejectDocument: vi.fn(),
   reviewCadence: vi.fn(),

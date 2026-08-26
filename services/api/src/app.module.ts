@@ -149,6 +149,11 @@ import { DecideIssuerApplication } from "./application/issuers/decide-issuer-app
 import { AddTeamMember } from "./application/issuers/add-team-member.js";
 import { RemoveTeamMember } from "./application/issuers/remove-team-member.js";
 import { IssuerTeamAccess } from "./application/issuers/issuer-team-access.js";
+import { GetIssuerAssetHolders } from "./application/issuers/issuer-asset-holders.js";
+import {
+  PrismaAssetOwnerReader,
+  PrismaIssuerAllocationReader,
+} from "./infrastructure/persistence/prisma-issuer-holder-readers.js";
 import {
   GetIssuer,
   ListIssuerTeam,
@@ -1143,6 +1148,20 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       useFactory: (settle: SettleAllocation, outbox: OutboxStore) =>
         new SettleWithRetry(settle, outbox),
       inject: [SettleAllocation, OUTBOX_STORE],
+    },
+    {
+      // P1-2 / FR-PT-2: an issuer's holder registry for their own asset. Reuses
+      // GetHolderRegistry so "who holds this" has ONE definition; the narrowing
+      // to what an issuer may see happens in the use case, as an allow-list.
+      provide: GetIssuerAssetHolders,
+      useFactory: (registry: GetHolderRegistry, prisma: PrismaService, access: IssuerTeamAccess) =>
+        new GetIssuerAssetHolders(
+          registry,
+          new PrismaIssuerAllocationReader(prisma),
+          new PrismaAssetOwnerReader(prisma),
+          access,
+        ),
+      inject: [GetHolderRegistry, PrismaService, IssuerTeamAccess],
     },
     {
       // K-34's residue: the list behind the health probe's count — which

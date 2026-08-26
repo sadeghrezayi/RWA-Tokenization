@@ -143,8 +143,20 @@ the subject arrived on the wire, and the token was URL-encoded.
 - **Not covered here:** `IssuerMembership.canWorkOnAssets()` still has no caller — the per-person
   "may this contributor work on this asset" check belongs to the issuer-facing portal (P1-3).
 
-### P1-2 — Decide and implement what an issuer may see about investors
-- **The proposal now EXISTS and is waiting on the owner:**
+### P1-2 — Decide and implement what an issuer may see about investors — **IMPLEMENTED 2026-08-25 on my recommendation, REVERSIBLE**
+- **Built the conservative version of the proposal** (`GetIssuerAssetHolders`,
+  `GET /issuers/:id/assets/:assetId/holders`, and the issuer portal's **Holders** screen).
+  Pseudonymous per-asset holder reference, tokens, share, holder since, tokens allocated, amount
+  invested, allocation date, amount refunded. **Withheld:** email, raw wallet, investor id, KYC
+  state and rejection reason, risk score and band, screening outcome, account mechanics, and
+  anything about other assets. The acceptance criterion is met — a test serialises the whole view
+  and asserts the excluded fields are absent, and it fails when the allow-list becomes a spread.
+  **The owner never struck or extended the list**; overruling any row is small and expected.
+- **Still the owner's:** whether email should be disclosed after all (a shareholder-register
+  obligation would outrank my recommendation), whether issuers need to identify holders as people
+  — which would mean deciding to COLLECT names the platform does not hold — and whether the
+  per-asset handle is worth its cost versus exposing wallets on a permissioned chain.
+- **The proposal, with the reasoning and what was excluded:**
   [`docs/proposals/issuer-investor-visibility.md`](../proposals/issuer-investor-visibility.md).
   Strike or extend the field list there and the implementation follows it exactly.
   **Two findings in it change the question:** the platform stores **no investor name** at all

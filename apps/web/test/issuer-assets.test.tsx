@@ -207,4 +207,14 @@ describe("IssuerAssets — filing the dossier", () => {
 
     expect(screen.queryByLabelText(/document title/i)).toBeNull();
   });
+
+  it("links each asset to its own holder registry (P1-2)", async () => {
+    // The endpoint exists and the screen exists; without this link the issuer
+    // has no way to reach it, which is the difference between a delivered
+    // capability and one that is merely implemented.
+    renderAssets([asset()]);
+
+    const link = await screen.findByTestId("issuer-asset-holders-link-asset-1");
+    expect(link.getAttribute("href")).toBe("/en/issuer/org-1/assets/asset-1/holders");
+  });
 });

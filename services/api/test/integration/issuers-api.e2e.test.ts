@@ -555,4 +555,75 @@ describe("Issuers API (e2e, real Postgres)", () => {
       .set(auth(officer))
       .expect(404);
   });
+
+  // P1-2 / FR-PT-2: the holder registry an issuer sees for their OWN asset.
+  //
+  // The projection itself — which fields survive and which are refused — is
+  // covered exhaustively by the use case's unit tests, including a mutation
+  // that turns the allow-list into a spread. What is proven HERE is the part
+  // only real HTTP can show: that the route is wired, and that authorisation
+  // is decided by the ASSET's owner rather than by the id in the path.
+  describe("an issuer's holder registry", () => {
+    const bringAsset = async (organisationId: string): Promise<string> => {
+      const res = await request(server)
+        .post(`/issuers/${organisationId}/assets`)
+        .set(auth(founder))
+        .send({ name: "Holder Registry Asset" })
+        .expect(201);
+      return (res.body as { assetId: string }).assetId;
+    };
+
+    it("refuses a member of ANOTHER organisation who puts their own id in the path", async () => {
+      // The attack the use case is shaped against: authorising on `:id` alone
+      // would let someone pair their own organisation id with a stranger's
+      // asset id and be waved through.
+      const mine = await approved();
+      const assetId = await bringAsset(mine);
+
+      await request(server)
+        .get(`/issuers/${mine}/assets/${assetId}/holders`)
+        .set(auth(stranger))
+        .expect(403);
+    });
+
+    it("refuses an anonymous caller", async () => {
+      const mine = await approved();
+      const assetId = await bringAsset(mine);
+
+      await request(server).get(`/issuers/${mine}/assets/${assetId}/holders`).expect(401);
+    });
+
+    it("refuses an asset no issuer brought", async () => {
+      // A NULL owner means the PLATFORM onboarded it. Reading that as
+      // "unrestricted" would open every staff-onboarded asset to any issuer.
+      const mine = await approved();
+      const platformAsset = await request(server)
+        .post("/assets")
+        .set(auth(officer))
+        .send({ name: "Platform Onboarded" })
+        .expect(201);
+      const { assetId } = platformAsset.body as { assetId: string };
+
+      await request(server)
+        .get(`/issuers/${mine}/assets/${assetId}/holders`)
+        .set(auth(founder))
+        .expect(403);
+    });
+
+    it("reaches the use case for a member of the owning organisation", async () => {
+      // The asset is not tokenized, so the registry legitimately refuses to
+      // build one — a 4xx that is NOT 401/403 proves the request got past
+      // authorisation and into the use case, which is what this asserts.
+      const mine = await approved();
+      const assetId = await bringAsset(mine);
+
+      const res = await request(server)
+        .get(`/issuers/${mine}/assets/${assetId}/holders`)
+        .set(auth(founder));
+
+      expect(res.status).not.toBe(401);
+      expect(res.status).not.toBe(403);
+      expect(JSON.stringify(res.body)).not.toContain("@");
+    });
+  });
 });

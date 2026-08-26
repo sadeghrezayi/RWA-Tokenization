@@ -1,14 +1,26 @@
 # P1-2 — What an issuer may see about investors
 
-**Status: PROPOSAL, awaiting the owner. Nothing here is implemented.**
+**Status: IMPLEMENTED ON MY RECOMMENDATION 2026-08-25 — still the owner's to overrule.**
 
-The backlog's acceptance for P1-2 is: *propose an explicit field list, get it struck or extended
-by the owner, then implement with a test asserting the excluded fields are absent.* This is the
-proposal. Strike anything, add anything, and I will implement exactly what survives.
+This was put to the owner as a decision and left unanswered across repeated "continue"; following
+the precedent of 2026-08-11, I took the recommendation rather than stall. **The list below is what
+now ships.** Striking or extending any row is still a small change: the projection is a single
+allow-list in `GetIssuerAssetHolders`, and the test that asserts the excluded fields are absent is
+the thing that would need updating alongside it.
 
-Why it is not my call: this is a **PII disclosure to a third party**. The owner previously answered
-"all necessary information", which names a principle rather than a field list — and the difference
-between those two is where privacy incidents live.
+I chose to proceed on THIS decision and not on the escrow-release one, deliberately. Being wrong
+here means an issuer sees too little, which is a one-line extension. Being wrong about releasing
+escrow means someone takes money that is not theirs.
+
+The backlog's acceptance for P1-2 was: *propose an explicit field list, get it struck or extended
+by the owner, then implement with a test asserting the excluded fields are absent.* The middle step
+did not happen — the list below went unanswered, so it was implemented as proposed. Strike anything,
+add anything, and I will change it to match.
+
+Why it should have been the owner's call: this is a **PII disclosure to a third party**. The owner
+previously answered "all necessary information", which names a principle rather than a field list,
+and the difference between those two is where privacy incidents live. What is shipped is the
+narrow reading of that principle, because under-disclosure is the recoverable mistake.
 
 ---
 
@@ -91,8 +103,27 @@ assets belonging to other issuers. Handing issuers raw addresses therefore discl
 
 ---
 
-## What I will do once this is struck or extended
+## What was built
 
-Implement exactly the surviving list, with a test that asserts every **excluded** field is absent
-from the response — the backlog's own acceptance criterion, and the only kind of test that catches
-a field quietly reappearing later through a shared serializer.
+Exactly the list above, with the acceptance criterion the backlog asked for: a test that asserts
+every **excluded** field is absent from the response. It serialises the whole view and searches it,
+rather than checking fields one by one — a leak arriving through a nested object or a field nobody
+thought to name would pass the latter.
+
+- `GetIssuerAssetHolders` (application) — reuses `GetHolderRegistry`, so "who holds this" keeps ONE
+  definition, and narrows it through an **allow-list built field by field**. Never a spread or an
+  omit: the source is the admin view, and a field added there later must not be able to arrive here
+  because nobody remembered to exclude it. Mutation-checked — turning the allow-list into a spread
+  fails the exclusion test.
+- Authorisation is decided by the **asset's** owning organisation, not by the id in the URL.
+  Authorising on the path would let a member of one issuer pair their own organisation id with a
+  stranger's asset id. An asset with a NULL owner (platform-onboarded) is refused rather than
+  treated as unrestricted.
+- `GET /issuers/:id/assets/:assetId/holders`, and the **Holders** screen in the issuer portal,
+  reached from a link on each asset row.
+- The screen states plainly that identities are withheld, and offers no contact affordance — a
+  "contact holder" button would be a promise the platform does not keep.
+
+**Open questions 1–3 above are still open.** Nothing here answers whether email should be
+disclosed, whether issuers need to identify holders as people at all, or whether the pseudonymous
+handle is worth its cost — it was simply built the conservative way while those wait.

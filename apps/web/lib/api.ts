@@ -313,6 +313,27 @@ export interface SystemHealthDto {
   allocationsAwaitingMint: { count: number; heldRial: string };
 }
 
+// P1-2 / FR-PT-2: one holder of an asset, as the ISSUER may see them.
+// Deliberately narrower than the admin registry — no email, no wallet, no
+// investor id. See docs/proposals/issuer-investor-visibility.md.
+export interface IssuerHolderDto {
+  holderReference: string;
+  tokens: string;
+  shareBps: number;
+  holderSince: string;
+  // Absent, never zero, when the platform holds no allocation for them.
+  tokensAllocated?: string;
+  amountInvestedRial?: string;
+  amountRefundedRial?: string;
+  allocationDate?: string;
+}
+
+export interface IssuerHoldersDto {
+  assetId: string;
+  assetName: string;
+  holders: IssuerHolderDto[];
+}
+
 // K-34's residue: one allocation holding money for tokens that do not exist.
 // Amounts are STRINGS — a Rial escrow is a bigint server-side and JSON has none.
 export interface AllocationAwaitingMintDto {
@@ -712,6 +733,12 @@ export interface ApiClient {
   distributionReconciliation(officerToken: string): Promise<DistributionReconciliationDto[]>;
   // K-34's residue: which allocations hold money for tokens never issued.
   allocationsAwaitingMint(officerToken: string): Promise<AllocationAwaitingMintDto[]>;
+  // P1-2: the holder registry for an asset this issuer brought.
+  issuerAssetHolders(
+    token: string,
+    organisationId: string,
+    assetId: string,
+  ): Promise<IssuerHoldersDto>;
   acceptDocument(officerToken: string, assetId: string, kind: string): Promise<void>;
   rejectDocument(
     officerToken: string,
@@ -1437,6 +1464,13 @@ export const createApiClient = (
       json(call("/reporting/distributions/reconciliation", { token: officerToken })),
     allocationsAwaitingMint: (officerToken) =>
       json(call("/reporting/allocations-awaiting-mint", { token: officerToken })),
+    issuerAssetHolders: (token, organisationId, assetId) =>
+      json(
+        call(
+          `/issuers/${encodeURIComponent(organisationId)}/assets/${encodeURIComponent(assetId)}/holders`,
+          { token },
+        ),
+      ),
     acceptDocument: async (officerToken, assetId, kind) => {
       await call(
         `/assets/${encodeURIComponent(assetId)}/documents/${encodeURIComponent(kind)}/accept`,

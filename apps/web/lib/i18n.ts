@@ -464,6 +464,15 @@ export interface Dictionary {
   escrowStateNotMintedLabel: string;
   escrowHeldSinceLabel: string;
   escrowLastErrorLabel: string;
+  issuerHoldersTitle: string;
+  issuerHoldersIntro: string;
+  issuerHoldersNoneLabel: string;
+  issuerHolderRefLabel: string;
+  issuerHolderTokensLabel: string;
+  issuerHolderShareLabel: string;
+  issuerHolderSinceLabel: string;
+  issuerHolderInvestedLabel: string;
+  issuerHoldersLink: string;
   issuerDecisionTitle: string;
   issuerReasonLabel: string;
   issuerReasonRequired: string;
@@ -1107,6 +1116,17 @@ export const dictionaries: Record<Locale, Dictionary> = {
     escrowStateNotMintedLabel: "Not minted",
     escrowHeldSinceLabel: "Held since",
     escrowLastErrorLabel: "Last error",
+    issuerHoldersTitle: "Holders",
+    issuerHoldersIntro:
+      "Who holds this asset, and what they put in. Holders are shown by reference — the platform does not disclose their identity or contact details to issuers.",
+    issuerHoldersNoneLabel:
+      "No holders yet. Holders appear once the asset is tokenized and an offering has closed.",
+    issuerHolderRefLabel: "Holder",
+    issuerHolderTokensLabel: "Tokens",
+    issuerHolderShareLabel: "Share",
+    issuerHolderSinceLabel: "Holder since",
+    issuerHolderInvestedLabel: "Invested",
+    issuerHoldersLink: "View holders",
     issuerDecisionTitle: "Review decision",
     issuerReasonLabel: "Reason",
     issuerReasonRequired:

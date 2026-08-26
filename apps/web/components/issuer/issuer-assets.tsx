@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import type { ApiClient, AssetViewDto } from "../../lib/api";
 import { dictionaries } from "../../lib/i18n";
 import type { Locale } from "../../lib/i18n";
@@ -164,6 +165,7 @@ export const IssuerAssets = ({
               <th>{t.assetLabel}</th>
               <th>{t.statusLabel}</th>
               <th>{t.dossierLabel}</th>
+              <th>{t.issuerHoldersTitle}</th>
             </tr>
           </thead>
           <tbody>
@@ -209,10 +211,21 @@ export const IssuerAssets = ({
                         </span>
                       )}
                     </td>
+                    {/* P1-2: the issuer's own cap table. A link rather than an
+                      inline expansion — it is a page an issuer returns to, and
+                      the row is already carrying the dossier form. */}
+                    <td>
+                      <Link
+                        href={`/${locale}/issuer/${organisationId}/assets/${asset.id}/holders`}
+                        data-testid={`issuer-asset-holders-link-${asset.id}`}
+                      >
+                        {t.issuerHoldersLink}
+                      </Link>
+                    </td>
                   </tr>
                   {openAssetId === asset.id && (
                     <tr>
-                      <td colSpan={3}>
+                      <td colSpan={4}>
                         {asset.dossier.missingKinds.length === 0 ? (
                           <p className="text-sm muted">{t.issuerNothingMissing}</p>
                         ) : (

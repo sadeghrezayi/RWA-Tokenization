@@ -14,6 +14,8 @@ import { RemoveTeamMember } from "../../application/issuers/remove-team-member.j
 import { ApplyAsIssuer } from "../../application/issuers/apply-as-issuer.js";
 import { DecideIssuerApplication } from "../../application/issuers/decide-issuer-application.js";
 import { IssuerTeamAccess } from "../../application/issuers/issuer-team-access.js";
+import { GetIssuerAssetHolders } from "../../application/issuers/issuer-asset-holders.js";
+import type { IssuerHoldersView } from "../../application/issuers/issuer-asset-holders.js";
 import {
   GetIssuer,
   ListIssuerTeam,
@@ -78,6 +80,7 @@ export class IssuersController {
     private readonly proposeAsset: ProposeAsset,
     private readonly attachIssuerDocument: AttachIssuerDocument,
     private readonly access: IssuerTeamAccess,
+    private readonly assetHolders: GetIssuerAssetHolders,
   ) {}
 
   @Post()
@@ -192,6 +195,24 @@ export class IssuersController {
   ): Promise<AssetView[]> {
     await this.authorize(id, principal, "read");
     return this.listIssuerAssets.execute({ organisationId: id });
+  }
+
+  // P1-2 / FR-PT-2: the holder registry for an asset this issuer brought.
+  //
+  // Membership is checked by the USE CASE, against the organisation that owns
+  // the ASSET — not against the `:id` in the path. Authorising on the path
+  // would let a member of org A read org B's holders by putting their own id in
+  // the URL and someone else's asset id after it.
+  //
+  // Staff are deliberately NOT admitted here: they already have the full
+  // registry under REGISTRY_READ, and admitting them would mean this route had
+  // two definitions of who may read it.
+  @Get(":id/assets/:assetId/holders")
+  holders(
+    @Param("assetId") assetId: string,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<IssuerHoldersView> {
+    return this.assetHolders.execute({ assetId, userId: actorOf(principal) });
   }
 
   // 3.3h: the issuer brings its own asset. Delegates to the SAME use case the
