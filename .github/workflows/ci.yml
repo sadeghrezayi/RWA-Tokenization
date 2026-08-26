@@ -401,7 +401,15 @@ jobs:
                         .map((line) => line.trim())
                         .filter(Boolean);
                       const prose = lines.find((line) => /\s(never|but|not|->)\s/.test(line));
-                      failures.push(`${spec.title.slice(0, 30)} :: ${prose ?? lines[0] ?? ''}`.slice(0, 130));
+                      // How long it ran, and whether it TIMED OUT. Without this a
+                      // status cannot tell "the assertion is wrong" from "the app
+                      // was too slow" — the ambiguity that left a docs-only
+                      // commit's a11y failure undiagnosable (KNOWN_ISSUES K-40).
+                      const seconds = Math.round((result.duration ?? 0) / 1000);
+                      const how = result.status === 'timedOut' ? 'timeout' : 'failed';
+                      failures.push(
+                        `${spec.title.slice(0, 30)} [${how} ${seconds}s] :: ${prose ?? lines[0] ?? ''}`.slice(0, 130),
+                      );
                       // The message says WHICH expectation broke; the received
                       // value says what was actually there. Both, or the run
                       // reports half an answer (KNOWN_ISSUES K-25).
