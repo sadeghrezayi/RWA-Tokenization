@@ -40,8 +40,14 @@ export class StaffBootstrap implements OnModuleInit {
     const email = process.env.OFFICER_EMAIL ?? "officer@platform.local";
     const configuredHash = process.env.OFFICER_PASSWORD_HASH;
     if (!configuredHash) {
+      // The VALUE is deliberately not printed. It is a constant in this
+      // repository, so echoing it discloses nothing new — but this warning
+      // fires precisely when that password still WORKS, and the application
+      // log is read by developers, shipped to aggregators and pasted into CI
+      // summaries. The warning is just as actionable naming the variable.
       this.log.warn(
-        `OFFICER_PASSWORD_HASH is not set — dev super-admin password is "${DEV_STAFF_PASSWORD}"`,
+        "OFFICER_PASSWORD_HASH is not set — the super-admin is using the built-in " +
+          "development password. Set OFFICER_PASSWORD_HASH before deploying.",
       );
     }
     const passwordHash = configuredHash ?? (await this.hasher.hash(DEV_STAFF_PASSWORD));
@@ -75,7 +81,8 @@ export class StaffBootstrap implements OnModuleInit {
     const configuredHash = process.env.OFFICER3_PASSWORD_HASH;
     if (!configuredHash) {
       this.log.warn(
-        `OFFICER3_PASSWORD_HASH is not set — dev auditor password is "${DEV_STAFF_PASSWORD}"`,
+        "OFFICER3_PASSWORD_HASH is not set — the auditor is using the built-in " +
+          "development password. Set OFFICER3_PASSWORD_HASH before deploying.",
       );
     }
     const passwordHash = configuredHash ?? (await this.hasher.hash(DEV_STAFF_PASSWORD));
@@ -100,7 +107,8 @@ export class StaffBootstrap implements OnModuleInit {
     const configuredHash = process.env.OFFICER4_PASSWORD_HASH;
     if (!configuredHash) {
       this.log.warn(
-        `OFFICER4_PASSWORD_HASH is not set — dev approver password is "${DEV_STAFF_PASSWORD}"`,
+        "OFFICER4_PASSWORD_HASH is not set — the approver is using the built-in " +
+          "development password. Set OFFICER4_PASSWORD_HASH before deploying.",
       );
     }
     const passwordHash = configuredHash ?? (await this.hasher.hash(DEV_STAFF_PASSWORD));

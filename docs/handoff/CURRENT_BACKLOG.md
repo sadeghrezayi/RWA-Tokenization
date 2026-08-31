@@ -336,5 +336,17 @@ per-process, or move both.
   the log is the only way a developer gets the link. That exemption is now pinned by its own tests
   along with the `[DEV EMAIL — NOT DELIVERED]` label, so it is a stated exception rather than an
   oversight — it matters because that sender is the default whenever `SMTP_HOST` is unset.
-  **Still uncovered:** every other log site (request logging, the drain worker, chain adapters),
-  and there is no repo-wide guard that a new `log.*` call cannot introduce PII.
+  **The repo-wide guard now exists (2026-08-31):** `test/support/no-pii-in-logs.test.ts` reads every
+  `src/**/*.ts`, finds template-literal `log.*` calls, and fails — naming file and expression — when
+  one interpolates an identity or a credential (recipient, email, password, bare token, link, phone,
+  national id, IBAN, account number). It asserts it actually scanned the tree, because a
+  filesystem guard fails OPEN on a wrong path. `dev-email-sender.ts` is the single allow-listed
+  exemption, and the guard requires its pinning test to exist, so the exemption cannot quietly
+  become an unexamined hole.
+  **It found a leak my own manual survey had missed:** `StaffBootstrap` printed the built-in
+  development password in three warnings (super-admin, auditor, approver). A single-line grep
+  missed them because those calls span lines. The value is a constant in this repository so it
+  disclosed nothing new — but the warning fires exactly when that password still WORKS, and the
+  warning is just as actionable naming the variable to set. It now does.
+  **Still uncovered:** notification `title`/`body`, which can carry tenant content rather than
+  identity — deliberately not flagged, because a rule that noisy gets switched off.

@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Logger } from "@nestjs/common";
 import { StaffBootstrap } from "../../src/infrastructure/auth/staff-bootstrap.js";
 import { EmailAddress } from "../../src/domain/identity/email-address.js";
 import { StaffUser } from "../../src/domain/identity/staff-user.js";
@@ -142,5 +143,39 @@ describe("StaffBootstrap", () => {
     const auditor = await users.findByEmail(EmailAddress.of("external.auditor@example.com"));
     expect(auditor).toBeDefined();
     expect(auditor?.passwordHash.value).toBe("argon2-hash-from-config".padEnd(60, "x"));
+  });
+});
+
+// The bootstrap warns when no password hash is configured, because a platform
+// running on a built-in default super-admin password is a serious condition and
+// the warning is how anyone finds out. It used to print the password itself.
+//
+// That is a credential in the application log — which is read by developers,
+// shipped to aggregators and pasted into CI summaries — and the condition it
+// fires under is exactly the one where the credential still WORKS. The value
+// adds nothing: it is a constant in this repository, and the warning is just as
+// actionable without it.
+describe("StaffBootstrap — what its warning writes down", () => {
+  const captureWarnings = async (run: () => Promise<void>): Promise<string> => {
+    const lines: string[] = [];
+    const warn = vi.spyOn(Logger.prototype, "warn").mockImplementation((message: unknown) => {
+      lines.push(String(message));
+    });
+    try {
+      await run();
+    } finally {
+      warn.mockRestore();
+    }
+    return lines.join("\n");
+  };
+
+  it("warns that a development password is in use WITHOUT printing it", async () => {
+    const users = new InMemoryStaffUsers();
+    const output = await captureWarnings(() => new StaffBootstrap(users, hasher).onModuleInit());
+
+    expect(output).not.toContain("officer-dev-pass");
+    // Still says the dangerous thing, and names the fix.
+    expect(output.toLowerCase()).toContain("development");
+    expect(output).toContain("OFFICER_PASSWORD_HASH");
   });
 });
