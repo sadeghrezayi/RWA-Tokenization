@@ -1231,6 +1231,23 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
           new PrismaIssuerAllocationReader(prisma),
           new PrismaAssetOwnerReader(prisma),
           access,
+          // Keyed off the platform's existing required secret, DOMAIN-SEPARATED
+          // inside the HMAC so this digest can never collide with a session
+          // token's. A dedicated variable would be one more secret for an
+          // operator to manage and lose; secrets management as a whole is P0-4
+          // and the owner's call.
+          //
+          // CONSEQUENCE, stated because it is not obvious: rotating
+          // AUTH_TOKEN_SECRET changes every holder reference, so an issuer's
+          // record of "the same holder over time" restarts. Rotation already
+          // invalidates every session, so it is not a quiet event.
+          //
+          // Same resolution and same dev fallback as JwtTokenService above,
+          // deliberately — a second, stricter rule for the same variable would
+          // mean the app booted for one purpose and refused for another. With
+          // no secret set the key is the public dev string and the reference is
+          // guessable again; that is what the startup warning is for.
+          process.env.AUTH_TOKEN_SECRET ?? "insecure-dev-secret-change-me",
         ),
       inject: [GetHolderRegistry, PrismaService, IssuerTeamAccess],
     },

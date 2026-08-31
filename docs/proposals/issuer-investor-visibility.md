@@ -63,7 +63,7 @@ assets belonging to other issuers. Handing issuers raw addresses therefore discl
 
 | Field | Source | Why it is defensible |
 |---|---|---|
-| holder reference | derived, per asset | A stable pseudonymous handle so an issuer can track *the same holder over time* without a cross-asset key. See the open question below. |
+| holder reference | derived, per asset, **keyed** | A stable pseudonymous handle so an issuer can track *the same holder over time* without a cross-asset key. HMAC-SHA256 under a platform secret, not a bare hash — see the hardening note below. |
 | tokens held | chain registry | The cap table. This is the point of the screen. |
 | share of supply | chain registry (`shareBps`) | Derived from the above; withholding it only forces arithmetic. |
 | holder since | chain registry | When the position was first acquired. |
@@ -134,3 +134,36 @@ thought to name would pass the latter.
 **Open questions 1–3 above are still open.** Nothing here answers whether email should be
 disclosed, whether issuers need to identify holders as people at all, or whether the pseudonymous
 handle is worth its cost — it was simply built the conservative way while those wait.
+
+---
+
+## Hardening after the fact (2026-08-31)
+
+The reference shipped as `sha256(assetId:subject)`, and that was **wrong in a way worth recording**
+rather than quietly fixing, because the flaw was invisible for the common case and total for the
+uncommon one.
+
+For a holder the platform can name, the hashed subject is a `randomUUID` investor id — 122 bits,
+unguessable. But for a holder it CANNOT name, the subject is the **wallet address**, and wallet
+addresses are on-chain and enumerable. Both halves of the digest were things an issuer already
+holds: their own asset id, and a list of candidate wallets. Hashing the candidates would have
+recovered the mapping — handing back precisely the durable cross-asset key this design exists to
+withhold.
+
+It is now `HMAC-SHA256(platform secret, "issuer-holder-reference|assetId|subject")`. Without the key
+the guess cannot be computed. The key is the platform's existing `AUTH_TOKEN_SECRET`, domain-
+separated inside the message; a dedicated variable would be one more secret for an operator to
+manage and lose, and secrets management as a whole is P0-4 and the owner's.
+
+**Two consequences, neither obvious:**
+
+- **Rotating `AUTH_TOKEN_SECRET` changes every holder reference**, so an issuer's record of "the
+  same holder over time" restarts. Rotation already invalidates every session, so it is not a quiet
+  event — but it is now also not a purely authentication-scoped one.
+- **With no secret configured**, the key is the public development string and the reference is
+  guessable again. That is what the existing startup warning is for; it is the same fallback the
+  session signer uses, deliberately, so the application cannot boot for one purpose and refuse for
+  another.
+
+Found by reviewing shipped code rather than by a failure, and pinned by a test that reconstructs
+the attack: it computes the digest an issuer could guess and asserts the real reference is not it.

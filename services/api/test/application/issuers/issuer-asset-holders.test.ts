@@ -9,6 +9,9 @@ import type { RegistryHolderView } from "../../../src/application/registry/get-h
 const ASSET = "asset-1";
 const ORG = "org-1";
 const MEMBER = "user-1";
+// The platform secret the reference is keyed with. An issuer never has it —
+// that is the whole reason a guessed digest cannot be matched against a row.
+const KEY = "holder-reference-test-key";
 
 // The admin/auditor registry row, PII included — this is deliberately the rich
 // shape, because the whole point is what the issuer projection refuses to carry
@@ -67,7 +70,13 @@ describe("GetIssuerAssetHolders", () => {
     org: string | undefined = ORG,
     allowed = true,
   ) =>
-    new GetIssuerAssetHolders(registry(holders), allocations(rows), assets(org), access(allowed));
+    new GetIssuerAssetHolders(
+      registry(holders),
+      allocations(rows),
+      assets(org),
+      access(allowed),
+      KEY,
+    );
 
   beforeEach(() => {
     subject = build(
@@ -90,7 +99,7 @@ describe("GetIssuerAssetHolders", () => {
     expect(view.assetName).toBe("Vanak Tower");
     expect(view.holders).toEqual([
       {
-        holderReference: holderReferenceFor(ASSET, "inv-1"),
+        holderReference: holderReferenceFor(KEY, ASSET, "inv-1"),
         tokens: "60",
         shareBps: 6_000,
         holderSince: "2026-08-20T09:00:00.000Z",
@@ -120,15 +129,17 @@ describe("GetIssuerAssetHolders", () => {
   it("gives the same holder the same reference every time, and different holders different ones", () => {
     // An issuer must be able to follow one holder across reads without ever
     // being handed a platform-wide identifier.
-    const a = holderReferenceFor(ASSET, "inv-1");
-    expect(holderReferenceFor(ASSET, "inv-1")).toBe(a);
-    expect(holderReferenceFor(ASSET, "inv-2")).not.toBe(a);
+    const a = holderReferenceFor(KEY, ASSET, "inv-1");
+    expect(holderReferenceFor(KEY, ASSET, "inv-1")).toBe(a);
+    expect(holderReferenceFor(KEY, ASSET, "inv-2")).not.toBe(a);
   });
 
   it("gives the SAME investor different references under different assets", () => {
     // The cross-asset linkability the proposal is built to avoid: two issuers
     // comparing notes must not be able to tell they share a holder.
-    expect(holderReferenceFor("asset-2", "inv-1")).not.toBe(holderReferenceFor(ASSET, "inv-1"));
+    expect(holderReferenceFor(KEY, "asset-2", "inv-1")).not.toBe(
+      holderReferenceFor(KEY, ASSET, "inv-1"),
+    );
   });
 
   it("still lists a holder the platform cannot name, rather than dropping them", async () => {
@@ -201,6 +212,7 @@ describe("GetIssuerAssetHolders", () => {
       allocations([]),
       { organisationOf: () => Promise.resolve(undefined) },
       access(true),
+      KEY,
     );
 
     await expect(ownerless.execute({ assetId: ASSET, userId: MEMBER })).rejects.toThrow(

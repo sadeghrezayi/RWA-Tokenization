@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { NotIssuerTeamMemberError } from "./errors.js";
 import type { HolderRegistryView } from "../registry/get-holder-registry.js";
 
@@ -11,6 +11,17 @@ import type { HolderRegistryView } from "../registry/get-holder-registry.js";
 
 // A per-ASSET pseudonymous handle for a holder.
 //
+// KEYED, not a bare hash. The first version digested `assetId:subject`, and
+// both halves are things an attacker holds: an issuer knows their own asset id,
+// and for a holder the platform cannot name, the subject IS the wallet address
+// — which is on-chain and enumerable. Hashing candidate wallets would have
+// recovered the mapping and handed back the exact cross-asset key this is
+// designed to withhold. Without the key that guess cannot be computed.
+//
+// A platform-known holder was never exposed this way: their subject is a
+// randomUUID investor id. The hole was specific to unknown wallets, which is
+// precisely the case a reader is least likely to think about.
+//
 // Per-asset, not per-platform, on purpose: a raw wallet address is permanent and
 // the same address holds that investor's positions in every other asset on the
 // chain, so handing issuers a stable global identifier would let two of them
@@ -21,8 +32,13 @@ import type { HolderRegistryView } from "../registry/get-holder-registry.js";
 // Pseudonymisation, not anonymisation: someone who already knows an investor id
 // can hash it against a known asset and match. It stops correlation, not a
 // targeted check by someone holding the platform's own identifiers.
-export const holderReferenceFor = (assetId: string, subject: string): string =>
-  createHash("sha256").update(`${assetId}:${subject}`).digest("hex").slice(0, 16);
+export const holderReferenceFor = (key: string, assetId: string, subject: string): string =>
+  createHmac("sha256", key)
+    // Domain-separated so this digest can never collide with another use of the
+    // same key, and so the asset id cannot be smuggled into the subject.
+    .update(`issuer-holder-reference|${assetId}|${subject}`)
+    .digest("hex")
+    .slice(0, 16);
 
 export interface IssuerHolderView {
   holderReference: string;
@@ -73,6 +89,9 @@ export class GetIssuerAssetHolders {
     private readonly allocations: IssuerAllocationReader,
     private readonly assets: AssetOwnerReader,
     private readonly access: IssuerMembershipCheck,
+    // Supplied by the composition root. The application layer does not know or
+    // care where the platform keeps its secrets.
+    private readonly referenceKey: string,
   ) {}
 
   async execute(input: { assetId: string; userId: string }): Promise<IssuerHoldersView> {
@@ -101,6 +120,7 @@ export class GetIssuerAssetHolders {
           // no address disclosed. The registry's own rule is that a holder is
           // never silently dropped.
           holderReference: holderReferenceFor(
+            this.referenceKey,
             input.assetId,
             holder.investorId ?? holder.wallet.toLowerCase(),
           ),
