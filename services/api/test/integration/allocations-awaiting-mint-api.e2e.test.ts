@@ -8,6 +8,10 @@ import { PrismaService } from "../../src/infrastructure/persistence/prisma.servi
 import { MINT_ALLOCATION_TYPE } from "../../src/application/offerings/settle-with-retry.js";
 import { clearInvestors } from "../support/clear-investors.js";
 import type { AllocationAwaitingMintView } from "../../src/application/reporting/allocations-awaiting-mint.js";
+import { scopedEnv } from "../support/scoped-env.js";
+
+// K-41: these suites share one process, so every override is put back.
+const env = scopedEnv();
 
 // K-34's residue, over the real HTTP stack. The query has its own integration
 // test; what is proven HERE is the wiring and the wire format — specifically
@@ -28,9 +32,9 @@ describe("Allocations awaiting mint API (e2e, real Postgres)", () => {
   const HELD = 9_007_199_254_740_993n;
 
   beforeAll(async () => {
-    process.env.AUTH_TOKEN_SECRET = "awaiting-e2e-secret";
-    process.env.OFFICER_EMAIL = OFFICER.email;
-    process.env.OFFICER_PASSWORD_HASH = await argon2.hash(OFFICER.password);
+    env.set("AUTH_TOKEN_SECRET", "awaiting-e2e-secret");
+    env.set("OFFICER_EMAIL", OFFICER.email);
+    env.set("OFFICER_PASSWORD_HASH", await argon2.hash(OFFICER.password));
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -111,6 +115,7 @@ describe("Allocations awaiting mint API (e2e, real Postgres)", () => {
     await prisma.offering.deleteMany({ where: { id: OFFERING_ID } });
     await prisma.asset.deleteMany({ where: { id: ASSET_ID } });
     await clearInvestors(prisma);
+    env.restoreAll();
     await app.close();
   });
 

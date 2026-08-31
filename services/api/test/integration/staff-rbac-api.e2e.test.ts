@@ -6,6 +6,10 @@ import argon2 from "argon2";
 import request from "supertest";
 import { AppModule } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
+import { scopedEnv } from "../support/scoped-env.js";
+
+// K-41: these suites share one process, so every override is put back.
+const env = scopedEnv();
 
 const ADMIN = { email: "rbac-admin@example.com", password: "Admin-pass-1" };
 const TREASURY = { email: "rbac-treasury@example.com", password: "Treasury-pass-1" };
@@ -25,12 +29,12 @@ describe("Staff RBAC + real two-officer maker-checker (e2e, real Postgres)", () 
   const investorEmail = `rbac-inv-${randomUUID()}@example.com`;
 
   beforeAll(async () => {
-    process.env.AUTH_TOKEN_SECRET = "e2e-test-secret";
-    process.env.OFFICER_EMAIL = ADMIN.email;
-    process.env.OFFICER_PASSWORD_HASH = await argon2.hash(ADMIN.password);
-    process.env.OFFICER2_EMAIL = TREASURY.email;
-    process.env.OFFICER2_PASSWORD_HASH = await argon2.hash(TREASURY.password);
-    process.env.LEDGER_CREDIT_APPROVAL_THRESHOLD_RIAL = "1000";
+    env.set("AUTH_TOKEN_SECRET", "e2e-test-secret");
+    env.set("OFFICER_EMAIL", ADMIN.email);
+    env.set("OFFICER_PASSWORD_HASH", await argon2.hash(ADMIN.password));
+    env.set("OFFICER2_EMAIL", TREASURY.email);
+    env.set("OFFICER2_PASSWORD_HASH", await argon2.hash(TREASURY.password));
+    env.set("LEDGER_CREDIT_APPROVAL_THRESHOLD_RIAL", "1000");
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -63,9 +67,7 @@ describe("Staff RBAC + real two-officer maker-checker (e2e, real Postgres)", () 
         key: { in: [ADMIN.email.toLowerCase(), TREASURY.email.toLowerCase(), investorEmail] },
       },
     });
-    delete process.env.OFFICER2_EMAIL;
-    delete process.env.OFFICER2_PASSWORD_HASH;
-    delete process.env.LEDGER_CREDIT_APPROVAL_THRESHOLD_RIAL;
+    env.restoreAll();
     await app.close();
   });
 

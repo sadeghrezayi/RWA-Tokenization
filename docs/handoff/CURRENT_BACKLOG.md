@@ -291,6 +291,9 @@ per-process, or move both.
 - ~~No automated accessibility assertions.~~ **STALE — corrected 2026-08-25.** `apps/web/e2e/a11y.spec.ts`
   has existed since P1-6 (2026-08-23) and runs as its own CI lane.
 - No load or performance tests of any kind.
+- ~~Integration suites leak environment variables into each other.~~ **Fixed and guarded 2026-08-31**
+  (K-41): `scopedEnv()` in all twelve suites, plus `test/support/e2e-env-hygiene.test.ts`, which fails
+  if a new suite assigns `process.env` without restoring it.
 - No security tests beyond authz matrix + isolation (no fuzzing, no dependency-audit gate in CI).
 - ~~Multi-node outbox draining~~ **now covered (2026-08-25)** by
   `test/integration/concurrent-settlement-drain.test.ts`: two independent drainers over a queued

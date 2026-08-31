@@ -6,6 +6,10 @@ import request from "supertest";
 import { AppModule } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 import type { PortfolioView } from "../../src/application/portfolio/get-my-portfolio.js";
+import { scopedEnv } from "../support/scoped-env.js";
+
+// K-41: these suites share one process, so every override is put back.
+const env = scopedEnv();
 
 // 2.5a: the holder's own portfolio over HTTP against real Postgres. Holdings
 // come from the chain, so this seeds only what the read model reads from the
@@ -24,7 +28,7 @@ describe("Portfolio API (e2e, real Postgres)", () => {
   const PAID_AT = new Date("2026-07-15T10:00:00Z");
 
   beforeAll(async () => {
-    process.env.AUTH_TOKEN_SECRET = "e2e-test-secret";
+    env.set("AUTH_TOKEN_SECRET", "e2e-test-secret");
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     await app.init();
@@ -80,6 +84,7 @@ describe("Portfolio API (e2e, real Postgres)", () => {
     }
     await prisma.loginAttempt.deleteMany({ where: { key: email.toLowerCase() } });
     await prisma.outboxMessage.deleteMany({});
+    env.restoreAll();
     await app.close();
   });
 

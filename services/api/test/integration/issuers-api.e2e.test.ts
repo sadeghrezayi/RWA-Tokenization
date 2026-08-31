@@ -6,6 +6,10 @@ import type { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { AppModule } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
+import { scopedEnv } from "../support/scoped-env.js";
+
+// K-41: these suites share one process, so every override is put back.
+const env = scopedEnv();
 import type {
   IssuerMemberView,
   IssuerOrganisationView,
@@ -90,9 +94,9 @@ describe("Issuers API (e2e, real Postgres)", () => {
   };
 
   beforeAll(async () => {
-    process.env.AUTH_TOKEN_SECRET = "issuer-e2e-secret";
-    process.env.OFFICER_EMAIL = OFFICER.email;
-    process.env.OFFICER_PASSWORD_HASH = await argon2.hash(OFFICER.password);
+    env.set("AUTH_TOKEN_SECRET", "issuer-e2e-secret");
+    env.set("OFFICER_EMAIL", OFFICER.email);
+    env.set("OFFICER_PASSWORD_HASH", await argon2.hash(OFFICER.password));
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -124,6 +128,7 @@ describe("Issuers API (e2e, real Postgres)", () => {
       await prisma.loginAttempt.deleteMany({ where: { key: address.toLowerCase() } });
     }
     await prisma.outboxMessage.deleteMany({});
+    env.restoreAll();
     await app.close();
   });
 

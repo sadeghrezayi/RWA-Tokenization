@@ -8,6 +8,10 @@ import { AppModule } from "../../src/app.module.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 import type { OnboardingProgressView } from "../../src/application/onboarding/onboarding-view.js";
 import type { OnboardingForm } from "../../src/application/onboarding/onboarding-form.js";
+import { scopedEnv } from "../support/scoped-env.js";
+
+// K-41: these suites share one process, so every override is put back.
+const env = scopedEnv();
 
 // 2.3d: the onboarding wizard end to end against real Postgres — the applicant
 // path, the officer path, and the boundaries between them.
@@ -77,9 +81,9 @@ describe("Onboarding API (e2e, real Postgres)", () => {
   };
 
   beforeAll(async () => {
-    process.env.AUTH_TOKEN_SECRET = "e2e-test-secret";
-    process.env.OFFICER_EMAIL = OFFICER.email;
-    process.env.OFFICER_PASSWORD_HASH = await argon2.hash(OFFICER.password);
+    env.set("AUTH_TOKEN_SECRET", "e2e-test-secret");
+    env.set("OFFICER_EMAIL", OFFICER.email);
+    env.set("OFFICER_PASSWORD_HASH", await argon2.hash(OFFICER.password));
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -113,6 +117,7 @@ describe("Onboarding API (e2e, real Postgres)", () => {
       await prisma.loginAttempt.deleteMany({ where: { key: address.toLowerCase() } });
     }
     await prisma.outboxMessage.deleteMany({});
+    env.restoreAll();
     await app.close();
   });
 

@@ -8,6 +8,10 @@ import { AppModule } from "../../src/app.module.js";
 import type { WorkQueueView } from "../../src/application/ops/get-work-queue.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
 import { seedSubmittedKyc } from "./support/kyc.js";
+import { scopedEnv } from "../support/scoped-env.js";
+
+// K-41: these suites share one process, so every override is put back.
+const env = scopedEnv();
 
 const OFFICER = { email: "ops-officer@example.com", password: "0fficer-ops-1" };
 const auth = (t: string) => ({ authorization: `Bearer ${t}` });
@@ -33,9 +37,9 @@ describe("Work queue API (e2e, real Postgres)", () => {
   const section = (view: WorkQueueView, key: string) => view.sections.find((s) => s.key === key);
 
   beforeAll(async () => {
-    process.env.AUTH_TOKEN_SECRET = "e2e-test-secret";
-    process.env.OFFICER_EMAIL = OFFICER.email;
-    process.env.OFFICER_PASSWORD_HASH = await argon2.hash(OFFICER.password);
+    env.set("AUTH_TOKEN_SECRET", "e2e-test-secret");
+    env.set("OFFICER_EMAIL", OFFICER.email);
+    env.set("OFFICER_PASSWORD_HASH", await argon2.hash(OFFICER.password));
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -65,6 +69,7 @@ describe("Work queue API (e2e, real Postgres)", () => {
       where: { key: { in: [OFFICER.email.toLowerCase(), investorEmail.toLowerCase()] } },
     });
     await prisma.outboxMessage.deleteMany({});
+    env.restoreAll();
     await app.close();
   });
 

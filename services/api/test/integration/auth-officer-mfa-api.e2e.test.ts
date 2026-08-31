@@ -7,6 +7,10 @@ import request from "supertest";
 import { AppModule } from "../../src/app.module.js";
 import { OFFICER_PRINCIPAL_ID } from "../../src/application/identity/authenticate-officer.js";
 import { PrismaService } from "../../src/infrastructure/persistence/prisma.service.js";
+import { scopedEnv } from "../support/scoped-env.js";
+
+// K-41: these suites share one process, so every override is put back.
+const env = scopedEnv();
 
 const OFFICER = { email: "mfa-officer@example.com", password: "0fficer-pass-mfa" };
 
@@ -34,9 +38,9 @@ describe("Officer MFA API (e2e, real Postgres)", () => {
   let bearer = "";
 
   beforeAll(async () => {
-    process.env.AUTH_TOKEN_SECRET = "e2e-test-secret";
-    process.env.OFFICER_EMAIL = OFFICER.email;
-    process.env.OFFICER_PASSWORD_HASH = await argon2.hash(OFFICER.password);
+    env.set("AUTH_TOKEN_SECRET", "e2e-test-secret");
+    env.set("OFFICER_EMAIL", OFFICER.email);
+    env.set("OFFICER_PASSWORD_HASH", await argon2.hash(OFFICER.password));
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -49,6 +53,7 @@ describe("Officer MFA API (e2e, real Postgres)", () => {
   afterAll(async () => {
     await prisma.mfaEnrollment.deleteMany({ where: { principalId: OFFICER_PRINCIPAL_ID } });
     await prisma.loginAttempt.deleteMany({ where: { key: OFFICER.email.toLowerCase() } });
+    env.restoreAll();
     await app.close();
   });
 
