@@ -1198,6 +1198,25 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
               });
             },
           },
+          {
+            // Reads the ledger DIRECTLY rather than through the rail, because
+            // the question is about state ("is this money still there, and has
+            // this allocation already been returned") rather than movement.
+            heldFor: async (investorId) => {
+              const account = await prisma.ledgerAccount.findFirst({
+                where: { investorId },
+                select: { held: true },
+              });
+              return account?.held ?? 0n;
+            },
+            alreadyReleased: async (investorId, reference) => {
+              const entry = await prisma.ledgerEntry.findFirst({
+                where: { investorId, kind: "release", reference },
+                select: { id: true },
+              });
+              return entry !== null;
+            },
+          },
         ),
       inject: [PrismaService, ID_GENERATOR, SETTLEMENT_RAIL, ASSET_EVENT_LOG],
     },

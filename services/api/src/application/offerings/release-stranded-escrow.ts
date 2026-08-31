@@ -1,5 +1,6 @@
 import {
   AllocationNotStrandedError,
+  EscrowNoLongerHeldError,
   ReleaseReasonRequiredError,
   UnresolvedMintError,
 } from "./errors.js";
@@ -37,6 +38,16 @@ export interface ReleaseAudit {
   record(entry: EscrowReleaseRecord): Promise<void>;
 }
 
+// Narrow on purpose (ISP): this use case needs two facts about the ledger, not
+// everything the settlement rail can do.
+export interface HeldFundsReader {
+  heldFor(investorId: string): Promise<bigint>;
+  // Has THIS allocation's escrow already gone back? Distinct from "the money is
+  // not held", which it would otherwise be indistinguishable from — see the
+  // ordering note in `execute`.
+  alreadyReleased(investorId: string, reference: string): Promise<boolean>;
+}
+
 // P0-2 step 3's residue, made actionable. Capture follows the mint now, so a
 // mint that never lands leaves an investor's Rial held indefinitely — visible
 // on the health probe and in the escrow screen, but with nothing able to act on
@@ -54,6 +65,7 @@ export class ReleaseStrandedEscrow {
     private readonly mints: AllocationMintLog,
     private readonly rail: SettlementRail,
     private readonly audit: ReleaseAudit,
+    private readonly heldFunds: HeldFundsReader,
   ) {}
 
   async execute(input: {
@@ -89,8 +101,39 @@ export class ReleaseStrandedEscrow {
       throw new AllocationNotStrandedError(input.offeringId, input.investorId);
     }
 
-    // Audited BEFORE the money moves. A release that happened with no record of
-    // who ordered it is worse than one that was recorded and then failed.
+    // Is the money actually still there? The escrow list derives "held" from the
+    // allocation's COST, which is only the same thing for allocations settled
+    // after 2026-08-25 — before that, capture ran BEFORE the mint, so a failed
+    // mint left the cost taken rather than held. Without this check the rail
+    // refuses in its own accounting language ("release exceeds held funds"),
+    // which contradicts the screen that just said this money was held.
+    // ORDER MATTERS between these two checks, and getting it wrong is how a
+    // second operator gets told the money was captured years ago when in fact
+    // their colleague returned it a minute earlier. Both look identical from
+    // the balance alone: nothing is held either way.
+    const reference = strandedReleaseReferenceFor(input.offeringId);
+    if (await this.heldFunds.alreadyReleased(input.investorId, reference)) {
+      // Already back with the investor. A no-op rather than an error: two
+      // operators working the same stuck allocation is the expected case, and
+      // the outcome they wanted is the outcome that holds.
+      return;
+    }
+
+    const held = await this.heldFunds.heldFor(input.investorId);
+    if (held < allocation.costRial) {
+      throw new EscrowNoLongerHeldError(
+        input.offeringId,
+        input.investorId,
+        allocation.costRial,
+        held,
+      );
+    }
+
+    // Audited only once every precondition has passed, and still BEFORE the
+    // money moves. Both orderings can lie, and this is the less damaging lie: a
+    // record of a release that then failed is a puzzle, while a release with no
+    // record of who ordered it is unanswerable. Checking first shrinks the
+    // window to the release itself.
     await this.audit.record({
       offeringId: input.offeringId,
       investorId: input.investorId,
@@ -101,10 +144,6 @@ export class ReleaseStrandedEscrow {
 
     // The reference makes this exactly-once: two operators looking at the same
     // stuck allocation is the expected case, and the second must move nothing.
-    await this.rail.release(
-      input.investorId,
-      allocation.costRial,
-      strandedReleaseReferenceFor(input.offeringId),
-    );
+    await this.rail.release(input.investorId, allocation.costRial, reference);
   }
 }

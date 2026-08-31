@@ -42,10 +42,14 @@ import {
   UnknownRightError,
 } from "../../domain/assets/errors.js";
 import {
+  AllocationNotStrandedError,
   AssetNotTokenizedError,
+  EscrowNoLongerHeldError,
   InsufficientFundsError,
   InvestorNotEligibleError,
   OfferingNotFoundError,
+  ReleaseReasonRequiredError,
+  UnresolvedMintError,
 } from "../../application/offerings/errors.js";
 import {
   InvalidOfferingConfigError,
@@ -219,6 +223,14 @@ const statusFor = (exception: unknown): number => {
   if (exception instanceof DocumentNotInDossierError) return 409;
   if (exception instanceof IncompleteDossierError) return 409;
   if (exception instanceof ChecklistIncompleteError) return 409;
+  // P0-2 step 3 residue: the escrow-release lever's refusals. Each is an
+  // EXPECTED answer to a legitimate request, not an incident — left unmapped
+  // they fell through to 500, which tells the operator nothing and logs a fault
+  // that did not happen.
+  if (exception instanceof AllocationNotStrandedError) return 409;
+  if (exception instanceof UnresolvedMintError) return 409;
+  if (exception instanceof EscrowNoLongerHeldError) return 409;
+  if (exception instanceof ReleaseReasonRequiredError) return 400;
   if (exception instanceof InvalidEmailError) return 400;
   if (exception instanceof InvalidRejectionReasonError) return 400;
   if (exception instanceof WeakPasswordError) return 400;

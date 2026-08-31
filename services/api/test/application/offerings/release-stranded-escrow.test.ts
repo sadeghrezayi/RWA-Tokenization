@@ -40,12 +40,26 @@ describe("ReleaseStrandedEscrow", () => {
   };
 
   const build = (reader: StrandedAllocationReader = allocations) =>
-    new ReleaseStrandedEscrow(reader, mints, rail, {
-      record: (entry: EscrowReleaseRecord) => {
-        events.events.push(entry);
-        return Promise.resolve();
+    new ReleaseStrandedEscrow(
+      reader,
+      mints,
+      rail,
+      {
+        record: (entry: EscrowReleaseRecord) => {
+          events.events.push(entry);
+          return Promise.resolve();
+        },
       },
-    });
+      // Reads the SAME fake the release writes to, so the precondition and the
+      // movement cannot disagree in the test the way they did in production.
+      {
+        heldFor: (investorId) => Promise.resolve(rail.held.get(investorId) ?? 0n),
+        alreadyReleased: (investorId, reference) =>
+          Promise.resolve(
+            rail.releaseLog.some((r) => r.investorId === investorId && r.reference === reference),
+          ),
+      },
+    );
 
   beforeEach(async () => {
     rail = new FakeSettlementRail();

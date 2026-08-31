@@ -178,8 +178,14 @@ describe("Release stranded escrow (e2e, real Postgres)", () => {
       },
     });
 
+    // 409, not merely "some 4xx". The first version of this asserted
+    // `>= 400`, which a 500 satisfies — and a 500 is exactly what it was
+    // returning, because the domain error had no mapping. A refusal that
+    // reports itself as an internal fault tells the operator nothing and logs
+    // an incident that did not happen.
     const res = await release(treasury);
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(409);
+    expect(JSON.stringify(res.body).toLowerCase()).not.toContain("internal server error");
 
     const account = await prisma.ledgerAccount.findFirstOrThrow({
       where: { investorId: INVESTOR_ID },
@@ -207,5 +213,45 @@ describe("Release stranded escrow (e2e, real Postgres)", () => {
       orderBy: { id: "desc" },
     });
     expect(JSON.stringify(event.details)).toContain(REASON);
+  });
+
+  it("refuses a PRE-K-34 allocation whose money was already captured, and says so", async () => {
+    // Settlement used to capture BEFORE minting, so an allocation from before
+    // 2026-08-25 whose mint failed has its cost TAKEN, not held. The escrow
+    // list derives "held" from the allocation COST and cannot tell the two
+    // apart, so it will invite an operator to return money that is not there.
+    //
+    // Without the precondition the rail refuses in its own accounting
+    // language — "release exceeds held funds" — which contradicts the screen
+    // that just told them this money was held.
+    await prisma.ledgerAccount.updateMany({
+      where: { investorId: INVESTOR_ID },
+      data: { held: 0n, balance: 0n },
+    });
+
+    const res = await release(treasury);
+
+    expect(res.status).toBe(409);
+    const body = JSON.stringify(res.body).toLowerCase();
+    expect(body).toContain("no longer held");
+    expect(body).not.toContain("release exceeds held funds");
+
+    const account = await prisma.ledgerAccount.findFirstOrThrow({
+      where: { investorId: INVESTOR_ID },
+    });
+    expect(account.balance).toBe(0n);
+  });
+
+  it("tells a second operator the money was RETURNED, not that it is missing", async () => {
+    // Both look identical from the balance alone: nothing is held either way.
+    // Confusing them would tell a colleague the money was captured years ago
+    // when in fact their teammate returned it a minute earlier.
+    await release(treasury).expect(204);
+
+    const second = await release(treasury);
+
+    expect(second.status).toBe(204);
+    expect(JSON.stringify(second.body).toLowerCase()).not.toContain("no longer held");
+    expect(await prisma.ledgerEntry.count({ where: { kind: "release" } })).toBe(1);
   });
 });

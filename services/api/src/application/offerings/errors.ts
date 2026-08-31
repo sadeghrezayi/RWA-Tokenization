@@ -64,3 +64,20 @@ export class ReleaseReasonRequiredError extends Error {
     super("releasing an investor's escrow requires a reason, so the decision stays answerable");
   }
 }
+
+// The pre-K-34 shape: settlement used to capture the money BEFORE attempting
+// the mint, so an allocation from before 2026-08-25 whose mint failed has its
+// cost TAKEN, not held. The escrow screen derives "money held" from the
+// allocation cost and cannot tell those apart, so an operator can be invited to
+// return money that is no longer there.
+export class EscrowNoLongerHeldError extends Error {
+  constructor(offeringId: string, investorId: string, costRial: bigint, heldRial: bigint) {
+    super(
+      `allocation ${offeringId}/${investorId} cost ${costRial.toString()} Rial but only ` +
+        `${heldRial.toString()} is held — this money is NO LONGER HELD. It was almost certainly ` +
+        "captured under the settlement order used before 2026-08-25, which took payment before " +
+        "minting. Returning it is a refund decision, not an escrow release, and this lever " +
+        "deliberately will not make it",
+    );
+  }
+}
