@@ -81,10 +81,13 @@ RWA-Tokenization/
 ├── docker-compose.yml         # Postgres (host :5433) + IPFS kubo (:5001)
 ├── .claude/                   # core-invariants.md, settings.json, hooks/, launch.json
 ├── .github/workflows/ci.yml   # the full verification battery
+├── .github/scripts/           # CI-support scripts, standalone-runnable like the hooks:
+│                              #   api-log-failures.mjs, verify-ci-diagnostics.mjs
 ├── docs/
 │   ├── product-requirements.md    # source of truth for the product
 │   ├── implementation-roadmap.md  # phases 0–8
 │   ├── open-product-decisions.md  # APPEND-ONLY decision log + OD-1…OD-23
+│   ├── proposals/                 # decisions PUT to the owner, awaiting an answer
 │   ├── engineering/               # architecture, principles, tdd, tech-stack, glossary
 │   └── handoff/                   # continuity package — see §5a
 ├── services/api/              # NestJS + Prisma. domain/ → application/ → infrastructure/
@@ -137,6 +140,20 @@ Configured in [`.claude/settings.json`](.claude/settings.json). Two enforcing, t
 
 Hooks are version-controlled and must themselves be testable. Each script is invocable
 standalone with a JSON payload on stdin (see comments in each script).
+
+**Structural guards** are the same idea inside the test suites — properties that regress silently
+and that no feature test would notice. Each is mutation-checked, because a guard that cannot fail
+reads as coverage while providing none:
+
+| Guard | Enforces |
+|---|---|
+| `services/api/test/support/no-pii-in-logs.test.ts` | No `log.*` call interpolates an identity or a credential |
+| `services/api/test/support/e2e-env-hygiene.test.ts` | Integration suites restore any `process.env` they set (K-41) |
+| `.github/scripts/verify-ci-diagnostics.mjs` | The failure-diagnostic CI steps still publish what they claim |
+| `pnpm audit --audit-level high` (CI) | New high-severity advisories; accepted ones are listed by GHSA id |
+
+Two of them assert that they actually READ something. A guard that walks the filesystem fails OPEN
+when its path is wrong — it finds nothing, reports nothing, and passes forever.
 
 ---
 

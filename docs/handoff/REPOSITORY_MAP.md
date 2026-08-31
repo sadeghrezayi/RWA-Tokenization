@@ -155,3 +155,15 @@ foundry.toml, lib/              # forge deps
 | Change a screen | `apps/web/app/[locale]/…/page.tsx` + its component in `apps/web/components/` |
 | Change chain behaviour | `services/api/src/infrastructure/chain/` |
 | Understand why something is the way it is | `docs/open-product-decisions.md`, then `docs/handoff/DECISION_LOG.md` |
+
+---
+
+## Added since 2026-08-16
+
+The rest of this map was written at `9e63980`; these directories did not exist then.
+
+| Path | What lives there | Why it is separate |
+|---|---|---|
+| `.github/scripts/` | `api-log-failures.mjs`, `verify-ci-diagnostics.mjs` | CI logic that must be RUNNABLE and checkable. Inline workflow JS cannot be executed against a real input, and a diagnostic nobody can check is how you end up trusting a broken one. Standalone-invocable, like `.claude/hooks/` |
+| `docs/proposals/` | `issuer-investor-visibility.md` | Decisions PUT to the owner with options and a recommendation, kept apart from `open-product-decisions.md`, which is the APPEND-ONLY record of decisions already made. A proposal is meant to be edited — struck, extended — and a decision log is not |
+| `services/api/test/support/` (expanded) | `no-pii-in-logs.test.ts`, `e2e-env-hygiene.test.ts`, `scoped-env.ts`, `clear-investors.ts`, `seed-approved-asset.ts` | Structural guards and shared fixtures. The guards assert properties of the SOURCE TREE rather than of a feature, which is why they sit beside the helpers rather than under `test/application` or `test/infrastructure` |
