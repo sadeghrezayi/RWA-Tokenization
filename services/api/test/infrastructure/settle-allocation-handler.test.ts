@@ -32,7 +32,16 @@ describe("SettleAllocationHandler", () => {
     rail = new FakeSettlementRail();
     rail.credit("alice", 60_000n);
     handler = new SettleAllocationHandler(
-      new SettleAllocation(new MintAllocation(issuer, mints), rail),
+      new SettleAllocation(
+        new MintAllocation(issuer, mints),
+        rail,
+        {
+          // Reads the same fake the capture debits, so the pre-mint check and the
+          // movement cannot disagree.
+          heldFor: (investorId) => Promise.resolve(rail.held.get(investorId) ?? 0n),
+        },
+        mints,
+      ),
     );
   });
 
@@ -75,6 +84,7 @@ describe("SettleAllocationHandler", () => {
   });
 
   it("lets a still-failing mint throw, so the outbox retries it", async () => {
+    await rail.hold("alice", 60_000n);
     // The whole point: the holder is still not registered. The drainer must
     // see a failure and schedule another attempt with backoff.
     issuer.failNextMint = new Error("investor alice has no on-chain identity");

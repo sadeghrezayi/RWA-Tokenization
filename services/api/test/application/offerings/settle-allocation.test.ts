@@ -38,7 +38,16 @@ describe("SettleAllocation", () => {
     mints = new InMemoryAllocationMintLog();
     rail = new FakeSettlementRail();
     rail.credit("alice", 60_000n);
-    settle = new SettleAllocation(new MintAllocation(issuer, mints), rail);
+    settle = new SettleAllocation(
+      new MintAllocation(issuer, mints),
+      rail,
+      {
+        // Reads the same fake the capture debits, so the pre-mint check and the
+        // movement cannot disagree.
+        heldFor: (investorId) => Promise.resolve(rail.held.get(investorId) ?? 0n),
+      },
+      mints,
+    );
   });
 
   const hold = async (): Promise<void> => {

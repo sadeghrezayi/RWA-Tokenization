@@ -53,7 +53,16 @@ describe("SettleWithRetry", () => {
     rail = new FakeSettlementRail();
     rail.credit("alice", 60_000n);
     mint = new SettleWithRetry(
-      new SettleAllocation(new MintAllocation(issuer, mints), rail),
+      new SettleAllocation(
+        new MintAllocation(issuer, mints),
+        rail,
+        {
+          // Reads the same fake the capture debits, so the pre-mint check and the
+          // movement cannot disagree.
+          heldFor: (investorId) => Promise.resolve(rail.held.get(investorId) ?? 0n),
+        },
+        mints,
+      ),
       outbox,
     );
   });
@@ -89,6 +98,10 @@ describe("SettleWithRetry", () => {
   });
 
   it("does NOT queue an unresolved mint, and lets it surface", async () => {
+    // Escrow funded: settlement now refuses to mint without it, so an
+    // unfunded allocation would fail on that instead and never reach the
+    // unresolved check this test is about.
+    await rail.hold("alice", 60_000n);
     // An unresolved attempt needs a person to reconcile it, not a machine to
     // try again — retrying might double-issue. Queueing it would spend five
     // attempts and dead-letter, burying the one case that wants attention.
@@ -99,6 +112,7 @@ describe("SettleWithRetry", () => {
   });
 
   it("records the failure that caused the retry, so it is not a mystery", async () => {
+    await rail.hold("alice", 60_000n);
     issuer.failNextMint = new Error("chain refused: holder not registered");
 
     await mint.execute(ALLOCATION);

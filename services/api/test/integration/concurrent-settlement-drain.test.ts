@@ -96,9 +96,17 @@ describe("two drainers settling the same allocation (integration, real Postgres)
   // actually arbitrate between them.
   const node = (issuer: RecordingAssetTokenIssuer) => {
     const store = new PrismaOutboxStore(prisma);
+    const railForNode = new PrismaSettlementRail(prisma);
+    const mintLog = new PrismaAllocationMintLog(prisma, ids);
     const settle = new SettleAllocation(
-      new MintAllocation(issuer, new PrismaAllocationMintLog(prisma, ids)),
-      new PrismaSettlementRail(prisma),
+      new MintAllocation(issuer, mintLog),
+      railForNode,
+      {
+        // The REAL ledger: the pre-mint escrow check must see what the capture
+        // will debit, or the two disagree exactly where it matters.
+        heldFor: async (investorId) => (await railForNode.balanceOf(investorId)).heldRial,
+      },
+      mintLog,
     );
     return new DrainOutbox(store, [new SettleAllocationHandler(settle)], clock);
   };

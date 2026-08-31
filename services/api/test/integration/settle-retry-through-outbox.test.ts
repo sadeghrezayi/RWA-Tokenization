@@ -93,8 +93,18 @@ describe("a refused mint is retried through the outbox (integration, real Postgr
 
   const build = (issuer: RecordingAssetTokenIssuer) => {
     const store = new PrismaOutboxStore(prisma);
-    const mint = new MintAllocation(issuer, new PrismaAllocationMintLog(prisma, ids));
-    const settle = new SettleAllocation(mint, rail);
+    const mintLog = new PrismaAllocationMintLog(prisma, ids);
+    const mint = new MintAllocation(issuer, mintLog);
+    const settle = new SettleAllocation(
+      mint,
+      rail,
+      {
+        // The REAL ledger, so the pre-mint escrow check is answered by the same
+        // rows the capture will debit.
+        heldFor: async (investorId) => (await rail.balanceOf(investorId)).heldRial,
+      },
+      mintLog,
+    );
     return {
       store,
       settleWithRetry: new SettleWithRetry(settle, store),

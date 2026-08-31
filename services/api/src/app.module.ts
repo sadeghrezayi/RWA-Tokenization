@@ -1264,8 +1264,29 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       // by the inline path and the outbox handler, so a queued retry settles
       // through exactly the same idempotent code the close ran.
       provide: SettleAllocation,
-      useFactory: (mint: MintAllocation, rail: SettlementRail) => new SettleAllocation(mint, rail),
-      inject: [MintAllocation, SETTLEMENT_RAIL],
+      useFactory: (
+        mint: MintAllocation,
+        rail: SettlementRail,
+        prisma: PrismaService,
+        ids: IdGenerator,
+      ) =>
+        new SettleAllocation(
+          mint,
+          rail,
+          {
+            // Read straight from the ledger rather than through the rail: the
+            // question is about STATE (is the escrow there) not movement.
+            heldFor: async (investorId) => {
+              const account = await prisma.ledgerAccount.findFirst({
+                where: { investorId },
+                select: { held: true },
+              });
+              return account?.held ?? 0n;
+            },
+          },
+          new PrismaAllocationMintLog(prisma, ids),
+        ),
+      inject: [MintAllocation, SETTLEMENT_RAIL, PrismaService, ID_GENERATOR],
     },
     {
       // P0-2 step 1: issuing one allocation's tokens, at most once. Its own

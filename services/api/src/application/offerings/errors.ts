@@ -81,3 +81,20 @@ export class EscrowNoLongerHeldError extends Error {
     );
   }
 }
+
+// Reversing the settlement order (K-34) removed "money taken, no tokens" and
+// necessarily introduced its mirror: a mint that lands followed by a capture
+// that fails, leaving tokens issued and never paid for. The mint is on-chain
+// and irreversible while the capture is a local write, so the only place to
+// stop that is BEFORE minting.
+export class EscrowMissingForMintError extends Error {
+  constructor(offeringId: string, investorId: string, costRial: bigint, heldRial: bigint) {
+    super(
+      `refusing to mint ${offeringId}/${investorId}: the escrow is not there — ` +
+        `${costRial.toString()} Rial is owed but only ${heldRial.toString()} is held. ` +
+        "Minting first would issue tokens the platform cannot charge for, and a confirmed mint " +
+        "is invisible to every 'awaiting mint' report. The allocation stays unminted so it " +
+        "remains visible and recoverable",
+    );
+  }
+}

@@ -62,6 +62,7 @@ const setup = async () => {
   const assets = new InMemoryAssetRepository();
   const investors = new InMemoryInvestorRepository();
   const rail = new FakeSettlementRail();
+  const mintLog = new InMemoryAllocationMintLog();
   const issuer = new RecordingAssetTokenIssuer();
   const events = new RecordingAssetEventLog();
   const clock = new FixedClock(DURING);
@@ -89,7 +90,18 @@ const setup = async () => {
       // Inline-first, so the close still mints synchronously here; the outbox
       // only sees a message if the chain refuses.
       new SettleWithRetry(
-        new SettleAllocation(new MintAllocation(issuer, new InMemoryAllocationMintLog()), rail),
+        new SettleAllocation(
+          new MintAllocation(issuer, mintLog),
+          rail,
+          {
+            // Reads the same fake the capture debits, so the pre-mint escrow
+            // check and the movement cannot disagree.
+            heldFor: (investorId) => Promise.resolve(rail.held.get(investorId) ?? 0n),
+          },
+          // The SAME log the mint uses: settlement asks it whether the tokens
+          // already exist, and two logs would answer differently.
+          mintLog,
+        ),
         { enqueue: () => Promise.resolve() },
       ),
     ),
