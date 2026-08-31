@@ -464,6 +464,11 @@ export interface Dictionary {
   escrowStateNotMintedLabel: string;
   escrowHeldSinceLabel: string;
   escrowLastErrorLabel: string;
+  escrowReleaseAction: string;
+  escrowReleaseReasonLabel: string;
+  escrowReleaseReasonRequired: string;
+  escrowReleaseUnresolvedNote: string;
+  escrowReleaseDone: string;
   issuerHoldersTitle: string;
   issuerHoldersIntro: string;
   issuerHoldersNoneLabel: string;
@@ -1116,6 +1121,13 @@ export const dictionaries: Record<Locale, Dictionary> = {
     escrowStateNotMintedLabel: "Not minted",
     escrowHeldSinceLabel: "Held since",
     escrowLastErrorLabel: "Last error",
+    escrowReleaseAction: "Return this money",
+    escrowReleaseReasonLabel: "Why is this being returned?",
+    escrowReleaseReasonRequired:
+      "Returning an investor's money needs a reason — it is what makes the decision answerable later.",
+    escrowReleaseUnresolvedNote:
+      "Cannot be returned yet: a mint was attempted and never confirmed, so nobody knows whether the tokens exist. Reconcile the chain first.",
+    escrowReleaseDone: "Returned to the investor's balance.",
     issuerHoldersTitle: "Holders",
     issuerHoldersIntro:
       "Who holds this asset, and what they put in. Holders are shown by reference — the platform does not disclose their identity or contact details to issuers.",

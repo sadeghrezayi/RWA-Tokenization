@@ -84,6 +84,7 @@ import { MintAllocation } from "./application/offerings/mint-allocation.js";
 import { SettleWithRetry } from "./application/offerings/settle-with-retry.js";
 import { SettleAllocation } from "./application/offerings/settle-allocation.js";
 import { ListAllocationsAwaitingMint } from "./application/reporting/allocations-awaiting-mint.js";
+import { ReleaseStrandedEscrow } from "./application/offerings/release-stranded-escrow.js";
 import { PrismaAwaitingMintReader } from "./infrastructure/reporting/prisma-awaiting-mint-reader.js";
 import { SettleAllocationHandler } from "./infrastructure/outbox/settle-allocation-handler.js";
 import { KycClaimHandler } from "./infrastructure/outbox/kyc-claim-handler.js";
@@ -1148,6 +1149,57 @@ export const PERSON_DIRECTORY = "PERSON_DIRECTORY";
       useFactory: (settle: SettleAllocation, outbox: OutboxStore) =>
         new SettleWithRetry(settle, outbox),
       inject: [SettleAllocation, OUTBOX_STORE],
+    },
+    {
+      // P0-2 step 3 residue: the ONE manual lever for stranded escrow. Shares
+      // the AllocationMintLog with MintAllocation so "have these tokens been
+      // issued" has a single answer, and the same SettlementRail, so the
+      // release lands on the same ledger the capture would have.
+      provide: ReleaseStrandedEscrow,
+      useFactory: (
+        prisma: PrismaService,
+        ids: IdGenerator,
+        rail: SettlementRail,
+        events: AssetEventLog,
+      ) =>
+        new ReleaseStrandedEscrow(
+          {
+            find: async (key) => {
+              const row = await prisma.offeringAllocation.findFirst({
+                where: { offeringId: key.offeringId, investorId: key.investorId },
+                select: { allocated: true, costRial: true },
+              });
+              return row === null
+                ? undefined
+                : { allocated: row.allocated, costRial: row.costRial };
+            },
+          },
+          new PrismaAllocationMintLog(prisma, ids),
+          rail,
+          {
+            // Maps onto the platform's audit trail, which is keyed by ASSET.
+            // Resolved here rather than in the use case, which has no reason
+            // to know an offering belongs to one.
+            record: async (entry) => {
+              const offering = await prisma.offering.findFirst({
+                where: { id: entry.offeringId },
+                select: { assetId: true },
+              });
+              await events.append({
+                assetId: offering?.assetId ?? entry.offeringId,
+                event: "offering_escrow_released",
+                actor: entry.actor,
+                details: {
+                  offeringId: entry.offeringId,
+                  investorId: entry.investorId,
+                  amountRial: entry.amountRial,
+                  reason: entry.reason,
+                },
+              });
+            },
+          },
+        ),
+      inject: [PrismaService, ID_GENERATOR, SETTLEMENT_RAIL, ASSET_EVENT_LOG],
     },
     {
       // P1-2 / FR-PT-2: an issuer's holder registry for their own asset. Reuses

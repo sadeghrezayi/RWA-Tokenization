@@ -85,8 +85,13 @@ officer (P1-9) — are also **DONE** as of 2026-08-23.
      "Escrow awaiting tokens" screen (REPORTING_READ) name who, which offering, how much, since
      when, and the last retry error, and keep `unresolved` (may already be on chain) visibly
      apart from `not_minted` (never attempted). The screen has NO release button on purpose.
-     Still missing, and needing a decision rather than code: automatic release after N failures,
-     and a lever to release one. Open questions: **how long to wait, and who may release it.**
+     **The manual lever landed 2026-08-31** — `ReleaseStrandedEscrow`,
+     `POST /offerings/:id/allocations/:investorId/release-escrow`, and the control on the escrow
+     screen. Gated on LEDGER_CREDIT (treasury) by my choice, flagged reversible. Requires a
+     reason, audits actor + reason before the money moves, exactly-once, and refuses a minted or
+     unresolved allocation. **No timer, deliberately.** Still the owner's: how long before an
+     investor's stranded money goes back, and whether treasury is the right gate or whether this
+     belongs in the maker-checker approval queue.
   4. ~~Only then move the claim~~ — **DONE 2026-08-24.** Its dependency really had dissolved, and
      specifically on step 2 rather than step 3: the stated blocker was "the claim cannot go async
      before the mint can survive it", and a close-time mint now RETRIES on `MintPreconditionError`,

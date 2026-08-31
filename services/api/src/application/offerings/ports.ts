@@ -11,7 +11,12 @@ export interface OfferingRepository {
 // escrow → balance (refund), capture = escrow → platform (settled cost).
 export interface SettlementRail {
   hold(investorId: string, amountRial: bigint): Promise<void>;
-  release(investorId: string, amountRial: bigint): Promise<void>;
+  // `reference` is OPTIONAL, unlike capture's. A refund release names what it
+  // is for and must happen once; the compensating release in
+  // SubscribeToOffering legitimately repeats across attempts and has no such
+  // id. Postgres treats NULLs as distinct, so an unreferenced release stays
+  // unconstrained exactly as before.
+  release(investorId: string, amountRial: bigint, reference?: string): Promise<void>;
   // P0-2 step 3 (K-34): `reference` identifies WHAT is being paid for, and is
   // the exactly-once key. Settlement is retried through the outbox now, so a
   // redelivery must not debit the investor twice; the rail deduplicates on

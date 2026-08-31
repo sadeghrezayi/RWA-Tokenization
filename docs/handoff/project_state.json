@@ -584,10 +584,11 @@
       "CI: integration failures AND suite-level hook failures publish readable commit statuses",
       "P0-2 step 3 follow-up: allocationsAwaitingMint on the health probe + admin overview — money held for tokens that do not exist is now visible (no release policy yet; owner's call)",
       "K-34 residue, part 2: GET /reporting/allocations-awaiting-mint + the 'Escrow awaiting tokens' screen — who, how much, since when, why stuck; unresolved kept apart from not_minted; no release action (no policy yet)",
-      "P1-2 (FR-PT-2): issuer holder registry — GetIssuerAssetHolders + GET /issuers/:id/assets/:assetId/holders + the issuer portal's Holders screen. Built on my recommendation and REVERSIBLE; owner never struck/extended the field list"
+      "P1-2 (FR-PT-2): issuer holder registry — GetIssuerAssetHolders + GET /issuers/:id/assets/:assetId/holders + the issuer portal's Holders screen. Built on my recommendation and REVERSIBLE; owner never struck/extended the field list",
+      "K-34 residue, part 3: ReleaseStrandedEscrow — a MANUAL, reason-required, audited, exactly-once lever to return stranded escrow, gated on LEDGER_CREDIT (my choice, reversible). No timer: the release duration is still the owner's call"
     ],
     "exit_criteria_remaining": [
-      "K-34 residue — OWNER DECISION, narrowed. Stuck escrow is now fully VISIBLE (health count, per-allocation list, admin screen). What does not exist is any way to ACT: no automatic release after N failed retries, no manual lever. Two questions: how long to wait before releasing an investor's escrow, and who is allowed to release it."
+      "K-34 residue — OWNER DECISION, narrowed twice. Stranded escrow is visible (health probe, list, screen) and can now be returned BY HAND (treasury, reason required, audited, exactly-once, refuses minted and unresolved allocations). What is still unanswered: how long an investor's money should sit before it goes back — there is deliberately no timer — and whether LEDGER_CREDIT is the right gate or whether this belongs in the maker-checker approval queue."
     ]
   },
   "previous_milestones": [

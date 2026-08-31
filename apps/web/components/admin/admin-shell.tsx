@@ -228,7 +228,7 @@ export const AdminShell = ({ locale, children }: { locale: Locale; children: Rea
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <AdminSessionProvider value={{ api, token: csrf, locale }}>
+    <AdminSessionProvider value={{ api, token: csrf, locale, permissions }}>
       <div className="shell">
         <aside className="sidebar">
           <Link href={`${base}/ops`} className="brand sidebar__brand">

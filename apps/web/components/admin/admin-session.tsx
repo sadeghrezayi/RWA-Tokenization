@@ -10,6 +10,10 @@ export interface AdminSession {
   api: ApiClient;
   token: string;
   locale: Locale;
+  // What this officer may do. Pages use it to decide whether to OFFER an
+  // action; the server still decides whether to allow it. Offering a control
+  // that always 403s teaches an operator the screen is unreliable.
+  permissions: readonly string[];
 }
 
 const AdminSessionContext = createContext<AdminSession | undefined>(undefined);

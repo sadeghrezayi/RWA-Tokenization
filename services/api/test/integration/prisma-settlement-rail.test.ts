@@ -112,6 +112,47 @@ describe("PrismaSettlementRail (integration, real Postgres)", () => {
     expect(await rail.balanceOf("inv-4")).toEqual(after);
   });
 
+  // P0-2 step 3 residue: the manual escrow-release lever asks for a release
+  // that must happen at most once, while the compensating release in
+  // SubscribeToOffering has no id and legitimately repeats. Both live here.
+  it("releases_at_most_once_for_a_given_reference", async () => {
+    await rail.credit("inv-rel", 50_000n, "officer-1");
+    await rail.hold("inv-rel", 40_000n);
+
+    await rail.release("inv-rel", 40_000n, "offering:off-1:stranded");
+    await rail.release("inv-rel", 40_000n, "offering:off-1:stranded");
+
+    expect(await rail.balanceOf("inv-rel")).toEqual({ balanceRial: 50_000n, heldRial: 0n });
+    expect(await prisma.ledgerEntry.count({ where: { kind: "release" } })).toBe(1);
+  });
+
+  it("still allows repeated UNREFERENCED releases, which compensate a failed hold", async () => {
+    // SubscribeToOffering releases the hold it just took when persistence
+    // fails. That can happen many times over a session and must never be
+    // deduplicated into silence.
+    await rail.credit("inv-comp", 50_000n, "officer-1");
+    await rail.hold("inv-comp", 10_000n);
+    await rail.release("inv-comp", 10_000n);
+    await rail.hold("inv-comp", 10_000n);
+    await rail.release("inv-comp", 10_000n);
+
+    expect(await rail.balanceOf("inv-comp")).toEqual({ balanceRial: 50_000n, heldRial: 0n });
+    expect(await prisma.ledgerEntry.count({ where: { kind: "release" } })).toBe(2);
+  });
+
+  it("keeps a stranded release apart from the settlement capture on the same offering", async () => {
+    // Both key on the offering. If they collided on the unique index, one would
+    // silently no-op the other — a captured sale and a returned escrow are
+    // opposite facts and must never share a key.
+    await rail.credit("inv-both", 100_000n, "officer-1");
+    await rail.hold("inv-both", 100_000n);
+
+    await rail.capture("inv-both", 40_000n, "offering:off-9");
+    await rail.release("inv-both", 60_000n, "offering:off-9:stranded");
+
+    expect(await rail.balanceOf("inv-both")).toEqual({ balanceRial: 60_000n, heldRial: 0n });
+  });
+
   it("serializes_concurrent_holds_so_the_balance_never_goes_negative", async () => {
     await rail.credit("inv-1", 10_000n, "officer-1");
 

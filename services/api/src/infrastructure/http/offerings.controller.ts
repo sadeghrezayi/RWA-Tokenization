@@ -4,6 +4,7 @@ import { CreateOffering } from "../../application/offerings/create-offering.js";
 import { GetOffering, ListOfferings } from "../../application/offerings/get-offering.js";
 import type { OfferingView } from "../../application/offerings/get-offering.js";
 import { PublishOffering } from "../../application/offerings/publish-offering.js";
+import { ReleaseStrandedEscrow } from "../../application/offerings/release-stranded-escrow.js";
 import { OpenOffering } from "../../application/offerings/open-offering.js";
 import { SubscribeToOffering } from "../../application/offerings/subscribe-to-offering.js";
 import type { Principal } from "../../application/identity/ports.js";
@@ -52,10 +53,39 @@ export class OfferingsController {
     private readonly getOffering: GetOffering,
     private readonly listOfferings: ListOfferings,
     private readonly publishOffering: PublishOffering,
+    private readonly releaseEscrow: ReleaseStrandedEscrow,
   ) {}
 
   // 2.1a (OD-5): publishing exposes an offering to anonymous visitors, so it is
   // an explicit, permissioned act — deliberately separate from opening.
+  // P0-2 step 3 residue: return an investor's escrow when the tokens they paid
+  // for were never issued and never will be.
+  //
+  // LEDGER_CREDIT (treasury), because this MOVES RIAL and treasury is the role
+  // that moves Rial — not OFFERING_MANAGE, which is about running a raise.
+  // **That choice was mine, not the owner's, and is meant to be argued with.**
+  //
+  // MANUAL BY DESIGN: there is no timer anywhere. "How long before an
+  // investor's stranded money goes back" is a policy nobody has set, and the
+  // use case refuses anything it cannot prove is stranded — a minted allocation
+  // or an unresolved one is rejected rather than guessed at.
+  @Post(":id/allocations/:investorId/release-escrow")
+  @HttpCode(204)
+  @RequirePermission(PERMISSIONS.LEDGER_CREDIT)
+  releaseStrandedEscrow(
+    @Param("id") offeringId: string,
+    @Param("investorId") investorId: string,
+    @Body() body: unknown,
+    @CurrentPrincipal() principal: Principal,
+  ): Promise<void> {
+    return this.releaseEscrow.execute({
+      offeringId,
+      investorId,
+      reason: requireString(body, "reason"),
+      actorId: principal.kind === "officer" ? principal.officerId : principal.investorId,
+    });
+  }
+
   @Post(":id/publish")
   @HttpCode(204)
   @RequirePermission(PERMISSIONS.OFFERING_MANAGE)

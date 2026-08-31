@@ -47,3 +47,20 @@ export class UnresolvedMintError extends ApplicationError {
 // retrying could double-issue — those keep the claim and become `unresolved`,
 // which asks for a person.
 export class MintPreconditionError extends ApplicationError {}
+
+// P0-2 step 3 residue: the manual escrow-release lever refuses anything it
+// cannot prove is stranded.
+export class AllocationNotStrandedError extends Error {
+  constructor(offeringId: string, investorId: string) {
+    super(
+      `allocation ${offeringId}/${investorId} is not stranded — it has no unminted allocation ` +
+        "holding money, so there is nothing to release",
+    );
+  }
+}
+
+export class ReleaseReasonRequiredError extends Error {
+  constructor() {
+    super("releasing an investor's escrow requires a reason, so the decision stays answerable");
+  }
+}

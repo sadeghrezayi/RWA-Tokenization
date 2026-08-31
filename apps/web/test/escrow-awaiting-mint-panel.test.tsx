@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { EscrowAwaitingMintPanel } from "../components/admin/escrow-awaiting-mint-panel";
 import type { AllocationAwaitingMintDto, ApiClient } from "../lib/api";
 import { stubApi } from "./auth-panel.test";
@@ -27,11 +27,16 @@ const unresolved: AllocationAwaitingMintDto = {
   mintState: "unresolved",
 };
 
-const renderPanel = (rows: AllocationAwaitingMintDto[], overrides: Partial<ApiClient> = {}) =>
+const renderPanel = (
+  rows: AllocationAwaitingMintDto[],
+  overrides: Partial<ApiClient> = {},
+  canRelease = false,
+) =>
   render(
     <EscrowAwaitingMintPanel
       locale="en"
       token="tok"
+      canRelease={canRelease}
       api={stubApi({
         allocationsAwaitingMint: vi.fn().mockResolvedValue(rows),
         ...overrides,
@@ -99,5 +104,63 @@ describe("EscrowAwaitingMintPanel", () => {
 
     await screen.findByTestId("awaiting-mint-0");
     expect(screen.queryByRole("button", { name: /release/i })).toBeNull();
+  });
+});
+
+// P0-2 step 3's residue finally has one lever, and this screen is where it is
+// pulled. The three rules it enforces are all about NOT offering the action
+// where it would be wrong.
+describe("EscrowAwaitingMintPanel — returning stranded money", () => {
+  it("offers no release control to someone who may not move money", async () => {
+    // The auditor can SEE stranded escrow — that is the point of the screen —
+    // and must not be handed a button that would 403.
+    renderPanel([stuck], {}, false);
+    await screen.findByTestId("awaiting-mint-0");
+
+    expect(screen.queryByTestId("release-escrow-0")).toBeNull();
+  });
+
+  it("offers it for an allocation whose tokens were never minted", async () => {
+    renderPanel([stuck], {}, true);
+
+    expect(await screen.findByTestId("release-escrow-0")).toBeTruthy();
+  });
+
+  it("does NOT offer it for an UNRESOLVED mint, and says why", async () => {
+    // Mirrors the server's refusal. A button that always fails is worse than
+    // no button — it teaches an operator that the screen is unreliable.
+    renderPanel([unresolved], {}, true);
+    await screen.findByTestId("awaiting-mint-0");
+
+    expect(screen.queryByTestId("release-escrow-0")).toBeNull();
+    expect(screen.getByText(/nobody knows whether the tokens exist/i)).toBeTruthy();
+  });
+
+  it("refuses to submit without a reason", async () => {
+    const releaseStrandedEscrow = vi.fn().mockResolvedValue(undefined);
+    renderPanel([stuck], { releaseStrandedEscrow }, true);
+
+    (await screen.findByTestId("release-escrow-0")).click();
+
+    expect(releaseStrandedEscrow).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
+  it("sends the offering, the investor and the reason", async () => {
+    const releaseStrandedEscrow = vi.fn().mockResolvedValue(undefined);
+    renderPanel([stuck], { releaseStrandedEscrow }, true);
+
+    const reason = await screen.findByTestId("release-reason-0");
+    fireEvent.change(reason, { target: { value: "six days stuck, holder asked" } });
+    (await screen.findByTestId("release-escrow-0")).click();
+
+    await waitFor(() => {
+      expect(releaseStrandedEscrow).toHaveBeenCalledWith(
+        "tok",
+        "off-1",
+        "inv-1",
+        "six days stuck, holder asked",
+      );
+    });
   });
 });

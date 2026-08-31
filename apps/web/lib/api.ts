@@ -733,6 +733,13 @@ export interface ApiClient {
   distributionReconciliation(officerToken: string): Promise<DistributionReconciliationDto[]>;
   // K-34's residue: which allocations hold money for tokens never issued.
   allocationsAwaitingMint(officerToken: string): Promise<AllocationAwaitingMintDto[]>;
+  // P0-2 step 3 residue: return an investor's escrow for tokens never issued.
+  releaseStrandedEscrow(
+    csrf: string,
+    offeringId: string,
+    investorId: string,
+    reason: string,
+  ): Promise<void>;
   // P1-2: the holder registry for an asset this issuer brought.
   issuerAssetHolders(
     token: string,
@@ -1464,6 +1471,12 @@ export const createApiClient = (
       json(call("/reporting/distributions/reconciliation", { token: officerToken })),
     allocationsAwaitingMint: (officerToken) =>
       json(call("/reporting/allocations-awaiting-mint", { token: officerToken })),
+    releaseStrandedEscrow: async (csrf, offeringId, investorId, reason) => {
+      await call(
+        `/offerings/${encodeURIComponent(offeringId)}/allocations/${encodeURIComponent(investorId)}/release-escrow`,
+        { method: "POST", token: csrf, body: { reason } },
+      );
+    },
     issuerAssetHolders: (token, organisationId, assetId) =>
       json(
         call(

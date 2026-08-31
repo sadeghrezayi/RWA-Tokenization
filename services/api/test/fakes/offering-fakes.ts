@@ -41,6 +41,9 @@ export class FakeSettlementRail implements SettlementRail {
   // Every capture that actually moved money, in order — what lets a test assert
   // WHEN the money moved and not merely that it did.
   readonly captureLog: { investorId: string; amountRial: bigint; reference: string }[] = [];
+  // Only REFERENCED releases: an unreferenced compensating release is not a
+  // fact anyone reconciles against.
+  readonly releaseLog: { investorId: string; amountRial: bigint; reference: string }[] = [];
   onCapture?: () => void;
 
   credit(investorId: string, amountRial: bigint): void {
@@ -57,13 +60,24 @@ export class FakeSettlementRail implements SettlementRail {
     return Promise.resolve();
   }
 
-  release(investorId: string, amountRial: bigint): Promise<void> {
+  release(investorId: string, amountRial: bigint, reference?: string): Promise<void> {
+    // Mirrors the real rail: a referenced release is exactly-once, an
+    // unreferenced one is unconstrained.
+    if (
+      reference !== undefined &&
+      this.releaseLog.some((r) => r.investorId === investorId && r.reference === reference)
+    ) {
+      return Promise.resolve();
+    }
     const held = this.held.get(investorId) ?? 0n;
     if (held < amountRial) {
       return Promise.reject(new Error(`release exceeds held funds for ${investorId}`));
     }
     this.held.set(investorId, held - amountRial);
     this.balances.set(investorId, (this.balances.get(investorId) ?? 0n) + amountRial);
+    if (reference !== undefined) {
+      this.releaseLog.push({ investorId, amountRial, reference });
+    }
     return Promise.resolve();
   }
 

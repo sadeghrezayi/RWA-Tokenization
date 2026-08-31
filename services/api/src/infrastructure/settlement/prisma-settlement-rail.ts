@@ -7,8 +7,10 @@ import type { DistributionLedger } from "../../application/distributions/ports.j
 // balance/held update plus an append-only ledger entry (NFR-2). The guard in
 // the WHERE clause makes concurrent over-spends impossible.
 // Postgres unique-constraint violation. Matched explicitly so a duplicate
-// capture is told apart from a genuine database fault.
-const CAPTURE_ALREADY_RECORDED = "P2002";
+// movement — a capture or a referenced release — is told apart from a genuine
+// database fault; swallowing every error here would hide an outage as "already
+// done".
+const ALREADY_RECORDED = "P2002";
 
 export class PrismaSettlementRail implements SettlementRail, DistributionLedger {
   constructor(private readonly prisma: PrismaClient) {}
@@ -40,20 +42,43 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
     });
   }
 
-  async release(investorId: string, amountRial: bigint): Promise<void> {
+  // `reference` is OPTIONAL, unlike capture's. A stranded-escrow release names
+  // what it returns and must happen once; the compensating release in
+  // SubscribeToOffering has no such id and legitimately repeats. Postgres
+  // treats NULLs as distinct, so an unreferenced release stays unconstrained.
+  async release(investorId: string, amountRial: bigint, reference?: string): Promise<void> {
     this.assertPositive(amountRial);
-    await this.inTransaction(async (tx) => {
-      const updated = await tx.ledgerAccount.updateMany({
-        where: { investorId, held: { gte: amountRial } },
-        data: { held: { decrement: amountRial }, balance: { increment: amountRial } },
+    try {
+      await this.inTransaction(async (tx) => {
+        // Entry FIRST when it carries a reference, so the unique index decides
+        // before any money moves — the same ordering capture needed, and for
+        // the same reason: decrementing first makes a duplicate look like an
+        // over-release instead of a no-op.
+        await tx.ledgerEntry.create({
+          data: {
+            investorId,
+            kind: "release",
+            amountRial,
+            actor: "platform",
+            ...(reference === undefined ? {} : { reference }),
+          },
+        });
+        const updated = await tx.ledgerAccount.updateMany({
+          where: { investorId, held: { gte: amountRial } },
+          data: { held: { decrement: amountRial }, balance: { increment: amountRial } },
+        });
+        if (updated.count === 0) {
+          throw new Error(`release exceeds held funds for investor ${investorId}`);
+        }
       });
-      if (updated.count === 0) {
-        throw new Error(`release exceeds held funds for investor ${investorId}`);
+    } catch (error: unknown) {
+      if (reference !== undefined && (error as { code?: string }).code === ALREADY_RECORDED) {
+        // Already released for this cause. The transaction rolled back, so
+        // nothing moved a second time.
+        return;
       }
-      await tx.ledgerEntry.create({
-        data: { investorId, kind: "release", amountRial, actor: "platform" },
-      });
-    });
+      throw error;
+    }
   }
 
   // P0-2 step 3 (K-34). `reference` is the exactly-once key: settlement is
@@ -79,7 +104,7 @@ export class PrismaSettlementRail implements SettlementRail, DistributionLedger 
         }
       });
     } catch (error: unknown) {
-      if ((error as { code?: string }).code === CAPTURE_ALREADY_RECORDED) {
+      if ((error as { code?: string }).code === ALREADY_RECORDED) {
         // Already captured for this cause. The transaction rolled back, so
         // nothing was debited a second time.
         return;
