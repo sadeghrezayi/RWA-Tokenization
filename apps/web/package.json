@@ -10,7 +10,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "test:layout": "playwright test e2e/layout.spec.ts e2e/journey.spec.ts",
-    "test:a11y": "playwright test e2e/a11y.spec.ts"
+    "test:a11y": "playwright test e2e/a11y.spec.ts --workers=1"
   },
   "dependencies": {
     "next": "^15.5.24",

@@ -37,6 +37,20 @@ test.describe("accessibility (WCAG 2.1 A/AA, machine-detectable)", () => {
   // timeout of 30000ms exceeded") while passing locally in 17s. The budget
   // must exceed the patience it contains, so it is set once here rather than
   // leaving the same trap in each new test someone adds.
+  // 120s per test, and the LANE runs with --workers=1 (see package.json).
+  //
+  // Not belt-and-braces: an axe scan is CPU-heavy and the signed-in test does
+  // an argon2 registration AND login, so two of these on a two-core runner
+  // starve each other. On 2026-08-31 that showed as
+  // `expect(getByLabel("Email")).toBeHidden()` consuming its full 30s and
+  // failing on a DOCUMENTATION-ONLY commit, while the identical code had
+  // passed minutes earlier (KNOWN_ISSUES K-40).
+  //
+  // The timeout was deliberately NOT raised. If the app is too slow under
+  // load, a larger number moves the threshold and buys a quieter build that
+  // fails later and means less; removing the contention addresses the cause.
+  // If this recurs with the lane already serial, THEN the 30s assertion is
+  // genuinely too tight and that is the evidence to change it on.
   test.describe.configure({ timeout: 120_000 });
 
   for (const path of ["/en", "/en/browse"]) {
