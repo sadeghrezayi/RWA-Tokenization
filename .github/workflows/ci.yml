@@ -94,6 +94,19 @@ jobs:
       # step's OWN script out of this file, against a sample API log and a
       # sample Playwright report, and checks they publish what they claim to
       # (KNOWN_ISSUES K-25, K-31, K-40). Node only, no network, ~instant.
+      # A dependency-audit gate, which the backlog listed as missing. Fails on
+      # HIGH and above; the three high advisories accepted today are listed by
+      # GHSA id in package.json's pnpm.auditConfig, so a NEW one fails the build
+      # rather than being hidden by lowering the threshold. Their justification
+      # is in KNOWN_ISSUES K-42 — build-time and dev-only tooling, no production
+      # runtime path — and mutation-checked: removing any one from that list
+      # turns this step red.
+      #
+      # NOT gated at moderate: two moderate postcss advisories remain, and a
+      # step that is red on the day it lands gets deleted rather than fixed.
+      - name: Dependency audit
+        run: pnpm audit --audit-level high
+
       - name: Verify the failure diagnostics still work
         run: node .github/scripts/verify-ci-diagnostics.mjs
 

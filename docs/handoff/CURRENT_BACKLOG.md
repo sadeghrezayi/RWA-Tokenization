@@ -299,7 +299,16 @@ per-process, or move both.
 - ~~Integration suites leak environment variables into each other.~~ **Fixed and guarded 2026-08-31**
   (K-41): `scopedEnv()` in all twelve suites, plus `test/support/e2e-env-hygiene.test.ts`, which fails
   if a new suite assigns `process.env` without restoring it.
-- No security tests beyond authz matrix + isolation (no fuzzing, no dependency-audit gate in CI).
+- No security tests beyond authz matrix + isolation (no fuzzing). ~~No dependency-audit gate in
+  CI.~~ **The gate landed 2026-08-31** — `pnpm audit --audit-level high`, running before the
+  expensive lanes. **Adding it found and fixed real exposure:** 15 high / 8 moderate advisories,
+  cleared to 3 high / 2 moderate by bumping `next` 15.5.20 → 15.5.24, a PATCH inside the existing
+  `^15` range. Among the fixed: SSRF in Server Actions and in rewrites, and a DoS — all on the
+  production path. The three remaining highs are accepted and listed by GHSA id in
+  `pnpm.auditConfig`, justified in **K-42**: build-time (postcss, pinned by Next itself) and
+  dev-only (deepmerge-ts) tooling. The gate is mutation-checked — removing any accepted id turns
+  it red — so a NEW high fails the build rather than being hidden by a lower threshold.
+  **Fuzzing is still absent**, and load/performance testing below still needs scope.
 - ~~Multi-node outbox draining~~ **now covered (2026-08-25)** by
   `test/integration/concurrent-settlement-drain.test.ts`: two independent drainers over a queued
   SETTLEMENT, asserting the investor is charged once and the tokens issued once. This matters more
