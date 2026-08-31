@@ -1,8 +1,15 @@
 # TEST AND QUALITY STATUS
 
-Measured at commit `9e63980` on 2026-08-16 by actually running the suites on the development
+Measured at commit `0cfe976` on 2026-08-31 by actually running the suites on the development
 machine (macOS, Node 22, Postgres 16 in Docker, IPFS in Docker, anvil with freshly deployed
 contracts).
+
+> **Run anvil FRESH before the integration suite.** A long-lived node degrades until the four
+> chain-backed files time out, which looks exactly like a regression and is not one (K-23). It cost
+> a diagnosis three separate times in one session; `pkill -f anvil` then restart takes two seconds.
+>
+> **Do not reduce an integration run to its counts.** Piping through `grep -E "Tests "` keeps the
+> totals and throws away the failing name — the mistake K-20 records, made again on 2026-08-25.
 
 ---
 
@@ -10,17 +17,17 @@ contracts).
 
 | Suite | Command | Files | Tests | Result |
 |---|---|---|---|---|
-| API unit | `pnpm --filter @tokenization/api test` | 89 | **725** | ✅ all passed |
-| API integration (real Postgres + IPFS + anvil) | `pnpm --filter @tokenization/api test:integration` | 54 | **319** | ✅ all passed (62 s) |
-| Web unit (Vitest + Testing Library) | `pnpm --filter @tokenization/web test` | 42 | **343** | ✅ all passed |
-| Playwright (layout contracts + exit journey) | `pnpm --filter @tokenization/web test:layout` | 2 | **24** (desktop + mobile projects) | ✅ 18 layout contracts run locally against system Chrome; full suite green in CI |
-| Contracts (Foundry) | `cd contracts && forge test -vv` | 2 | — | ✅ green in CI on this commit |
+| API unit | `pnpm --filter @tokenization/api test` | 120 | **974** | ✅ all passed |
+| API integration (real Postgres + IPFS + anvil) | `pnpm --filter @tokenization/api test:integration` | 67 | **440** | ✅ all passed, no skips, on a FRESH anvil |
+| Web unit (Vitest + Testing Library) | `pnpm --filter @tokenization/web test` | 59 | **541** | ✅ all passed |
+| Playwright (layout + a11y + exit journey) | `test:layout` and `test:a11y` | 3 | **17 declared** (×2 projects) | Verified on CI; NOT run locally at this commit — stated as declared rather than observed |
+| Contracts (Foundry) | `cd contracts && forge test` | 2 | **9** | ✅ all passed |
 | Lint | `pnpm lint` | — | — | ✅ clean |
 | Format | `pnpm format` | — | — | ✅ clean |
 | Typecheck | `pnpm -r typecheck` | — | — | ✅ clean |
 | Builds | API `tsc -p tsconfig.build.json`, web `next build` | — | — | ✅ clean |
 
-**CI:** GitHub Actions run **31932519987** on `e26f60f` completed with conclusion **success**.
+**CI:** green on `0cfe976`, with a dependency-audit gate (`pnpm audit --audit-level high`) now among the steps.
 
 ## 2. What the tests actually assert (quality, not just count)
 
@@ -106,3 +113,22 @@ controller family has an e2e suite. Treat any coverage claim beyond that as UNKN
   the gap named.
 - **No `TODO`, `FIXME`, `HACK` or `XXX:` markers exist in the source** (verified by grep across
   `services/api/src`, `apps/web/{app,components,lib}`, `contracts/{src,script}`).
+
+---
+
+## 8. Structural guards (added 2026-08-25 → 2026-08-31)
+
+These are not feature tests. Each one exists because a property was quietly regressing and nothing
+noticed, and each is **mutation-checked** — a guard that cannot fail is worse than none, because it
+reads as coverage.
+
+| Guard | Protects | How it was proven to work |
+|---|---|---|
+| `test/support/no-pii-in-logs.test.ts` | No `log.*` call interpolates an identity or credential | Found a leak a manual grep had missed — `StaffBootstrap` printed the dev password in three warnings. Checked for PRECISION too: `${tokenAddress}` must NOT be flagged, or the rule gets switched off |
+| `test/support/e2e-env-hygiene.test.ts` | Integration suites restore any `process.env` they set (K-41) | Its first version accepted a file that merely MENTIONED `scopedEnv`; mutation caught that, and it is now structural — a compliant file has no bare assignment at all |
+| `.github/scripts/verify-ci-diagnostics.mjs` | The two failure-diagnostic CI steps still publish what they claim (K-25, K-31, K-40) | Reads each step's script OUT OF `ci.yml` and runs it; four mutations (rename, context, stack frame, flattened walk) each fail it distinctly |
+| `pnpm audit --audit-level high` | New high-severity advisories | Removing any accepted GHSA id from `pnpm.auditConfig` turns it red |
+
+Two of these assert **that they actually read something** (a file count, a known filename). A guard
+that walks the filesystem fails OPEN when its path is wrong: it finds nothing, reports nothing, and
+passes forever.

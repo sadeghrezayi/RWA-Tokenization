@@ -1,4 +1,4 @@
-# IMPLEMENTATION STATUS (verified 2026-08-16 @ `9e63980`)
+# IMPLEMENTATION STATUS (verified 2026-08-31 @ `0cfe976`)
 
 Status vocabulary:
 
@@ -12,8 +12,15 @@ Status vocabulary:
 | **NOT STARTED** | No code, not scheduled soon |
 | **UNKNOWN** | Needs verification |
 
-Test counts at this commit: **725 API unit · 319 API integration · 343 web unit · 24 Playwright ·
-Foundry contract tests**. CI green on `9e63980`.
+Test counts at this commit, each observed rather than carried forward: **974 API unit · 440 API
+integration (67 files, no skips, on a FRESH anvil) · 541 web unit · 9 Foundry**. Playwright: **17
+tests declared** across `layout` (10), `a11y` (4) and `journey` (3) — declared, not run locally;
+they are verified on CI, which is green on `0cfe976`.
+
+> Rows below dated 2026-08-16 were verified at `9e63980` and have not been individually re-checked
+> since; rows added or edited later carry their own date. This distinction is the point of the
+> document — an inventory that quietly implies everything was re-verified today would be worth less
+> than one that says which parts were.
 
 ---
 
@@ -78,6 +85,9 @@ Foundry contract tests**. CI green on `9e63980`.
 | Distributions (declare → pay pro-rata) | **COMPLETE** | e2e | `declare-distribution.ts`, `pay-distribution.ts` | `distributions-api.e2e` | Rows paid before the `paid_at` migration are **excluded** from the income statement rather than shown undated |
 | Transfers (compliance-checked) | **COMPLETE** | devnet e2e | `application/transfers/*`, `chain/trex-asset-token-mover.ts` | `transfers-redemptions-api.e2e` | Operator-approved model only (OD-9(a)) |
 | Redemption at attested value | **COMPLETE** | devnet e2e | `application/redemptions/*` | `transfers-redemptions-api.e2e` | Refused without a fresh valuation (`NoFreshValuationError`) |
+| Settlement order: mint THEN capture (P0-2 step 3, closes K-34) | **COMPLETE** (2026-08-25) | unit + integration through real Postgres | `application/offerings/settle-allocation.ts`, `close-offering.ts` | `settle-allocation.test.ts`, `settle-retry-through-outbox`, `concurrent-settlement-drain` | Money is captured only once an allocation's tokens exist. A refused mint leaves the Rial HELD rather than taken; the queued retry completes both halves. Capture is exactly-once via a unique index on `ledger_entries (investor_id, kind, reference)` |
+| Stranded escrow is visible | **COMPLETE** (2026-08-25) | admin console | `application/reporting/allocations-awaiting-mint.ts`, `components/admin/escrow-awaiting-mint-panel.tsx` | `allocations-awaiting-mint.test.ts`, `platform-health-probe`, `allocations-awaiting-mint-api.e2e` | Count + total on the health probe, per-allocation list on `/admin/escrow`: who, how much, since when, and the last retry error. `unresolved` is kept visibly apart from `not_minted` |
+| Return stranded escrow (manual lever) | **COMPLETE BUT NEEDS A POLICY** (2026-08-31) | e2e over real HTTP | `application/offerings/release-stranded-escrow.ts`, `offerings.controller.ts` | `release-stranded-escrow.test.ts`, `release-escrow-api.e2e` (7, gate mutation-checked) | MANUAL only — **there is no timer**, because the release duration is an unanswered owner question. Gated on LEDGER_CREDIT (treasury) **by assistant decision, reversible**. Requires a reason, audits actor+reason before the money moves, exactly-once, and REFUSES a minted or unresolved allocation |
 | Fees | **NOT STARTED by decision (OD-20)** | — | — | — | Checkout charges exactly price × tokens |
 | Payment provider / PSP | **NOT STARTED by decision (OD-6)** | — | — | — | Manual bank rail only |
 | Digital Rial / CBDC | **NOT STARTED** | — | — | — | Never scoped; mentioned only as a possible future rail |
@@ -123,6 +133,8 @@ Foundry contract tests**. CI green on `9e63980`.
 | Issuer **team** management UI | **NOT STARTED** | — | endpoints exist | — | Add/list/remove members is HTTP-only |
 | Issuer portal (issuer-facing) | **PARTIALLY IMPLEMENTED** | web tests + layout contract + `issuers-api.e2e` | `apps/web/app/[locale]/issuer/`, `http/issuers.controller.ts` | `issuer-landing.test.tsx`, `use-browser-session.test.ts`, `layout.spec.ts`, `issuers-api.e2e` | Shipped: the portal shell, the landing page, "which organisations are mine" (3.3d/3.3e), the read of **the assets an organisation brought** (3.3f, `GET /issuers/:id/assets`, membership-authorised + mutation-checked), and **the screen for it** (3.3g) — the organisation's name on the landing page leads to its assets, browser-verified across four cases including a guessed id, which is refused rather than shown an empty list. Also 3.3h: an issuer **brings its own asset** (`POST /issuers/:id/assets`), which is where `IssuerMembership.canWorkOnAssets()` finally decides something — mutation-checked, and the organisation-level gate still refuses one that may not submit. And 3.3i: the issuer **files its own dossier** (`POST /issuers/:id/assets/:assetId/documents`) — TWO gates, membership at the door and ownership in the use case, because holding a membership somewhere is not permission to file against a rival's asset (mutation-checked). The screen offers only the kinds still missing and refuses to send without a real file. Verified in a browser by **sha256 identity** between the chosen file and what the platform stored. **Not built:** the rest of the submission wizard — drafts, completeness %, validation rules, review comments, status history. That scope is the owner's call |
 | What an issuer may see about investors | **DISCUSSED, ANSWERED IN PRINCIPLE, NOT IMPLEMENTED** | decision log | — | — | User answered "all necessary information"; the concrete field list must be proposed and approved before anything is exposed |
+
+| Issuer holder registry (P1-2, FR-PT-2) | **COMPLETE, on a REVERSIBLE assistant decision** (2026-08-25) | e2e over real HTTP + web build | `application/issuers/issuer-asset-holders.ts`, `components/issuer/issuer-holders.tsx` | `issuer-asset-holders.test.ts` (8, 4 mutation-checked), `issuer-holders-api.e2e` | An issuer sees a PSEUDONYMOUS cap table for assets they brought: per-asset holder reference, tokens, share, holder since, tokens allocated, amount invested, allocation date, amount refunded. **Withheld:** email, raw wallet, investor id, KYC state, risk, screening. The owner never struck or extended the field list — see `docs/proposals/issuer-investor-visibility.md` |
 
 ## CRM
 

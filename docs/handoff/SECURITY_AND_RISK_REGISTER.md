@@ -1,5 +1,8 @@
 # SECURITY AND RISK REGISTER
 
+> Controls dated 2026-08-31 were added after the 2026-08-16 audit and have not been re-audited as a
+> whole; they are recorded here so the register does not understate what is in place.
+
 Assessed 2026-08-16 at `e26f60f`. The formal threat model is `docs/security-threat-model.md`;
 this register is the practical "what is actually true right now" list.
 
@@ -63,6 +66,30 @@ Severity: **Critical · High · Medium · Low · Informational**
 - **httpOnly cookie sessions + CSRF guard** that challenges cookie auth only.
 - **Encrypted-at-rest KYC evidence** with a real erase path; listings return metadata only.
 - **Opaque 500s to clients, full detail in the server log.**
+- **No PII in the application log** (2026-08-31). The production mail adapter logged every
+  recipient's address, justified in a comment as harmless because "the address is already in the
+  log by virtue of being sent to" — which does not hold: the mail server's log is a different
+  system with different access, while this one is read by developers, shipped to aggregators and
+  pasted into CI build summaries. It now logs a SHA-256-derived reference, so repeated mail to one
+  person stays correlatable without naming them. Pseudonymisation, not anonymisation: a held
+  address can still be hashed and matched. `StaffBootstrap` also printed the built-in development
+  password in three warnings, in exactly the condition where that password still WORKS; it now
+  names the variable to set instead. A static guard fails the build if a new `log.*` call
+  interpolates an identity or a credential, with `dev-email-sender.ts` the single allow-listed
+  exemption — pinned by its own tests, because an exemption nobody tests is a hole with a comment
+  beside it.
+- **Dependency-audit gate in CI** (2026-08-31), `pnpm audit --audit-level high`. Adding it found
+  **15 high / 8 moderate** advisories; bumping `next` 15.5.20 → 15.5.24 (a PATCH inside the
+  existing range) cleared the production-path ones — SSRF in Server Actions, SSRF in rewrites via
+  an attacker-controlled header, and a DoS. Three high advisories remain, accepted by GHSA id and
+  justified in K-42 (build-time postcss pinned by Next; dev-only deepmerge-ts). Mutation-checked,
+  so a NEW high fails the build rather than being hidden by a lower threshold.
+- **Returning an investor's escrow is permissioned, reasoned and audited** (2026-08-31). The manual
+  lever is gated on LEDGER_CREDIT (treasury) — **an assistant decision, reversible** — requires a
+  reason, records actor and reason BEFORE the money moves, is exactly-once, and refuses any
+  allocation it cannot prove is stranded: a minted one (the holder would keep tokens AND cash) or
+  an unresolved one (nobody knows whether the tokens exist). The auditor can SEE stranded escrow
+  and cannot move it; that separation is asserted over real HTTP and mutation-checked.
 - **Guard hooks**: `.claude/hooks/guard-bash.sh` blocks catastrophic shell commands;
   `guard-write.sh` blocks writing private keys or seed phrases into repository files.
 - **Only `.env.example` is tracked**; no secret value is committed anywhere.
